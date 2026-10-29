@@ -1,0 +1,23 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(git status *)",
+      "Bash(git diff *)",
+      "Bash(git log *)",
+      "Bash(git show *)",
+      "Bash(git rev-parse *)",
+      "Bash(git branch --show-current)",
+      "Bash(pytest *)",
+      "Bash(python -m pytest *)",
+      "Bash(ruff *)"
+    ],
+    "deny": [
+      "Edit(/frontend/**)",
+      "Edit(/backend/**)",
+      "Edit(/tests/e2e/**)",
+      "Edit(/docs/api/**)",
+      "Read(/**/.env)",
+      "Read(/**/.env.*)"
+    ]
+  }
+}
