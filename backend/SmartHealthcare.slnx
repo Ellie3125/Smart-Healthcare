@@ -1,0 +1,45 @@
+<Solution>
+  <Folder Name="/src/" />
+  <Folder Name="/src/Api/">
+    <Project Path="src/Api/SmartHealthcare.Api.csproj" />
+  </Folder>
+  <Folder Name="/src/Database/">
+    <Project Path="src/Database/SmartHealthcare.Database.csproj" />
+  </Folder>
+  <Folder Name="/src/Modules/" />
+  <Folder Name="/src/Modules/Identity/" />
+  <Folder Name="/src/Modules/Identity/Application/">
+    <Project Path="src/Modules/Identity/Application/SmartHealthcare.Identity.Application.csproj" />
+  </Folder>
+  <Folder Name="/src/Modules/Identity/Contracts/">
+    <Project Path="src/Modules/Identity/Contracts/SmartHealthcare.Identity.Contracts.csproj" />
+  </Folder>
+  <Folder Name="/src/Modules/Identity/Domain/">
+    <Project Path="src/Modules/Identity/Domain/SmartHealthcare.Identity.Domain.csproj" />
+  </Folder>
+  <Folder Name="/src/Modules/Identity/Infrastructure/">
+    <Project Path="src/Modules/Identity/Infrastructure/SmartHealthcare.Identity.Infrastructure.csproj" />
+  </Folder>
+  <Folder Name="/src/Modules/Identity/Presentation/">
+    <Project Path="src/Modules/Identity/Presentation/SmartHealthcare.Identity.Presentation.csproj" />
+  </Folder>
+  <Folder Name="/src/Modules/Patients/" />
+  <Folder Name="/src/Modules/Patients/Application/">
+    <Project Path="src/Modules/Patients/Application/SmartHealthcare.Patients.Application.csproj" />
+  </Folder>
+  <Folder Name="/src/Modules/Patients/Domain/">
+    <Project Path="src/Modules/Patients/Domain/SmartHealthcare.Patients.Domain.csproj" />
+  </Folder>
+  <Folder Name="/src/Modules/Patients/Infrastructure/">
+    <Project Path="src/Modules/Patients/Infrastructure/SmartHealthcare.Patients.Infrastructure.csproj" />
+  </Folder>
+  <Folder Name="/src/Modules/Patients/Presentation/">
+    <Project Path="src/Modules/Patients/Presentation/SmartHealthcare.Patients.Presentation.csproj" />
+  </Folder>
+  <Folder Name="/src/SharedKernel/">
+    <Project Path="src/SharedKernel/SmartHealthcare.SharedKernel.csproj" />
+  </Folder>
+  <Project Path="../tests/backend/Architecture/SmartHealthcare.ArchitectureTests.csproj" />
+  <Project Path="../tests/backend/Unit/SmartHealthcare.UnitTests.csproj" />
+  <Project Path="../tests/integration/SmartHealthcare.IntegrationTests.csproj" />
+</Solution>

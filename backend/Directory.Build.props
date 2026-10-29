@@ -1,0 +1,7 @@
+<Project>
+  <!-- Áp dụng cho mọi project trong backend/; project test nằm ngoài thư mục này tự khai báo -->
+  <PropertyGroup>
+    <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+    <Deterministic>true</Deterministic>
+  </PropertyGroup>
+</Project>
