@@ -1,0 +1,55 @@
+<Solution>
+  <Folder Name="/src/" />
+  <Folder Name="/src/Modules/" />
+  <Folder Name="/src/Modules/Billing/" />
+  <Folder Name="/src/Modules/Billing/Domain/">
+    <Project Path="src/Modules/Billing/Domain/SmartHealthcare.Billing.Domain.csproj" />
+  </Folder>
+  <Folder Name="/src/Modules/Billing/Infrastructure/">
+    <Project Path="src/Modules/Billing/Infrastructure/SmartHealthcare.Billing.Infrastructure.csproj" />
+  </Folder>
+  <Folder Name="/src/Modules/Catalog/" />
+  <Folder Name="/src/Modules/Catalog/Domain/">
+    <Project Path="src/Modules/Catalog/Domain/SmartHealthcare.Catalog.Domain.csproj" />
+  </Folder>
+  <Folder Name="/src/Modules/Catalog/Infrastructure/">
+    <Project Path="src/Modules/Catalog/Infrastructure/SmartHealthcare.Catalog.Infrastructure.csproj" />
+  </Folder>
+  <Folder Name="/src/Modules/Clinical/" />
+  <Folder Name="/src/Modules/Clinical/Domain/">
+    <Project Path="src/Modules/Clinical/Domain/SmartHealthcare.Clinical.Domain.csproj" />
+  </Folder>
+  <Folder Name="/src/Modules/Clinical/Infrastructure/">
+    <Project Path="src/Modules/Clinical/Infrastructure/SmartHealthcare.Clinical.Infrastructure.csproj" />
+  </Folder>
+  <Folder Name="/src/Modules/Identity/" />
+  <Folder Name="/src/Modules/Identity/Domain/">
+    <Project Path="src/Modules/Identity/Domain/SmartHealthcare.Identity.Domain.csproj" />
+  </Folder>
+  <Folder Name="/src/Modules/Identity/Infrastructure/">
+    <Project Path="src/Modules/Identity/Infrastructure/SmartHealthcare.Identity.Infrastructure.csproj" />
+  </Folder>
+  <Folder Name="/src/Modules/Scheduling/" />
+  <Folder Name="/src/Modules/Scheduling/Domain/">
+    <Project Path="src/Modules/Scheduling/Domain/SmartHealthcare.Scheduling.Domain.csproj" />
+  </Folder>
+  <Folder Name="/src/Modules/Scheduling/Infrastructure/">
+    <Project Path="src/Modules/Scheduling/Infrastructure/SmartHealthcare.Scheduling.Infrastructure.csproj" />
+  </Folder>
+  <Folder Name="/src/Modules/Workflow/" />
+  <Folder Name="/src/Modules/Workflow/Domain/">
+    <Project Path="src/Modules/Workflow/Domain/SmartHealthcare.Workflow.Domain.csproj" />
+  </Folder>
+  <Folder Name="/src/Modules/Workflow/Infrastructure/">
+    <Project Path="src/Modules/Workflow/Infrastructure/SmartHealthcare.Workflow.Infrastructure.csproj" />
+  </Folder>
+  <Folder Name="/src/Shared/" />
+  <Folder Name="/src/Shared/Persistence/">
+    <Project Path="src/Shared/Persistence/SmartHealthcare.Shared.Persistence.csproj" />
+  </Folder>
+  <Folder Name="/src/Tools/" />
+  <Folder Name="/src/Tools/DbMigrator/">
+    <Project Path="src/Tools/DbMigrator/SmartHealthcare.DbMigrator.csproj" />
+  </Folder>
+  <Project Path="../tests/backend/Database.Tests/SmartHealthcare.Database.Tests.csproj" />
+</Solution>
