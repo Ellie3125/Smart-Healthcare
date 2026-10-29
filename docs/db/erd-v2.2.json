@@ -1,0 +1,3796 @@
+{
+ "version": "ERD v2.2 (đã chốt 4 điểm pending ngày 2026-10-29)",
+ "domains": {
+  "identity": "Danh tính & Nhân sự",
+  "catalog": "Danh mục & Bảng giá",
+  "scheduling": "Lịch khám & Hàng đợi",
+  "clinical": "Lâm sàng & CLS",
+  "billing": "Thanh toán & Hoàn tiền",
+  "workflow": "Quy trình & Kiểm toán"
+ },
+ "entities": {
+  "AppUser": {
+   "domain": "identity",
+   "columns": [
+    {
+     "name": "Id",
+     "type": "guid",
+     "keys": [
+      "PK"
+     ],
+     "note": ""
+    },
+    {
+     "name": "UserName",
+     "type": "string",
+     "keys": [
+      "UK"
+     ],
+     "note": ""
+    },
+    {
+     "name": "Email",
+     "type": "string",
+     "keys": [
+      "UK"
+     ],
+     "note": ""
+    },
+    {
+     "name": "PhoneNumber",
+     "type": "string",
+     "keys": [
+      "UK"
+     ],
+     "note": ""
+    },
+    {
+     "name": "PasswordHash",
+     "type": "string",
+     "keys": [],
+     "note": ""
+    },
+    {
+     "name": "EmailConfirmed",
+     "type": "bool",
+     "keys": [],
+     "note": ""
+    },
+    {
+     "name": "PhoneNumberConfirmed",
+     "type": "bool",
+     "keys": [],
+     "note": ""
+    },
+    {
+     "name": "IsActive",
+     "type": "bool",
+     "keys": [],
+     "note": ""
+    },
+    {
+     "name": "CreatedAtUtc",
+     "type": "datetime",
+     "keys": [],
+     "note": ""
+    }
+   ]
+  },
+  "Staff": {
+   "domain": "identity",
+   "columns": [
+    {
+     "name": "Id",
+     "type": "guid",
+     "keys": [
+      "PK"
+     ],
+     "note": ""
+    },
+    {
+     "name": "AppUserId",
+     "type": "guid",
+     "keys": [
+      "FK",
+      "UK"
+     ],
+     "note": "1-to-0..1 with AppUser"
+    },
+    {
+     "name": "StaffCode",
+     "type": "string",
+     "keys": [
+      "UK"
+     ],
+     "note": ""
+    },
+    {
+     "name": "FullName",
+     "type": "string",
+     "keys": [],
+     "note": ""
+    },
+    {
+     "name": "StaffType",
+     "type": "string",
+     "keys": [],
+     "note": "Doctor, Nurse, Receptionist, Technician"
+    },
+    {
+     "name": "IsActive",
+     "type": "bool",
+     "keys": [],
+     "note": ""
+    },
+    {
+     "name": "CreatedAtUtc",
+     "type": "datetime",
+     "keys": [],
+     "note": ""
+    }
+   ]
+  },
+  "Doctor": {
+   "domain": "identity",
+   "columns": [
+    {
+     "name": "Id",
+     "type": "guid",
+     "keys": [
+      "PK"
+     ],
+     "note": ""
+    },
+    {
+     "name": "StaffId",
+     "type": "guid",
+     "keys": [
+      "FK",
+      "UK"
+     ],
+     "note": "1-to-0..1 with Staff"
+    },
+    {
+     "name": "SpecialtyId",
+     "type": "guid",
+     "keys": [
+      "FK"
+     ],
+     "note": ""
+    },
+    {
+     "name": "DoctorRankId",
+     "type": "guid",
+     "keys": [
+      "FK"
+     ],
+     "note": "References DoctorRank"
+    },
+    {
+     "name": "Biography",
+     "type": "string",
+     "keys": [],
+     "note": ""
+    },
+    {
+     "name": "IsActive",
+     "type": "bool",
+     "keys": [],
+     "note": ""
+    }
+   ]
+  },
+  "Patient": {
+   "domain": "identity",
+   "columns": [
+    {
+     "name": "Id",
+     "type": "guid",
+     "keys": [
+      "PK"
+     ],
+     "note": ""
+    },
+    {
+     "name": "FullName",
+     "type": "string",
+     "keys": [],
+     "note": ""
+    },
+    {
+     "name": "DateOfBirth",
+     "type": "date",
+     "keys": [],
+     "note": ""
+    },
+    {
+     "name": "Gender",
+     "type": "string",
+     "keys": [],
+     "note": "Male, Female, Other"
+    },
+    {
+     "name": "NationalId",
+     "type": "string",
+     "keys": [
+      "UK"
+     ],
+     "note": ""
+    },
+    {
+     "name": "PhoneNumber",
+     "type": "string",
+     "keys": [],
+     "note": ""
+    },
+    {
+     "name": "Address",
+     "type": "string",
+     "keys": [],
+     "note": ""
+    },
+    {
+     "name": "CreatedAtUtc",
+     "type": "datetime",
+     "keys": [],
+     "note": ""
+    }
+   ]
+  },
+  "PatientRepresentative": {
+   "domain": "identity",
+   "columns": [
+    {
+     "name": "Id",
+     "type": "guid",
+     "keys": [
+      "PK"
+     ],
+     "note": ""
+    },
+    {
+     "name": "AppUserId",
+     "type": "guid",
+     "keys": [
+      "FK"
+     ],
+     "note": ""
+    },
+    {
+     "name": "PatientId",
+     "type": "guid",
+     "keys": [
+      "FK"
+     ],
+     "note": ""
+    },
+    {
+     "name": "Relationship",
+     "type": "string",
+     "keys": [],
+     "note": "Self, Child, Parent, Spouse, Other"
+    },
+    {
+     "name": "AuthorizationProofDoc",
+     "type": "string",
+     "keys": [],
+     "note": ""
+    },
+    {
+     "name": "VerificationStatus",
+     "type": "string",
+     "keys": [],
+     "note": "Pending, Verified, Rejected, Revoked"
+    },
+    {
+     "name": "IsActive",
+     "type": "bool",
+     "keys": [],
+     "note": ""
+    },
+    {
+     "name": "CreatedAtUtc",
+     "type": "datetime",
+     "keys": [],
+     "note": ""
+    },
+    {
+     "name": "RevokedAtUtc",
+     "type": "datetime",
+     "keys": [],
+     "note": ""
+    }
+   ]
+  },
+  "Room": {
+   "domain": "identity",
+   "columns": [
+    {
+     "name": "Id",
+     "type": "guid",
+     "keys": [
+      "PK"
+     ],
+     "note": ""
+    },
+    {
+     "name": "RoomNumber",
+     "type": "string",
+     "keys": [
+      "UK"
+     ],
+     "note": ""
+    },
+    {
+     "name": "RoomName",
+     "type": "string",
+     "keys": [],
+     "note": ""
+    },
+    {
+     "name": "RoomType",
+     "type": "string",
+     "keys": [],
+     "note": "Clinical, Laboratory, XRay, Ultrasound, Endoscopy"
+    },
+    {
+     "name": "DepartmentName",
+     "type": "string",
+     "keys": [],
+     "note": ""
+    },
+    {
+     "name": "IsActive",
+     "type": "bool",
+     "keys": [],
+     "note": ""
+    }
+   ]
+  },
+  "RoomAccount": {
+   "domain": "identity",
+   "columns": [
+    {
+     "name": "Id",
+     "type": "guid",
+     "keys": [
+      "PK"
+     ],
+     "note": ""
+    },
+    {
+     "name": "AppUserId",
+     "type": "guid",
+     "keys": [
+      "FK",
+      "UK"
+     ],
+     "note": "Dedicated AppUser account"
+    },
+    {
+     "name": "RoomId",
+     "type": "guid",
+     "keys": [
+      "FK",
+      "UK"
+     ],
+     "note": "One account per Room"
+    },
+    {
+     "name": "AccountCode",
+     "type": "string",
+     "keys": [
+      "UK"
+     ],
+     "note": ""
+    },
+    {
+     "name": "IsActive",
+     "type": "bool",
+     "keys": [],
+     "note": ""
+    },
+    {
+     "name": "CreatedAtUtc",
+     "type": "datetime",
+     "keys": [],
+     "note": ""
+    }
+   ]
+  },
+  "StaffShiftAssignment": {
+   "domain": "identity",
+   "columns": [
+    {
+     "name": "Id",
+     "type": "guid",
+     "keys": [
+      "PK"
+     ],
+     "note": ""
+    },
+    {
+     "name": "StaffId",
+     "type": "guid",
+     "keys": [
+      "FK"
+     ],
+     "note": ""
+    },
+    {
+     "name": "RoomId",
+     "type": "guid",
+     "keys": [
+      "FK"
+     ],
+     "note": ""
+    },
+    {
+     "name": "ShiftDate",
+     "type": "date",
+     "keys": [],
+     "note": ""
+    },
+    {
+     "name": "ShiftName",
+     "type": "string",
+     "keys": [],
+     "note": "Morning, Afternoon, FullDay"
+    },
+    {
+     "name": "StartsAtUtc",
+     "type": "datetime",
+     "keys": [],
+     "note": ""
+    },
+    {
+     "name": "EndsAtUtc",
+     "type": "datetime",
+     "keys": [],
+     "note": ""
+    },
+    {
+     "name": "IsShiftLeader",
+     "type": "bool",
+     "keys": [],
+     "note": ""
+    }
+   ]
+  },
+  "RoomDeviceSession": {
+   "domain": "identity",
+   "columns": [
+    {
+     "name": "Id",
+     "type": "guid",
+     "keys": [
+      "PK"
+     ],
+     "note": ""
+    },
+    {
+     "name": "RoomAccountId",
+     "type": "guid",
+     "keys": [
+      "FK"
+     ],
+     "note": ""
+    },
+    {
+     "name": "DeviceId",
+     "type": "string",
+     "keys": [],
+     "note": ""
+    },
+    {
+     "name": "DeviceIpAddress",
+     "type": "string",
+     "keys": [],
+     "note": ""
+    },
+    {
+     "name": "SessionToken",
+     "type": "string",
+     "keys": [
+      "UK"
+     ],
+     "note": ""
+    },
+    {
+     "name": "LoginAtUtc",
+     "type": "datetime",
+     "keys": [],
+     "note": ""
+    },
+    {
+     "name": "LogoutAtUtc",
+     "type": "datetime",
+     "keys": [],
+     "note": ""
+    },
+    {
+     "name": "IsActive",
+     "type": "bool",
+     "keys": [],
+     "note": ""
+    }
+   ]
+  },
+  "DoctorRank": {
+   "domain": "catalog",
+   "columns": [
+    {
+     "name": "Id",
+     "type": "guid",
+     "keys": [
+      "PK"
+     ],
+     "note": ""
+    },
+    {
+     "name": "RankCode",
+     "type": "string",
+     "keys": [
+      "UK"
+     ],
+     "note": "SpecialistI, SpecialistII, Master, Doctor, AssociateProf, Professor"
+    },
+    {
+     "name": "RankName",
+     "type": "string",
+     "keys": [],
+     "note": ""
+    },
+    {
+     "name": "DisplayOrder",
+     "type": "int",
+     "keys": [],
+     "note": ""
+    },
+    {
+     "name": "IsActive",
+     "type": "bool",
+     "keys": [],
+     "note": ""
+    }
+   ]
+  },
+  "Specialty": {
+   "domain": "catalog",
+   "columns": [
+    {
+     "name": "Id",
+     "type": "guid",
+     "keys": [
+      "PK"
+     ],
+     "note": ""
+    },
+    {
+     "name": "SpecialtyCode",
+     "type": "string",
+     "keys": [
+      "UK"
+     ],
+     "note": ""
+    },
+    {
+     "name": "SpecialtyName",
+     "type": "string",
+     "keys": [],
+     "note": ""
+    },
+    {
+     "name": "Description",
+     "type": "string",
+     "keys": [],
+     "note": ""
+    },
+    {
+     "name": "IsActive",
+     "type": "bool",
+     "keys": [],
+     "note": ""
+    }
+   ]
+  },
+  "MedicalService": {
+   "domain": "catalog",
+   "columns": [
+    {
+     "name": "Id",
+     "type": "guid",
+     "keys": [
+      "PK"
+     ],
+     "note": ""
+    },
+    {
+     "name": "ServiceCode",
+     "type": "string",
+     "keys": [
+      "UK"
+     ],
+     "note": ""
+    },
+    {
+     "name": "ServiceName",
+     "type": "string",
+     "keys": [],
+     "note": ""
+    },
+    {
+     "name": "ServiceCategory",
+     "type": "string",
+     "keys": [],
+     "note": "Laboratory, Radiology, Ultrasound, Endoscopy"
+    },
+    {
+     "name": "DefaultRoomId",
+     "type": "guid",
+     "keys": [
+      "FK"
+     ],
+     "note": ""
+    },
+    {
+     "name": "IsMandatoryDefault",
+     "type": "bool",
+     "keys": [],
+     "note": ""
+    },
+    {
+     "name": "IsActive",
+     "type": "bool",
+     "keys": [],
+     "note": ""
+    }
+   ]
+  },
+  "MedicalServiceRoom": {
+   "domain": "catalog",
+   "columns": [
+    {
+     "name": "Id",
+     "type": "guid",
+     "keys": [
+      "PK"
+     ],
+     "note": ""
+    },
+    {
+     "name": "MedicalServiceId",
+     "type": "guid",
+     "keys": [
+      "FK"
+     ],
+     "note": ""
+    },
+    {
+     "name": "RoomId",
+     "type": "guid",
+     "keys": [
+      "FK"
+     ],
+     "note": ""
+    },
+    {
+     "name": "IsDefaultRoom",
+     "type": "bool",
+     "keys": [],
+     "note": ""
+    },
+    {
+     "name": "IsActive",
+     "type": "bool",
+     "keys": [],
+     "note": ""
+    }
+   ]
+  },
+  "PriceList": {
+   "domain": "catalog",
+   "columns": [
+    {
+     "name": "Id",
+     "type": "guid",
+     "keys": [
+      "PK"
+     ],
+     "note": ""
+    },
+    {
+     "name": "PriceListCode",
+     "type": "string",
+     "keys": [
+      "UK"
+     ],
+     "note": ""
+    },
+    {
+     "name": "PriceListName",
+     "type": "string",
+     "keys": [],
+     "note": ""
+    },
+    {
+     "name": "Currency",
+     "type": "string",
+     "keys": [],
+     "note": "VND"
+    },
+    {
+     "name": "EffectiveFromUtc",
+     "type": "datetime",
+     "keys": [],
+     "note": ""
+    },
+    {
+     "name": "EffectiveToUtc",
+     "type": "datetime",
+     "keys": [],
+     "note": ""
+    },
+    {
+     "name": "IsActive",
+     "type": "bool",
+     "keys": [],
+     "note": ""
+    }
+   ]
+  },
+  "PriceListItem": {
+   "domain": "catalog",
+   "columns": [
+    {
+     "name": "Id",
+     "type": "guid",
+     "keys": [
+      "PK"
+     ],
+     "note": ""
+    },
+    {
+     "name": "PriceListId",
+     "type": "guid",
+     "keys": [
+      "FK"
+     ],
+     "note": ""
+    },
+    {
+     "name": "ItemType",
+     "type": "string",
+     "keys": [],
+     "note": "ConsultationFee, CLSService - CHECK ConsultationFee: có DoctorRankId hoặc DoctorId; CLSService: chỉ có MedicalServiceId"
+    },
+    {
+     "name": "DoctorRankId",
+     "type": "guid",
+     "keys": [
+      "FK"
+     ],
+     "note": "Nullable - For rank-based fee"
+    },
+    {
+     "name": "DoctorId",
+     "type": "guid",
+     "keys": [
+      "FK"
+     ],
+     "note": "Nullable - For doctor-specific override"
+    },
+    {
+     "name": "MedicalServiceId",
+     "type": "guid",
+     "keys": [
+      "FK"
+     ],
+     "note": "Nullable - For CLS service fee"
+    },
+    {
+     "name": "UnitPrice",
+     "type": "decimal",
+     "keys": [],
+     "note": "CHECK UnitPrice >= 0"
+    },
+    {
+     "name": "IsActive",
+     "type": "bool",
+     "keys": [],
+     "note": ""
+    }
+   ]
+  },
+  "MedicationCatalog": {
+   "domain": "catalog",
+   "columns": [
+    {
+     "name": "Id",
+     "type": "guid",
+     "keys": [
+      "PK"
+     ],
+     "note": ""
+    },
+    {
+     "name": "MedicationCode",
+     "type": "string",
+     "keys": [
+      "UK"
+     ],
+     "note": ""
+    },
+    {
+     "name": "MedicationName",
+     "type": "string",
+     "keys": [],
+     "note": ""
+    },
+    {
+     "name": "ActiveIngredient",
+     "type": "string",
+     "keys": [],
+     "note": ""
+    },
+    {
+     "name": "DosageForm",
+     "type": "string",
+     "keys": [],
+     "note": "Tablet, Capsule, Liquid, Injection"
+    },
+    {
+     "name": "Strength",
+     "type": "string",
+     "keys": [],
+     "note": ""
+    },
+    {
+     "name": "Unit",
+     "type": "string",
+     "keys": [],
+     "note": "Vien, Goi, Chai, Ong"
+    },
+    {
+     "name": "IsActive",
+     "type": "bool",
+     "keys": [],
+     "note": ""
+    }
+   ]
+  },
+  "DoctorSessionSlotQuota": {
+   "domain": "scheduling",
+   "columns": [
+    {
+     "name": "Id",
+     "type": "guid",
+     "keys": [
+      "PK"
+     ],
+     "note": ""
+    },
+    {
+     "name": "DoctorId",
+     "type": "guid",
+     "keys": [
+      "FK"
+     ],
+     "note": ""
+    },
+    {
+     "name": "AssignedRoomId",
+     "type": "guid",
+     "keys": [
+      "FK"
+     ],
+     "note": ""
+    },
+    {
+     "name": "ServiceDate",
+     "type": "date",
+     "keys": [],
+     "note": ""
+    },
+    {
+     "name": "Capacity",
+     "type": "int",
+     "keys": [],
+     "note": "Default 30 từ cấu hình MaxSlotsPerSession - CHECK Held + Admitted + LockedCancelled <= Capacity - UK (DoctorId, ServiceDate)"
+    },
+    {
+     "name": "HeldCount",
+     "type": "int",
+     "keys": [],
+     "note": ">= 0"
+    },
+    {
+     "name": "AdmittedCount",
+     "type": "int",
+     "keys": [],
+     "note": ">= 0"
+    },
+    {
+     "name": "LockedCancelledCount",
+     "type": "int",
+     "keys": [],
+     "note": ">= 0"
+    },
+    {
+     "name": "SessionStartTimeUtc",
+     "type": "datetime",
+     "keys": [],
+     "note": "06:30 ICT"
+    },
+    {
+     "name": "BookingCutoffTimeUtc",
+     "type": "datetime",
+     "keys": [],
+     "note": "09:30 ICT"
+    },
+    {
+     "name": "RescheduleCutoffTimeUtc",
+     "type": "datetime",
+     "keys": [],
+     "note": "05:00 ICT"
+    },
+    {
+     "name": "CheckInDeadlineUtc",
+     "type": "datetime",
+     "keys": [],
+     "note": "Nullable configurable"
+    },
+    {
+     "name": "SessionStatus",
+     "type": "string",
+     "keys": [],
+     "note": "Scheduled, InProgress, Completed, Cancelled"
+    },
+    {
+     "name": "IsOpen",
+     "type": "bool",
+     "keys": [],
+     "note": ""
+    },
+    {
+     "name": "RowVersion",
+     "type": "rowversion",
+     "keys": [],
+     "note": ""
+    }
+   ]
+  },
+  "ActiveBookingClaim": {
+   "domain": "scheduling",
+   "columns": [
+    {
+     "name": "Id",
+     "type": "guid",
+     "keys": [
+      "PK"
+     ],
+     "note": ""
+    },
+    {
+     "name": "SessionQuotaId",
+     "type": "guid",
+     "keys": [
+      "FK"
+     ],
+     "note": ""
+    },
+    {
+     "name": "DoctorId",
+     "type": "guid",
+     "keys": [
+      "FK"
+     ],
+     "note": ""
+    },
+    {
+     "name": "ServiceDate",
+     "type": "date",
+     "keys": [],
+     "note": ""
+    },
+    {
+     "name": "PatientId",
+     "type": "guid",
+     "keys": [
+      "FK"
+     ],
+     "note": ""
+    },
+    {
+     "name": "ReservationId",
+     "type": "guid",
+     "keys": [
+      "FK"
+     ],
+     "note": ""
+    },
+    {
+     "name": "AppointmentId",
+     "type": "guid",
+     "keys": [
+      "FK"
+     ],
+     "note": "Nullable"
+    },
+    {
+     "name": "ClaimSource",
+     "type": "string",
+     "keys": [],
+     "note": "App, Web, Chatbot, Counter"
+    },
+    {
+     "name": "IsActive",
+     "type": "bool",
+     "keys": [],
+     "note": "Filtered UK (DoctorId, ServiceDate, PatientId)"
+    },
+    {
+     "name": "CreatedAtUtc",
+     "type": "datetime",
+     "keys": [],
+     "note": ""
+    },
+    {
+     "name": "ReleasedAtUtc",
+     "type": "datetime",
+     "keys": [],
+     "note": ""
+    }
+   ]
+  },
+  "Reservation": {
+   "domain": "scheduling",
+   "columns": [
+    {
+     "name": "Id",
+     "type": "guid",
+     "keys": [
+      "PK"
+     ],
+     "note": ""
+    },
+    {
+     "name": "SessionQuotaId",
+     "type": "guid",
+     "keys": [
+      "FK"
+     ],
+     "note": ""
+    },
+    {
+     "name": "BookingAttemptId",
+     "type": "guid",
+     "keys": [
+      "FK"
+     ],
+     "note": ""
+    },
+    {
+     "name": "PatientId",
+     "type": "guid",
+     "keys": [
+      "FK"
+     ],
+     "note": ""
+    },
+    {
+     "name": "AppUserId",
+     "type": "guid",
+     "keys": [
+      "FK"
+     ],
+     "note": ""
+    },
+    {
+     "name": "BookingChannel",
+     "type": "string",
+     "keys": [],
+     "note": "Web, App, Chatbot, Counter"
+    },
+    {
+     "name": "ReservedAtUtc",
+     "type": "datetime",
+     "keys": [],
+     "note": ""
+    },
+    {
+     "name": "ExpiresAtUtc",
+     "type": "datetime",
+     "keys": [],
+     "note": "ReservedAtUtc + 5 mins"
+    },
+    {
+     "name": "Status",
+     "type": "string",
+     "keys": [],
+     "note": "Held, Confirmed, Expired, Cancelled"
+    },
+    {
+     "name": "IdempotencyKey",
+     "type": "string",
+     "keys": [
+      "UK"
+     ],
+     "note": "Lớp chặn bổ sung, nguồn chính là ApiIdempotencyRecord"
+    },
+    {
+     "name": "RowVersion",
+     "type": "rowversion",
+     "keys": [],
+     "note": ""
+    }
+   ]
+  },
+  "Appointment": {
+   "domain": "scheduling",
+   "columns": [
+    {
+     "name": "Id",
+     "type": "guid",
+     "keys": [
+      "PK"
+     ],
+     "note": ""
+    },
+    {
+     "name": "ReservationId",
+     "type": "guid",
+     "keys": [
+      "FK",
+      "UK"
+     ],
+     "note": ""
+    },
+    {
+     "name": "SessionQuotaId",
+     "type": "guid",
+     "keys": [
+      "FK"
+     ],
+     "note": ""
+    },
+    {
+     "name": "PatientId",
+     "type": "guid",
+     "keys": [
+      "FK"
+     ],
+     "note": ""
+    },
+    {
+     "name": "RescheduledFromAppointmentId",
+     "type": "guid",
+     "keys": [
+      "FK"
+     ],
+     "note": "Nullable - Self-FK Restrict; đổi lịch tạo Reservation + Appointment mới, lịch cũ chuyển Rescheduled"
+    },
+    {
+     "name": "AppointmentNumber",
+     "type": "string",
+     "keys": [
+      "UK"
+     ],
+     "note": ""
+    },
+    {
+     "name": "AppliedConsultationFee",
+     "type": "decimal",
+     "keys": [],
+     "note": ""
+    },
+    {
+     "name": "Status",
+     "type": "string",
+     "keys": [],
+     "note": "Scheduled, CheckedIn, Completed, Cancelled, Absent, Rescheduled"
+    },
+    {
+     "name": "ConfirmedAtUtc",
+     "type": "datetime",
+     "keys": [],
+     "note": ""
+    },
+    {
+     "name": "CancelledAtUtc",
+     "type": "datetime",
+     "keys": [],
+     "note": ""
+    },
+    {
+     "name": "CancellationReason",
+     "type": "string",
+     "keys": [],
+     "note": ""
+    },
+    {
+     "name": "RowVersion",
+     "type": "rowversion",
+     "keys": [],
+     "note": ""
+    }
+   ]
+  },
+  "ServiceStation": {
+   "domain": "scheduling",
+   "columns": [
+    {
+     "name": "Id",
+     "type": "guid",
+     "keys": [
+      "PK"
+     ],
+     "note": ""
+    },
+    {
+     "name": "RoomId",
+     "type": "guid",
+     "keys": [
+      "FK"
+     ],
+     "note": ""
+    },
+    {
+     "name": "StationCode",
+     "type": "string",
+     "keys": [
+      "UK"
+     ],
+     "note": ""
+    },
+    {
+     "name": "StationName",
+     "type": "string",
+     "keys": [],
+     "note": ""
+    },
+    {
+     "name": "IsActive",
+     "type": "bool",
+     "keys": [],
+     "note": ""
+    }
+   ]
+  },
+  "QueueTicket": {
+   "domain": "scheduling",
+   "columns": [
+    {
+     "name": "Id",
+     "type": "guid",
+     "keys": [
+      "PK"
+     ],
+     "note": ""
+    },
+    {
+     "name": "EncounterId",
+     "type": "guid",
+     "keys": [
+      "FK"
+     ],
+     "note": ""
+    },
+    {
+     "name": "TargetRoomId",
+     "type": "guid",
+     "keys": [
+      "FK"
+     ],
+     "note": ""
+    },
+    {
+     "name": "TargetStationId",
+     "type": "guid",
+     "keys": [
+      "FK"
+     ],
+     "note": "Nullable until allocated"
+    },
+    {
+     "name": "ServiceOrderId",
+     "type": "guid",
+     "keys": [
+      "FK"
+     ],
+     "note": "Nullable - Return consultation"
+    },
+    {
+     "name": "ServiceOrderItemId",
+     "type": "guid",
+     "keys": [
+      "FK"
+     ],
+     "note": "Nullable - CLS ticket"
+    },
+    {
+     "name": "TicketNumber",
+     "type": "string",
+     "keys": [],
+     "note": ""
+    },
+    {
+     "name": "TicketType",
+     "type": "string",
+     "keys": [],
+     "note": "InitialConsultation, CLS, ReturnConsultation"
+    },
+    {
+     "name": "SequenceNumber",
+     "type": "int",
+     "keys": [],
+     "note": ""
+    },
+    {
+     "name": "QueueStatus",
+     "type": "string",
+     "keys": [],
+     "note": "Waiting, Called, Deferred, InProgress, Finished, Cancelled"
+    },
+    {
+     "name": "IssuedAtUtc",
+     "type": "datetime",
+     "keys": [],
+     "note": ""
+    },
+    {
+     "name": "CalledAtUtc",
+     "type": "datetime",
+     "keys": [],
+     "note": ""
+    },
+    {
+     "name": "ServedAtUtc",
+     "type": "datetime",
+     "keys": [],
+     "note": ""
+    },
+    {
+     "name": "CompletedAtUtc",
+     "type": "datetime",
+     "keys": [],
+     "note": ""
+    },
+    {
+     "name": "RowVersion",
+     "type": "rowversion",
+     "keys": [],
+     "note": ""
+    }
+   ]
+  },
+  "ActivePatientEngagement": {
+   "domain": "scheduling",
+   "columns": [
+    {
+     "name": "PatientId",
+     "type": "guid",
+     "keys": [
+      "PK",
+      "FK"
+     ],
+     "note": ""
+    },
+    {
+     "name": "EncounterId",
+     "type": "guid",
+     "keys": [
+      "FK"
+     ],
+     "note": ""
+    },
+    {
+     "name": "CurrentStationId",
+     "type": "guid",
+     "keys": [
+      "FK",
+      "UK"
+     ],
+     "note": ""
+    },
+    {
+     "name": "CurrentTicketId",
+     "type": "guid",
+     "keys": [
+      "FK",
+      "UK"
+     ],
+     "note": ""
+    },
+    {
+     "name": "AcquiredAtUtc",
+     "type": "datetime",
+     "keys": [],
+     "note": ""
+    }
+   ]
+  },
+  "ActiveStationAllocation": {
+   "domain": "scheduling",
+   "columns": [
+    {
+     "name": "StationId",
+     "type": "guid",
+     "keys": [
+      "PK",
+      "FK"
+     ],
+     "note": ""
+    },
+    {
+     "name": "CurrentPatientId",
+     "type": "guid",
+     "keys": [
+      "FK",
+      "UK"
+     ],
+     "note": ""
+    },
+    {
+     "name": "CurrentTicketId",
+     "type": "guid",
+     "keys": [
+      "FK",
+      "UK"
+     ],
+     "note": ""
+    },
+    {
+     "name": "AllocatedAtUtc",
+     "type": "datetime",
+     "keys": [],
+     "note": ""
+    }
+   ]
+  },
+  "Encounter": {
+   "domain": "clinical",
+   "columns": [
+    {
+     "name": "Id",
+     "type": "guid",
+     "keys": [
+      "PK"
+     ],
+     "note": ""
+    },
+    {
+     "name": "AppointmentId",
+     "type": "guid",
+     "keys": [
+      "FK",
+      "UK"
+     ],
+     "note": ""
+    },
+    {
+     "name": "PatientId",
+     "type": "guid",
+     "keys": [
+      "FK"
+     ],
+     "note": ""
+    },
+    {
+     "name": "OriginalDoctorId",
+     "type": "guid",
+     "keys": [
+      "FK"
+     ],
+     "note": ""
+    },
+    {
+     "name": "OriginalRoomId",
+     "type": "guid",
+     "keys": [
+      "FK"
+     ],
+     "note": ""
+    },
+    {
+     "name": "SpecialtySnapshot",
+     "type": "string",
+     "keys": [],
+     "note": ""
+    },
+    {
+     "name": "DoctorRankSnapshot",
+     "type": "string",
+     "keys": [],
+     "note": ""
+    },
+    {
+     "name": "CheckedInAtUtc",
+     "type": "datetime",
+     "keys": [],
+     "note": ""
+    },
+    {
+     "name": "Status",
+     "type": "string",
+     "keys": [],
+     "note": "InProgress, WaitingCLS, ReturningDoctor, Completed, Abandoned"
+    },
+    {
+     "name": "CompletedAtUtc",
+     "type": "datetime",
+     "keys": [],
+     "note": ""
+    },
+    {
+     "name": "RowVersion",
+     "type": "rowversion",
+     "keys": [],
+     "note": ""
+    }
+   ]
+  },
+  "EncounterClinicalRecord": {
+   "domain": "clinical",
+   "columns": [
+    {
+     "name": "Id",
+     "type": "guid",
+     "keys": [
+      "PK"
+     ],
+     "note": ""
+    },
+    {
+     "name": "EncounterId",
+     "type": "guid",
+     "keys": [
+      "FK",
+      "UK"
+     ],
+     "note": "1-to-1 with Encounter"
+    },
+    {
+     "name": "Status",
+     "type": "string",
+     "keys": [],
+     "note": "Draft, Published"
+    },
+    {
+     "name": "ChiefComplaint",
+     "type": "string",
+     "keys": [],
+     "note": "Ly do kham"
+    },
+    {
+     "name": "Symptoms",
+     "type": "string",
+     "keys": [],
+     "note": "Trieu chung"
+    },
+    {
+     "name": "MedicalHistory",
+     "type": "string",
+     "keys": [],
+     "note": "Tien su benh lien quan"
+    },
+    {
+     "name": "ClinicalExaminationNotes",
+     "type": "string",
+     "keys": [],
+     "note": "Noi dung kham lam sang"
+    },
+    {
+     "name": "InitialClinicalImpression",
+     "type": "string",
+     "keys": [],
+     "note": "Nhan dinh ban dau"
+    },
+    {
+     "name": "PostCLSConclusion",
+     "type": "string",
+     "keys": [],
+     "note": "Ket luan sau khi co CLS"
+    },
+    {
+     "name": "TreatmentPlan",
+     "type": "string",
+     "keys": [],
+     "note": "Huong xu tri"
+    },
+    {
+     "name": "FollowUpInstructions",
+     "type": "string",
+     "keys": [],
+     "note": "Theo doi & tai hen"
+    },
+    {
+     "name": "RecordedAtUtc",
+     "type": "datetime",
+     "keys": [],
+     "note": ""
+    },
+    {
+     "name": "PublishedAtUtc",
+     "type": "datetime",
+     "keys": [],
+     "note": "Nullable"
+    },
+    {
+     "name": "LastUpdatedUtc",
+     "type": "datetime",
+     "keys": [],
+     "note": ""
+    },
+    {
+     "name": "UpdatedByDoctorId",
+     "type": "guid",
+     "keys": [
+      "FK"
+     ],
+     "note": ""
+    },
+    {
+     "name": "RowVersion",
+     "type": "rowversion",
+     "keys": [],
+     "note": ""
+    }
+   ]
+  },
+  "VitalSign": {
+   "domain": "clinical",
+   "columns": [
+    {
+     "name": "Id",
+     "type": "guid",
+     "keys": [
+      "PK"
+     ],
+     "note": ""
+    },
+    {
+     "name": "EncounterId",
+     "type": "guid",
+     "keys": [
+      "FK"
+     ],
+     "note": ""
+    },
+    {
+     "name": "WeightKg",
+     "type": "decimal",
+     "keys": [],
+     "note": ""
+    },
+    {
+     "name": "HeightCm",
+     "type": "decimal",
+     "keys": [],
+     "note": ""
+    },
+    {
+     "name": "SystolicBP",
+     "type": "decimal",
+     "keys": [],
+     "note": ""
+    },
+    {
+     "name": "DiastolicBP",
+     "type": "decimal",
+     "keys": [],
+     "note": ""
+    },
+    {
+     "name": "PulseRate",
+     "type": "int",
+     "keys": [],
+     "note": ""
+    },
+    {
+     "name": "BodyTemperature",
+     "type": "decimal",
+     "keys": [],
+     "note": ""
+    },
+    {
+     "name": "SpO2",
+     "type": "decimal",
+     "keys": [],
+     "note": ""
+    },
+    {
+     "name": "RecordedByStaffId",
+     "type": "guid",
+     "keys": [
+      "FK"
+     ],
+     "note": ""
+    },
+    {
+     "name": "RecordedAtUtc",
+     "type": "datetime",
+     "keys": [],
+     "note": ""
+    }
+   ]
+  },
+  "EncounterDiagnosis": {
+   "domain": "clinical",
+   "columns": [
+    {
+     "name": "Id",
+     "type": "guid",
+     "keys": [
+      "PK"
+     ],
+     "note": ""
+    },
+    {
+     "name": "EncounterId",
+     "type": "guid",
+     "keys": [
+      "FK"
+     ],
+     "note": ""
+    },
+    {
+     "name": "DiagnosisType",
+     "type": "string",
+     "keys": [],
+     "note": "Initial, Final"
+    },
+    {
+     "name": "ICD10Code",
+     "type": "string",
+     "keys": [],
+     "note": ""
+    },
+    {
+     "name": "DiagnosisName",
+     "type": "string",
+     "keys": [],
+     "note": ""
+    },
+    {
+     "name": "IsPrimary",
+     "type": "bool",
+     "keys": [],
+     "note": ""
+    },
+    {
+     "name": "ClinicalNotes",
+     "type": "string",
+     "keys": [],
+     "note": ""
+    },
+    {
+     "name": "DiagnosedAtUtc",
+     "type": "datetime",
+     "keys": [],
+     "note": ""
+    }
+   ]
+  },
+  "ServiceOrder": {
+   "domain": "clinical",
+   "columns": [
+    {
+     "name": "Id",
+     "type": "guid",
+     "keys": [
+      "PK"
+     ],
+     "note": ""
+    },
+    {
+     "name": "EncounterId",
+     "type": "guid",
+     "keys": [
+      "FK"
+     ],
+     "note": ""
+    },
+    {
+     "name": "OrderRoundNumber",
+     "type": "int",
+     "keys": [],
+     "note": "1, 2, 3... - Đợt chỉ định"
+    },
+    {
+     "name": "OrderedAtUtc",
+     "type": "datetime",
+     "keys": [],
+     "note": ""
+    },
+    {
+     "name": "PrescribedByDoctorId",
+     "type": "guid",
+     "keys": [
+      "FK"
+     ],
+     "note": ""
+    },
+    {
+     "name": "OrderBatchStatus",
+     "type": "string",
+     "keys": [],
+     "note": "Draft, Confirmed, Completed, Cancelled"
+    },
+    {
+     "name": "HasActiveReturnTicket",
+     "type": "bool",
+     "keys": [],
+     "note": ""
+    }
+   ]
+  },
+  "ServiceOrderItem": {
+   "domain": "clinical",
+   "columns": [
+    {
+     "name": "Id",
+     "type": "guid",
+     "keys": [
+      "PK"
+     ],
+     "note": ""
+    },
+    {
+     "name": "ServiceOrderId",
+     "type": "guid",
+     "keys": [
+      "FK"
+     ],
+     "note": ""
+    },
+    {
+     "name": "MedicalServiceId",
+     "type": "guid",
+     "keys": [
+      "FK"
+     ],
+     "note": ""
+    },
+    {
+     "name": "ServiceNameSnapshot",
+     "type": "string",
+     "keys": [],
+     "note": ""
+    },
+    {
+     "name": "AppliedPrice",
+     "type": "decimal",
+     "keys": [],
+     "note": ""
+    },
+    {
+     "name": "ItemStatus",
+     "type": "string",
+     "keys": [],
+     "note": "Ordered, SampleCollected, InProgress, ServiceFinished, Completed, Cancelled"
+    },
+    {
+     "name": "IsMandatory",
+     "type": "bool",
+     "keys": [],
+     "note": "Bắt buộc có KQ để kích hoạt vé quay lại"
+    },
+    {
+     "name": "CompletedAtUtc",
+     "type": "datetime",
+     "keys": [],
+     "note": ""
+    }
+   ]
+  },
+  "CLSResult": {
+   "domain": "clinical",
+   "columns": [
+    {
+     "name": "Id",
+     "type": "guid",
+     "keys": [
+      "PK"
+     ],
+     "note": ""
+    },
+    {
+     "name": "ServiceOrderItemId",
+     "type": "guid",
+     "keys": [
+      "FK",
+      "UK"
+     ],
+     "note": ""
+    },
+    {
+     "name": "ResultSummary",
+     "type": "string",
+     "keys": [],
+     "note": ""
+    },
+    {
+     "name": "DetailedFindings",
+     "type": "string",
+     "keys": [],
+     "note": ""
+    },
+    {
+     "name": "ResultStatus",
+     "type": "string",
+     "keys": [],
+     "note": "Draft, Approved, Published, Cancelled"
+    },
+    {
+     "name": "PerformedByStaffId",
+     "type": "guid",
+     "keys": [
+      "FK"
+     ],
+     "note": "KTV thuc hien"
+    },
+    {
+     "name": "ApprovedByStaffId",
+     "type": "guid",
+     "keys": [
+      "FK"
+     ],
+     "note": "Bac si chuyen mon duyet"
+    },
+    {
+     "name": "PerformedAtUtc",
+     "type": "datetime",
+     "keys": [],
+     "note": ""
+    },
+    {
+     "name": "ApprovedAtUtc",
+     "type": "datetime",
+     "keys": [],
+     "note": ""
+    },
+    {
+     "name": "PublishedAtUtc",
+     "type": "datetime",
+     "keys": [],
+     "note": ""
+    },
+    {
+     "name": "RowVersion",
+     "type": "rowversion",
+     "keys": [],
+     "note": ""
+    }
+   ]
+  },
+  "ResultAttachment": {
+   "domain": "clinical",
+   "columns": [
+    {
+     "name": "Id",
+     "type": "guid",
+     "keys": [
+      "PK"
+     ],
+     "note": ""
+    },
+    {
+     "name": "CLSResultId",
+     "type": "guid",
+     "keys": [
+      "FK"
+     ],
+     "note": ""
+    },
+    {
+     "name": "R2StorageKey",
+     "type": "string",
+     "keys": [
+      "UK"
+     ],
+     "note": ""
+    },
+    {
+     "name": "OriginalFileName",
+     "type": "string",
+     "keys": [],
+     "note": ""
+    },
+    {
+     "name": "FileContentType",
+     "type": "string",
+     "keys": [],
+     "note": ""
+    },
+    {
+     "name": "FileSizeBytes",
+     "type": "bigint",
+     "keys": [],
+     "note": ""
+    },
+    {
+     "name": "AttachmentVersion",
+     "type": "int",
+     "keys": [],
+     "note": ""
+    },
+    {
+     "name": "IsDraft",
+     "type": "bool",
+     "keys": [],
+     "note": ""
+    },
+    {
+     "name": "UploadedAtUtc",
+     "type": "datetime",
+     "keys": [],
+     "note": ""
+    }
+   ]
+  },
+  "Prescription": {
+   "domain": "clinical",
+   "columns": [
+    {
+     "name": "Id",
+     "type": "guid",
+     "keys": [
+      "PK"
+     ],
+     "note": ""
+    },
+    {
+     "name": "EncounterId",
+     "type": "guid",
+     "keys": [
+      "FK"
+     ],
+     "note": ""
+    },
+    {
+     "name": "PrescribedByDoctorId",
+     "type": "guid",
+     "keys": [
+      "FK"
+     ],
+     "note": ""
+    },
+    {
+     "name": "PrescriptionCode",
+     "type": "string",
+     "keys": [
+      "UK"
+     ],
+     "note": ""
+    },
+    {
+     "name": "Status",
+     "type": "string",
+     "keys": [],
+     "note": "Draft, Issued, Cancelled"
+    },
+    {
+     "name": "GeneralInstructions",
+     "type": "string",
+     "keys": [],
+     "note": ""
+    },
+    {
+     "name": "IssuedAtUtc",
+     "type": "datetime",
+     "keys": [],
+     "note": ""
+    },
+    {
+     "name": "PublishedAtUtc",
+     "type": "datetime",
+     "keys": [],
+     "note": "Nullable"
+    },
+    {
+     "name": "RowVersion",
+     "type": "rowversion",
+     "keys": [],
+     "note": ""
+    }
+   ]
+  },
+  "PrescriptionItem": {
+   "domain": "clinical",
+   "columns": [
+    {
+     "name": "Id",
+     "type": "guid",
+     "keys": [
+      "PK"
+     ],
+     "note": ""
+    },
+    {
+     "name": "PrescriptionId",
+     "type": "guid",
+     "keys": [
+      "FK"
+     ],
+     "note": ""
+    },
+    {
+     "name": "MedicationId",
+     "type": "guid",
+     "keys": [
+      "FK"
+     ],
+     "note": ""
+    },
+    {
+     "name": "MedicationNameSnapshot",
+     "type": "string",
+     "keys": [],
+     "note": ""
+    },
+    {
+     "name": "ActiveIngredientSnapshot",
+     "type": "string",
+     "keys": [],
+     "note": ""
+    },
+    {
+     "name": "Dosage",
+     "type": "string",
+     "keys": [],
+     "note": ""
+    },
+    {
+     "name": "Route",
+     "type": "string",
+     "keys": [],
+     "note": "Oral, Topical, Injection, Inhalation"
+    },
+    {
+     "name": "Frequency",
+     "type": "string",
+     "keys": [],
+     "note": "e.g. 2 times/day"
+    },
+    {
+     "name": "DurationDays",
+     "type": "int",
+     "keys": [],
+     "note": ""
+    },
+    {
+     "name": "Quantity",
+     "type": "int",
+     "keys": [],
+     "note": ""
+    },
+    {
+     "name": "UsageInstructions",
+     "type": "string",
+     "keys": [],
+     "note": ""
+    }
+   ]
+  },
+  "BillingItem": {
+   "domain": "billing",
+   "columns": [
+    {
+     "name": "Id",
+     "type": "guid",
+     "keys": [
+      "PK"
+     ],
+     "note": ""
+    },
+    {
+     "name": "EncounterId",
+     "type": "guid",
+     "keys": [
+      "FK"
+     ],
+     "note": "Nullable before check-in"
+    },
+    {
+     "name": "AppointmentId",
+     "type": "guid",
+     "keys": [
+      "FK"
+     ],
+     "note": "Nullable - Link explicit to initial fee"
+    },
+    {
+     "name": "ServiceOrderItemId",
+     "type": "guid",
+     "keys": [
+      "FK"
+     ],
+     "note": "Nullable - Link explicit to CLS fee"
+    },
+    {
+     "name": "PriceListItemId",
+     "type": "guid",
+     "keys": [
+      "FK"
+     ],
+     "note": ""
+    },
+    {
+     "name": "ItemType",
+     "type": "string",
+     "keys": [],
+     "note": "ConsultationFee, CLSService"
+    },
+    {
+     "name": "ItemNameSnapshot",
+     "type": "string",
+     "keys": [],
+     "note": ""
+    },
+    {
+     "name": "UnitPrice",
+     "type": "decimal",
+     "keys": [],
+     "note": ""
+    },
+    {
+     "name": "Quantity",
+     "type": "int",
+     "keys": [],
+     "note": ""
+    },
+    {
+     "name": "TotalAmount",
+     "type": "decimal",
+     "keys": [],
+     "note": "UnitPrice * Quantity"
+    },
+    {
+     "name": "PaidAmount",
+     "type": "decimal",
+     "keys": [],
+     "note": "cache, cập nhật cùng transaction"
+    },
+    {
+     "name": "RefundedAmount",
+     "type": "decimal",
+     "keys": [],
+     "note": "cache, cập nhật cùng transaction"
+    },
+    {
+     "name": "Status",
+     "type": "string",
+     "keys": [],
+     "note": "Pending, PartiallyPaid, Paid, Cancelled, Waived"
+    },
+    {
+     "name": "RowVersion",
+     "type": "rowversion",
+     "keys": [],
+     "note": ""
+    },
+    {
+     "name": "CreatedAtUtc",
+     "type": "datetime",
+     "keys": [],
+     "note": ""
+    }
+   ]
+  },
+  "PaymentIntent": {
+   "domain": "billing",
+   "columns": [
+    {
+     "name": "Id",
+     "type": "guid",
+     "keys": [
+      "PK"
+     ],
+     "note": ""
+    },
+    {
+     "name": "IntentNumber",
+     "type": "string",
+     "keys": [
+      "UK"
+     ],
+     "note": ""
+    },
+    {
+     "name": "PayerAppUserId",
+     "type": "guid",
+     "keys": [
+      "FK"
+     ],
+     "note": ""
+    },
+    {
+     "name": "PatientId",
+     "type": "guid",
+     "keys": [
+      "FK"
+     ],
+     "note": ""
+    },
+    {
+     "name": "BookingAttemptId",
+     "type": "guid",
+     "keys": [
+      "FK"
+     ],
+     "note": "Nullable"
+    },
+    {
+     "name": "EncounterId",
+     "type": "guid",
+     "keys": [
+      "FK"
+     ],
+     "note": "Nullable"
+    },
+    {
+     "name": "TotalExpectedAmount",
+     "type": "decimal",
+     "keys": [],
+     "note": ""
+    },
+    {
+     "name": "Currency",
+     "type": "string",
+     "keys": [],
+     "note": "VND"
+    },
+    {
+     "name": "Provider",
+     "type": "string",
+     "keys": [],
+     "note": "VNPT, MoMo, Counter"
+    },
+    {
+     "name": "PaymentType",
+     "type": "string",
+     "keys": [],
+     "note": "InitialConsultation, CLSOrderBatch"
+    },
+    {
+     "name": "Status",
+     "type": "string",
+     "keys": [],
+     "note": "Pending, Processing, Succeeded, Failed, Unknown, Expired, Cancelled"
+    },
+    {
+     "name": "CreatedAtUtc",
+     "type": "datetime",
+     "keys": [],
+     "note": ""
+    },
+    {
+     "name": "ExpiresAtUtc",
+     "type": "datetime",
+     "keys": [],
+     "note": ""
+    },
+    {
+     "name": "RowVersion",
+     "type": "rowversion",
+     "keys": [],
+     "note": ""
+    }
+   ]
+  },
+  "PaymentTransaction": {
+   "domain": "billing",
+   "columns": [
+    {
+     "name": "Id",
+     "type": "guid",
+     "keys": [
+      "PK"
+     ],
+     "note": ""
+    },
+    {
+     "name": "PaymentIntentId",
+     "type": "guid",
+     "keys": [
+      "FK"
+     ],
+     "note": ""
+    },
+    {
+     "name": "TransactionReference",
+     "type": "string",
+     "keys": [
+      "UK"
+     ],
+     "note": "Merchant Order ID"
+    },
+    {
+     "name": "ProviderTransactionId",
+     "type": "string",
+     "keys": [
+      "UK"
+     ],
+     "note": "Gateway Transaction ID"
+    },
+    {
+     "name": "TransactionAmount",
+     "type": "decimal",
+     "keys": [],
+     "note": ""
+    },
+    {
+     "name": "Currency",
+     "type": "string",
+     "keys": [],
+     "note": "VND"
+    },
+    {
+     "name": "PaymentStatus",
+     "type": "string",
+     "keys": [],
+     "note": "Pending, Success, Failed, Unknown"
+    },
+    {
+     "name": "VerifiedAtUtc",
+     "type": "datetime",
+     "keys": [],
+     "note": ""
+    },
+    {
+     "name": "ProviderRawData",
+     "type": "string",
+     "keys": [],
+     "note": ""
+    },
+    {
+     "name": "RowVersion",
+     "type": "rowversion",
+     "keys": [],
+     "note": ""
+    }
+   ]
+  },
+  "PaymentAllocation": {
+   "domain": "billing",
+   "columns": [
+    {
+     "name": "Id",
+     "type": "guid",
+     "keys": [
+      "PK"
+     ],
+     "note": ""
+    },
+    {
+     "name": "PaymentTransactionId",
+     "type": "guid",
+     "keys": [
+      "FK"
+     ],
+     "note": ""
+    },
+    {
+     "name": "BillingItemId",
+     "type": "guid",
+     "keys": [
+      "FK"
+     ],
+     "note": ""
+    },
+    {
+     "name": "AllocatedAmount",
+     "type": "decimal",
+     "keys": [],
+     "note": "CHECK AllocatedAmount > 0"
+    },
+    {
+     "name": "AllocatedAtUtc",
+     "type": "datetime",
+     "keys": [],
+     "note": ""
+    }
+   ]
+  },
+  "RefundRequest": {
+   "domain": "billing",
+   "columns": [
+    {
+     "name": "Id",
+     "type": "guid",
+     "keys": [
+      "PK"
+     ],
+     "note": ""
+    },
+    {
+     "name": "BillingItemId",
+     "type": "guid",
+     "keys": [
+      "FK"
+     ],
+     "note": ""
+    },
+    {
+     "name": "OriginalPaymentTransactionId",
+     "type": "guid",
+     "keys": [
+      "FK"
+     ],
+     "note": ""
+    },
+    {
+     "name": "AppointmentId",
+     "type": "guid",
+     "keys": [
+      "FK"
+     ],
+     "note": "Nullable"
+    },
+    {
+     "name": "RequestedAmount",
+     "type": "decimal",
+     "keys": [],
+     "note": ""
+    },
+    {
+     "name": "RefundReason",
+     "type": "string",
+     "keys": [],
+     "note": "CancelledBefore0500, PaidUnallocated, DuplicatePayment, HospitalCancelled, SystemError - ngoài CancelledBefore0500 đều dùng CustomApproval"
+    },
+    {
+     "name": "PolicyRuleApplied",
+     "type": "string",
+     "keys": [],
+     "note": "FullRefundPre0500, CustomApproval"
+    },
+    {
+     "name": "Status",
+     "type": "string",
+     "keys": [],
+     "note": "Pending, Approved, Rejected, Settled, Failed"
+    },
+    {
+     "name": "RequestedAtUtc",
+     "type": "datetime",
+     "keys": [],
+     "note": ""
+    },
+    {
+     "name": "DecisionByStaffId",
+     "type": "guid",
+     "keys": [
+      "FK"
+     ],
+     "note": "Nullable"
+    },
+    {
+     "name": "DecidedAtUtc",
+     "type": "datetime",
+     "keys": [],
+     "note": ""
+    }
+   ]
+  },
+  "RefundTransaction": {
+   "domain": "billing",
+   "columns": [
+    {
+     "name": "Id",
+     "type": "guid",
+     "keys": [
+      "PK"
+     ],
+     "note": ""
+    },
+    {
+     "name": "RefundRequestId",
+     "type": "guid",
+     "keys": [
+      "FK",
+      "UK"
+     ],
+     "note": ""
+    },
+    {
+     "name": "OriginalPaymentTransactionId",
+     "type": "guid",
+     "keys": [
+      "FK"
+     ],
+     "note": ""
+    },
+    {
+     "name": "ProviderRefundTransactionId",
+     "type": "string",
+     "keys": [
+      "UK"
+     ],
+     "note": ""
+    },
+    {
+     "name": "RefundedAmount",
+     "type": "decimal",
+     "keys": [],
+     "note": ""
+    },
+    {
+     "name": "Currency",
+     "type": "string",
+     "keys": [],
+     "note": "VND"
+    },
+    {
+     "name": "Status",
+     "type": "string",
+     "keys": [],
+     "note": "Success, Failed"
+    },
+    {
+     "name": "ProcessedAtUtc",
+     "type": "datetime",
+     "keys": [],
+     "note": ""
+    },
+    {
+     "name": "ProviderResponsePayload",
+     "type": "string",
+     "keys": [],
+     "note": ""
+    }
+   ]
+  },
+  "PaymentEvent": {
+   "domain": "billing",
+   "columns": [
+    {
+     "name": "Id",
+     "type": "guid",
+     "keys": [
+      "PK"
+     ],
+     "note": ""
+    },
+    {
+     "name": "PaymentTransactionId",
+     "type": "guid",
+     "keys": [
+      "FK"
+     ],
+     "note": "Nullable"
+    },
+    {
+     "name": "Provider",
+     "type": "string",
+     "keys": [],
+     "note": "VNPT, MoMo"
+    },
+    {
+     "name": "EventId",
+     "type": "string",
+     "keys": [],
+     "note": "UK_ProviderEvent (Provider, EventId)"
+    },
+    {
+     "name": "EventType",
+     "type": "string",
+     "keys": [],
+     "note": "PaymentSuccess, PaymentRefund"
+    },
+    {
+     "name": "PayloadHash",
+     "type": "string",
+     "keys": [],
+     "note": "IX (chỉ index)"
+    },
+    {
+     "name": "PayloadJson",
+     "type": "string",
+     "keys": [],
+     "note": ""
+    },
+    {
+     "name": "ReceivedAtUtc",
+     "type": "datetime",
+     "keys": [],
+     "note": ""
+    },
+    {
+     "name": "Status",
+     "type": "string",
+     "keys": [],
+     "note": "Received, Processed, DuplicateIgnored, Error"
+    },
+    {
+     "name": "ProcessedAtUtc",
+     "type": "datetime",
+     "keys": [],
+     "note": ""
+    }
+   ]
+  },
+  "BookingAttempt": {
+   "domain": "workflow",
+   "columns": [
+    {
+     "name": "Id",
+     "type": "guid",
+     "keys": [
+      "PK"
+     ],
+     "note": ""
+    },
+    {
+     "name": "AppUserId",
+     "type": "guid",
+     "keys": [
+      "FK"
+     ],
+     "note": ""
+    },
+    {
+     "name": "PatientId",
+     "type": "guid",
+     "keys": [
+      "FK"
+     ],
+     "note": ""
+    },
+    {
+     "name": "SelectedDoctorId",
+     "type": "guid",
+     "keys": [
+      "FK"
+     ],
+     "note": "Nullable"
+    },
+    {
+     "name": "SelectedDoctorRankId",
+     "type": "guid",
+     "keys": [
+      "FK"
+     ],
+     "note": "Nullable"
+    },
+    {
+     "name": "CurrentStep",
+     "type": "string",
+     "keys": [],
+     "note": "ProfileSelection, DoctorSelection, SlotHeld, PaymentInitiated, Finalized, Abandoned"
+    },
+    {
+     "name": "SelectedServiceDate",
+     "type": "date",
+     "keys": [],
+     "note": ""
+    },
+    {
+     "name": "Status",
+     "type": "string",
+     "keys": [],
+     "note": "Draft, Held, WaitingPayment, Confirming, Confirmed, NeedsReselection, PaidUnallocated, Cancelled"
+    },
+    {
+     "name": "CreatedAtUtc",
+     "type": "datetime",
+     "keys": [],
+     "note": ""
+    },
+    {
+     "name": "UpdatedAtUtc",
+     "type": "datetime",
+     "keys": [],
+     "note": ""
+    },
+    {
+     "name": "RowVersion",
+     "type": "rowversion",
+     "keys": [],
+     "note": ""
+    }
+   ]
+  },
+  "Operation": {
+   "domain": "workflow",
+   "columns": [
+    {
+     "name": "Id",
+     "type": "guid",
+     "keys": [
+      "PK"
+     ],
+     "note": ""
+    },
+    {
+     "name": "InitiatedByUserId",
+     "type": "guid",
+     "keys": [
+      "FK"
+     ],
+     "note": ""
+    },
+    {
+     "name": "BookingAttemptId",
+     "type": "guid",
+     "keys": [
+      "FK"
+     ],
+     "note": "Nullable"
+    },
+    {
+     "name": "OperationType",
+     "type": "string",
+     "keys": [],
+     "note": "HoldSlot, ConfirmBooking, RescheduleBooking, CancelBooking, AllocateStation, ApproveResult, ProcessRefund"
+    },
+    {
+     "name": "TargetEntityType",
+     "type": "string",
+     "keys": [],
+     "note": "BookingAttempt, Reservation, Appointment, BillingItem, QueueTicket, CLSResult"
+    },
+    {
+     "name": "TargetEntityId",
+     "type": "guid",
+     "keys": [],
+     "note": ""
+    },
+    {
+     "name": "Status",
+     "type": "string",
+     "keys": [],
+     "note": "Pending, Running, WaitingExternal, Succeeded, Failed, NeedsAction, ManualReview"
+    },
+    {
+     "name": "FailureReason",
+     "type": "string",
+     "keys": [],
+     "note": ""
+    },
+    {
+     "name": "CreatedAtUtc",
+     "type": "datetime",
+     "keys": [],
+     "note": ""
+    },
+    {
+     "name": "CompletedAtUtc",
+     "type": "datetime",
+     "keys": [],
+     "note": ""
+    },
+    {
+     "name": "RowVersion",
+     "type": "rowversion",
+     "keys": [],
+     "note": ""
+    }
+   ]
+  },
+  "ApiIdempotencyRecord": {
+   "domain": "workflow",
+   "columns": [
+    {
+     "name": "Id",
+     "type": "guid",
+     "keys": [
+      "PK"
+     ],
+     "note": ""
+    },
+    {
+     "name": "OperationId",
+     "type": "guid",
+     "keys": [
+      "FK"
+     ],
+     "note": "Nullable"
+    },
+    {
+     "name": "CallerScope",
+     "type": "string",
+     "keys": [],
+     "note": ""
+    },
+    {
+     "name": "OperationType",
+     "type": "string",
+     "keys": [],
+     "note": ""
+    },
+    {
+     "name": "IdempotencyKey",
+     "type": "string",
+     "keys": [],
+     "note": "UK_Idem (CallerScope, OperationType, IdempotencyKey)"
+    },
+    {
+     "name": "RequestHash",
+     "type": "string",
+     "keys": [],
+     "note": "SHA256 of canonicalized request body"
+    },
+    {
+     "name": "ResponseStatusCode",
+     "type": "int",
+     "keys": [],
+     "note": ""
+    },
+    {
+     "name": "ResponseBodyJson",
+     "type": "string",
+     "keys": [],
+     "note": ""
+    },
+    {
+     "name": "CreatedAtUtc",
+     "type": "datetime",
+     "keys": [],
+     "note": ""
+    },
+    {
+     "name": "ExpiresAtUtc",
+     "type": "datetime",
+     "keys": [],
+     "note": ""
+    }
+   ]
+  },
+  "OutboxMessage": {
+   "domain": "workflow",
+   "columns": [
+    {
+     "name": "Id",
+     "type": "guid",
+     "keys": [
+      "PK"
+     ],
+     "note": ""
+    },
+    {
+     "name": "OperationId",
+     "type": "guid",
+     "keys": [
+      "FK"
+     ],
+     "note": "Nullable"
+    },
+    {
+     "name": "EventType",
+     "type": "string",
+     "keys": [],
+     "note": "SlotHeldEvent, BookingConfirmedEvent, PaymentSettledEvent, CLSResultPublishedEvent"
+    },
+    {
+     "name": "AggregateType",
+     "type": "string",
+     "keys": [],
+     "note": "Reservation, Appointment, Payment, CLSResult"
+    },
+    {
+     "name": "AggregateId",
+     "type": "guid",
+     "keys": [],
+     "note": ""
+    },
+    {
+     "name": "PayloadJson",
+     "type": "string",
+     "keys": [],
+     "note": ""
+    },
+    {
+     "name": "RetryCount",
+     "type": "int",
+     "keys": [],
+     "note": ""
+    },
+    {
+     "name": "Status",
+     "type": "string",
+     "keys": [],
+     "note": "Pending, Processing, Published, DeadLetter"
+    },
+    {
+     "name": "CreatedAtUtc",
+     "type": "datetime",
+     "keys": [],
+     "note": ""
+    },
+    {
+     "name": "ProcessedAtUtc",
+     "type": "datetime",
+     "keys": [],
+     "note": ""
+    }
+   ]
+  },
+  "AuditLog": {
+   "domain": "workflow",
+   "columns": [
+    {
+     "name": "Id",
+     "type": "guid",
+     "keys": [
+      "PK"
+     ],
+     "note": ""
+    },
+    {
+     "name": "PerformedByUserId",
+     "type": "guid",
+     "keys": [
+      "FK"
+     ],
+     "note": "Nullable"
+    },
+    {
+     "name": "RoomAccountId",
+     "type": "guid",
+     "keys": [
+      "FK"
+     ],
+     "note": "Nullable"
+    },
+    {
+     "name": "RoomDeviceSessionId",
+     "type": "guid",
+     "keys": [
+      "FK"
+     ],
+     "note": "Nullable"
+    },
+    {
+     "name": "OperationId",
+     "type": "guid",
+     "keys": [
+      "FK"
+     ],
+     "note": "Nullable"
+    },
+    {
+     "name": "StaffShiftAssignmentId",
+     "type": "guid",
+     "keys": [
+      "FK"
+     ],
+     "note": "Nullable"
+    },
+    {
+     "name": "TableName",
+     "type": "string",
+     "keys": [],
+     "note": ""
+    },
+    {
+     "name": "RecordId",
+     "type": "guid",
+     "keys": [],
+     "note": ""
+    },
+    {
+     "name": "ActionType",
+     "type": "string",
+     "keys": [],
+     "note": "INSERT, UPDATE, DELETE, CANCEL, REFUND, PUBLISH"
+    },
+    {
+     "name": "DeviceId",
+     "type": "string",
+     "keys": [],
+     "note": ""
+    },
+    {
+     "name": "ClientIpAddress",
+     "type": "string",
+     "keys": [],
+     "note": ""
+    },
+    {
+     "name": "ChangedColumns",
+     "type": "string",
+     "keys": [],
+     "note": ""
+    },
+    {
+     "name": "OldValuesJson",
+     "type": "string",
+     "keys": [],
+     "note": ""
+    },
+    {
+     "name": "NewValuesJson",
+     "type": "string",
+     "keys": [],
+     "note": ""
+    },
+    {
+     "name": "ChangeReason",
+     "type": "string",
+     "keys": [],
+     "note": ""
+    },
+    {
+     "name": "TimestampUtc",
+     "type": "datetime",
+     "keys": [],
+     "note": ""
+    }
+   ]
+  }
+ },
+ "relationships": [
+  {
+   "a": "AppUser",
+   "b": "Staff",
+   "l": "||",
+   "r": "o|",
+   "label": "profiles"
+  },
+  {
+   "a": "AppUser",
+   "b": "PatientRepresentative",
+   "l": "||",
+   "r": "o{",
+   "label": "authorizes"
+  },
+  {
+   "a": "Patient",
+   "b": "PatientRepresentative",
+   "l": "||",
+   "r": "o{",
+   "label": "belongs_to"
+  },
+  {
+   "a": "AppUser",
+   "b": "RoomAccount",
+   "l": "||",
+   "r": "o|",
+   "label": "owns_shared_account"
+  },
+  {
+   "a": "Room",
+   "b": "RoomAccount",
+   "l": "||",
+   "r": "o|",
+   "label": "binds_room"
+  },
+  {
+   "a": "Staff",
+   "b": "Doctor",
+   "l": "||",
+   "r": "o|",
+   "label": "specializes"
+  },
+  {
+   "a": "Staff",
+   "b": "StaffShiftAssignment",
+   "l": "||",
+   "r": "o{",
+   "label": "assigned_shift"
+  },
+  {
+   "a": "Room",
+   "b": "StaffShiftAssignment",
+   "l": "||",
+   "r": "o{",
+   "label": "scheduled_at"
+  },
+  {
+   "a": "RoomAccount",
+   "b": "RoomDeviceSession",
+   "l": "||",
+   "r": "o{",
+   "label": "authenticates"
+  },
+  {
+   "a": "Specialty",
+   "b": "Doctor",
+   "l": "||",
+   "r": "o{",
+   "label": "classifies"
+  },
+  {
+   "a": "DoctorRank",
+   "b": "Doctor",
+   "l": "||",
+   "r": "o{",
+   "label": "categorizes_rank"
+  },
+  {
+   "a": "PriceList",
+   "b": "PriceListItem",
+   "l": "||",
+   "r": "|{",
+   "label": "contains_items"
+  },
+  {
+   "a": "DoctorRank",
+   "b": "PriceListItem",
+   "l": "|o",
+   "r": "o{",
+   "label": "prices_consultation_rank"
+  },
+  {
+   "a": "Doctor",
+   "b": "PriceListItem",
+   "l": "|o",
+   "r": "o{",
+   "label": "prices_consultation_doctor"
+  },
+  {
+   "a": "MedicalService",
+   "b": "PriceListItem",
+   "l": "|o",
+   "r": "o{",
+   "label": "prices_cls_service"
+  },
+  {
+   "a": "MedicalService",
+   "b": "MedicalServiceRoom",
+   "l": "||",
+   "r": "|{",
+   "label": "performed_in"
+  },
+  {
+   "a": "Room",
+   "b": "MedicalServiceRoom",
+   "l": "||",
+   "r": "o{",
+   "label": "supports_service"
+  },
+  {
+   "a": "Doctor",
+   "b": "DoctorSessionSlotQuota",
+   "l": "||",
+   "r": "o{",
+   "label": "operates_session"
+  },
+  {
+   "a": "Room",
+   "b": "DoctorSessionSlotQuota",
+   "l": "||",
+   "r": "o{",
+   "label": "hosts_clinic_room"
+  },
+  {
+   "a": "DoctorSessionSlotQuota",
+   "b": "Reservation",
+   "l": "||",
+   "r": "o{",
+   "label": "holds_quota"
+  },
+  {
+   "a": "DoctorSessionSlotQuota",
+   "b": "Appointment",
+   "l": "||",
+   "r": "o{",
+   "label": "schedules_quota"
+  },
+  {
+   "a": "DoctorSessionSlotQuota",
+   "b": "ActiveBookingClaim",
+   "l": "||",
+   "r": "o{",
+   "label": "protects_session"
+  },
+  {
+   "a": "Patient",
+   "b": "ActiveBookingClaim",
+   "l": "||",
+   "r": "o{",
+   "label": "holds_active_claim"
+  },
+  {
+   "a": "Reservation",
+   "b": "ActiveBookingClaim",
+   "l": "||",
+   "r": "o|",
+   "label": "claimed_by_reservation"
+  },
+  {
+   "a": "Appointment",
+   "b": "ActiveBookingClaim",
+   "l": "|o",
+   "r": "o|",
+   "label": "claimed_by_appointment"
+  },
+  {
+   "a": "Reservation",
+   "b": "Appointment",
+   "l": "||",
+   "r": "o|",
+   "label": "converts_to"
+  },
+  {
+   "a": "Appointment",
+   "b": "Appointment",
+   "l": "|o",
+   "r": "o{",
+   "label": "rescheduled_from"
+  },
+  {
+   "a": "Patient",
+   "b": "Reservation",
+   "l": "||",
+   "r": "o{",
+   "label": "applies_for"
+  },
+  {
+   "a": "Patient",
+   "b": "Appointment",
+   "l": "||",
+   "r": "o{",
+   "label": "booked_for"
+  },
+  {
+   "a": "Appointment",
+   "b": "Encounter",
+   "l": "||",
+   "r": "o|",
+   "label": "originates_visit"
+  },
+  {
+   "a": "Room",
+   "b": "ServiceStation",
+   "l": "||",
+   "r": "|{",
+   "label": "contains_stations"
+  },
+  {
+   "a": "Encounter",
+   "b": "QueueTicket",
+   "l": "||",
+   "r": "o{",
+   "label": "spawns_tickets"
+  },
+  {
+   "a": "ServiceStation",
+   "b": "QueueTicket",
+   "l": "|o",
+   "r": "o{",
+   "label": "serves_station"
+  },
+  {
+   "a": "Encounter",
+   "b": "ActivePatientEngagement",
+   "l": "||",
+   "r": "o|",
+   "label": "currently_engages"
+  },
+  {
+   "a": "ServiceStation",
+   "b": "ActiveStationAllocation",
+   "l": "||",
+   "r": "o|",
+   "label": "currently_allocates"
+  },
+  {
+   "a": "Encounter",
+   "b": "EncounterClinicalRecord",
+   "l": "||",
+   "r": "o|",
+   "label": "documents_clinical"
+  },
+  {
+   "a": "Encounter",
+   "b": "VitalSign",
+   "l": "||",
+   "r": "o{",
+   "label": "records_vitals"
+  },
+  {
+   "a": "Encounter",
+   "b": "EncounterDiagnosis",
+   "l": "||",
+   "r": "o{",
+   "label": "diagnoses_icd10"
+  },
+  {
+   "a": "Encounter",
+   "b": "ServiceOrder",
+   "l": "||",
+   "r": "o{",
+   "label": "prescribes_orders"
+  },
+  {
+   "a": "ServiceOrder",
+   "b": "ServiceOrderItem",
+   "l": "||",
+   "r": "|{",
+   "label": "contains_items"
+  },
+  {
+   "a": "MedicalService",
+   "b": "ServiceOrderItem",
+   "l": "||",
+   "r": "o{",
+   "label": "specifies_service"
+  },
+  {
+   "a": "ServiceOrderItem",
+   "b": "QueueTicket",
+   "l": "|o",
+   "r": "o|",
+   "label": "links_cls_ticket"
+  },
+  {
+   "a": "ServiceOrder",
+   "b": "QueueTicket",
+   "l": "|o",
+   "r": "o{",
+   "label": "links_return_ticket"
+  },
+  {
+   "a": "ServiceOrderItem",
+   "b": "CLSResult",
+   "l": "||",
+   "r": "o|",
+   "label": "produces_result"
+  },
+  {
+   "a": "CLSResult",
+   "b": "ResultAttachment",
+   "l": "||",
+   "r": "o{",
+   "label": "attaches_r2_files"
+  },
+  {
+   "a": "Staff",
+   "b": "CLSResult",
+   "l": "||",
+   "r": "o{",
+   "label": "performs_or_approves"
+  },
+  {
+   "a": "Encounter",
+   "b": "Prescription",
+   "l": "||",
+   "r": "o{",
+   "label": "issues_prescription"
+  },
+  {
+   "a": "Prescription",
+   "b": "PrescriptionItem",
+   "l": "||",
+   "r": "|{",
+   "label": "prescribes_items"
+  },
+  {
+   "a": "MedicationCatalog",
+   "b": "PrescriptionItem",
+   "l": "||",
+   "r": "o{",
+   "label": "references_catalog"
+  },
+  {
+   "a": "AppUser",
+   "b": "PaymentIntent",
+   "l": "||",
+   "r": "o{",
+   "label": "initiates_payment"
+  },
+  {
+   "a": "Patient",
+   "b": "PaymentIntent",
+   "l": "||",
+   "r": "o{",
+   "label": "pays_for_patient"
+  },
+  {
+   "a": "Encounter",
+   "b": "PaymentIntent",
+   "l": "|o",
+   "r": "o{",
+   "label": "pays_encounter"
+  },
+  {
+   "a": "Encounter",
+   "b": "BillingItem",
+   "l": "|o",
+   "r": "o{",
+   "label": "bills_encounter"
+  },
+  {
+   "a": "Appointment",
+   "b": "BillingItem",
+   "l": "|o",
+   "r": "o|",
+   "label": "bills_consultation"
+  },
+  {
+   "a": "ServiceOrderItem",
+   "b": "BillingItem",
+   "l": "|o",
+   "r": "o|",
+   "label": "bills_cls_item"
+  },
+  {
+   "a": "PriceListItem",
+   "b": "BillingItem",
+   "l": "||",
+   "r": "o{",
+   "label": "bases_on_pricelist"
+  },
+  {
+   "a": "PaymentIntent",
+   "b": "PaymentTransaction",
+   "l": "||",
+   "r": "o{",
+   "label": "executes_transaction"
+  },
+  {
+   "a": "PaymentTransaction",
+   "b": "PaymentAllocation",
+   "l": "||",
+   "r": "o{",
+   "label": "allocates_funds"
+  },
+  {
+   "a": "BillingItem",
+   "b": "PaymentAllocation",
+   "l": "||",
+   "r": "o{",
+   "label": "receives_allocation"
+  },
+  {
+   "a": "BillingItem",
+   "b": "RefundRequest",
+   "l": "||",
+   "r": "o{",
+   "label": "requests_refund"
+  },
+  {
+   "a": "PaymentTransaction",
+   "b": "RefundRequest",
+   "l": "||",
+   "r": "o{",
+   "label": "refunds_from_payment"
+  },
+  {
+   "a": "Appointment",
+   "b": "RefundRequest",
+   "l": "|o",
+   "r": "o{",
+   "label": "refund_for_appointment"
+  },
+  {
+   "a": "RefundRequest",
+   "b": "RefundTransaction",
+   "l": "||",
+   "r": "o|",
+   "label": "settles_refund"
+  },
+  {
+   "a": "PaymentTransaction",
+   "b": "PaymentEvent",
+   "l": "|o",
+   "r": "o{",
+   "label": "logs_webhook_event"
+  },
+  {
+   "a": "AppUser",
+   "b": "BookingAttempt",
+   "l": "||",
+   "r": "o{",
+   "label": "starts_booking"
+  },
+  {
+   "a": "Patient",
+   "b": "BookingAttempt",
+   "l": "||",
+   "r": "o{",
+   "label": "books_for_profile"
+  },
+  {
+   "a": "Doctor",
+   "b": "BookingAttempt",
+   "l": "|o",
+   "r": "o{",
+   "label": "selected_doctor"
+  },
+  {
+   "a": "DoctorRank",
+   "b": "BookingAttempt",
+   "l": "|o",
+   "r": "o{",
+   "label": "selected_rank"
+  },
+  {
+   "a": "BookingAttempt",
+   "b": "Reservation",
+   "l": "|o",
+   "r": "o|",
+   "label": "reserves_slot"
+  },
+  {
+   "a": "BookingAttempt",
+   "b": "PaymentIntent",
+   "l": "|o",
+   "r": "o{",
+   "label": "links_payment_intent"
+  },
+  {
+   "a": "BookingAttempt",
+   "b": "Operation",
+   "l": "|o",
+   "r": "o{",
+   "label": "tracks_attempt_ops"
+  },
+  {
+   "a": "Operation",
+   "b": "ApiIdempotencyRecord",
+   "l": "|o",
+   "r": "o{",
+   "label": "idempotent_operation"
+  },
+  {
+   "a": "Operation",
+   "b": "OutboxMessage",
+   "l": "|o",
+   "r": "o{",
+   "label": "publishes_from_operation"
+  },
+  {
+   "a": "AppUser",
+   "b": "AuditLog",
+   "l": "|o",
+   "r": "o{",
+   "label": "audited_by_user"
+  },
+  {
+   "a": "RoomAccount",
+   "b": "AuditLog",
+   "l": "|o",
+   "r": "o{",
+   "label": "tracks_room_audit"
+  },
+  {
+   "a": "RoomDeviceSession",
+   "b": "AuditLog",
+   "l": "|o",
+   "r": "o{",
+   "label": "tracks_device_audit"
+  },
+  {
+   "a": "Operation",
+   "b": "AuditLog",
+   "l": "|o",
+   "r": "o{",
+   "label": "tracks_operation_audit"
+  },
+  {
+   "a": "StaffShiftAssignment",
+   "b": "AuditLog",
+   "l": "|o",
+   "r": "o{",
+   "label": "tracks_shift_audit"
+  }
+ ],
+ "fk_without_drawn_line": [
+  [
+   "MedicalService",
+   "DefaultRoomId",
+   "Room"
+  ],
+  [
+   "ActiveBookingClaim",
+   "DoctorId",
+   "Doctor"
+  ],
+  [
+   "Reservation",
+   "AppUserId",
+   "AppUser"
+  ],
+  [
+   "QueueTicket",
+   "TargetRoomId",
+   "Room"
+  ],
+  [
+   "ActivePatientEngagement",
+   "PatientId",
+   "Patient"
+  ],
+  [
+   "ActivePatientEngagement",
+   "CurrentStationId",
+   "ServiceStation"
+  ],
+  [
+   "ActivePatientEngagement",
+   "CurrentTicketId",
+   "QueueTicket"
+  ],
+  [
+   "ActiveStationAllocation",
+   "CurrentPatientId",
+   "Patient"
+  ],
+  [
+   "ActiveStationAllocation",
+   "CurrentTicketId",
+   "QueueTicket"
+  ],
+  [
+   "Encounter",
+   "PatientId",
+   "Patient"
+  ],
+  [
+   "Encounter",
+   "OriginalDoctorId",
+   "Doctor"
+  ],
+  [
+   "Encounter",
+   "OriginalRoomId",
+   "Room"
+  ],
+  [
+   "EncounterClinicalRecord",
+   "UpdatedByDoctorId",
+   "Doctor"
+  ],
+  [
+   "VitalSign",
+   "RecordedByStaffId",
+   "Staff"
+  ],
+  [
+   "ServiceOrder",
+   "PrescribedByDoctorId",
+   "Doctor"
+  ],
+  [
+   "Prescription",
+   "PrescribedByDoctorId",
+   "Doctor"
+  ],
+  [
+   "RefundRequest",
+   "DecisionByStaffId",
+   "Staff"
+  ],
+  [
+   "RefundTransaction",
+   "OriginalPaymentTransactionId",
+   "PaymentTransaction"
+  ],
+  [
+   "Operation",
+   "InitiatedByUserId",
+   "AppUser"
+  ]
+ ],
+ "pending_decisions": [],
+ "decided": [
+  {
+   "table": "Appointment",
+   "column": "RescheduledFromAppointmentId",
+   "option": "1B",
+   "decision": "Giữ cột (nullable, self-FK). Đổi lịch tạo Reservation + Appointment mới; lịch cũ chuyển Rescheduled. Thêm Rescheduled vào Appointment.Status."
+  },
+  {
+   "table": "Encounter",
+   "column": "Status",
+   "option": "2A",
+   "decision": "Giữ 5 trạng thái. InProgress: từ check-in đến khi chỉ định CLS/kết luận; WaitingCLS: có ServiceOrder Confirmed; ReturningDoctor: đã phát vé quay lại; Completed/Abandoned là trạng thái cuối. Abandoned do nhân viên có thẩm quyền đóng, không tự gán theo giờ."
+  },
+  {
+   "table": "PaymentIntent",
+   "column": "Provider",
+   "option": "3B",
+   "decision": "VNPT, MoMo, Counter."
+  },
+  {
+   "table": "RefundRequest",
+   "column": "RefundReason",
+   "option": "4B",
+   "decision": "Thêm PaidUnallocated. CancelledBefore0500 dùng FullRefundPre0500; các lý do còn lại dùng CustomApproval (nhân viên duyệt, DecisionByStaffId)."
+  }
+ ]
+}
