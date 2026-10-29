@@ -9,7 +9,7 @@ license: "Complete terms in LICENSE.md"
 1. Đọc scope Antigravity, frontend-react.md, healthcare-domain.md và api-contract-and-handoff.md. Đọc use case/contract Approved; thiếu API thì handoff Codex, chưa đoán endpoint/schema hoặc sửa server.
 2. Xác định actor, tác vụ chính và thông tin cần thấy. Viết luồng màn hình và design tokens thống nhất với UI hiện có: font đọc được tiếng Việt, màu/spacing/type scale nhất quán, trạng thái rõ. Không giả yêu cầu hoặc lịch sử thẩm mỹ của khách hàng.
 3. Chọn bố cục theo tác vụ khám/đặt lịch/thực hiện dịch vụ, ưu tiên dễ đọc và an toàn thao tác. AI gợi ý, chỉ định bác sĩ và kết quả phát hành phải phân biệt rõ; không mô tả điểm model là xác suất mắc bệnh.
-4. Implement trong frontend/**, component tests và tests/e2e/** đúng ownership. Giữ React/Vite/TypeScript, không thêm Next.js/hosting/CDN/font/analytics ngoài yêu cầu. Không sửa Backend/DB/ML/pipeline.
+4. Implement trong frontend/**, component tests và tests/e2e/** đúng ownership. Giữ React/Vite/TypeScript, không thêm Next.js/hosting/CDN/font/analytics ngoài yêu cầu. Không sửa Backend/DB/chatbot/pipeline.
 5. Bao phủ loading/empty/error/validation/permission/timeout/conflict; API client theo contract, mock có nhãn và tách chế độ thật. Không optimistic-confirm thanh toán/slot hoặc tự đổi phí/quyền/trạng thái server.
 6. Bàn phím/focus/label/error message/contrast/responsive/reduced motion; màu không là dấu hiệu duy nhất. Dùng ngôn ngữ tiếng Việt rõ thao tác, tránh trang trí che thông tin y tế.
 7. Giữ React state tối thiểu; derive dữ liệu tính được, cleanup request/effect và functional update khi dựa state trước. Tối ưu khi có đo đạc, không thêm dependency chỉ để theo mẫu.

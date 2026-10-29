@@ -1,14 +1,14 @@
 # testing-and-evidence
 
 ## Phạm vi
-Cả hai agent; test scope thuộc owner tương ứng.
+Cả ba agent (Codex, Antigravity, Claude Code); test scope thuộc owner tương ứng.
 
 ## Khi nào đọc
 Trước báo hoàn thành, bàn giao, PR hoặc release.
 
 ## Quy tắc
 - **QA-01** — Chỉ báo pass khi đã chạy lệnh tương ứng trên commit/diff hiện tại; ghi cwd, command, exit code, thời gian, môi trường, dữ liệu giả, result path và limitations. Không suy build pass từ lint pass.
-- **QA-02** — Phân biệt static check, unit/mock, SQL Server integration, provider sandbox thật, UI mock, UI API thật và E2E; mọi tầng chưa chạy ghi Not run/Blocked, không Passed.
+- **QA-02** — Phân biệt static check, unit/mock, SQL Server integration, provider sandbox thật, UI mock, UI API thật, chatbot với API giả/thật và model thật, E2E; mọi tầng chưa chạy ghi Not run/Blocked, không Passed.
 - **QA-03** — Mỗi requirement gắn Use Case→contract/module→test ID→evidence. Ưu tiên boundary, concurrency, auth, payment và recovery. Sửa bug có reproduction/regression phù hợp; không viết test chỉ lặp implementation.
 - **QA-04** — Done xuyên suốt cần Backend test nghiệp vụ + UI đủ trạng thái + API thật + E2E quan trọng + tài liệu/bằng chứng. Hoàn thành Backend không đồng nghĩa UI done.
 - **QA-05** — Scope check dùng diff đầy đủ gồm add/delete/rename/untracked; CI dùng base policy và agent identity do hệ thống review cấp, không lấy agent tự khai trong file PR. Review nội dung để bắt UI giấu ngoài frontend.

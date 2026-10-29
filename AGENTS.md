@@ -3,9 +3,9 @@
 Đọc file này đầu mỗi phiên. Bộ luật hiện hành nằm trong docs/ai/instructions/; không áp dụng một bản luật khác từ trí nhớ chat.
 
 ## Công nghệ và trách nhiệm
-ASP.NET Core + EF Core + SQL Server; Backend Modular Monolith, áp dụng Clean Architecture trong từng module theo backend-solid-architecture.md. Frontend React + Vite + TypeScript. ML Python/FastAPI nội bộ. Docker Compose, Nginx, Cloudflare DNS/proxy/TLS, Jenkins, MinIO làm object storage chính, RabbitMQ/outbox. Nginx phục vụ Frontend build và proxy API cùng origin tới hai Backend cùng image. VPN riêng tùy chọn, chưa chọn sản phẩm. Phiên bản/edition/license chốt trước triển khai.
+Nguồn sự thật: docs/business/pham-vi-nghiep-vu-v2.1.md và docs/architecture/giai-phap-ky-thuat-v2.1.md; stack chi tiết ở GOV-02. ASP.NET Core + EF Core + SQL Server; Backend Modular Monolith, Clean Architecture trong từng module theo backend-solid-architecture.md; worker .NET riêng chạy Hangfire + Outbox, MVP chưa có broker. Web React + Vite + TypeScript, app bệnh nhân React Native + Expo. Chatbot Hướng 2: FastAPI + LangChain `create_agent` + Ollama trong VPS. Cloudflare R2 private cho tệp, thanh toán VNPT/MoMo. Một docker-compose.yml, Nginx, Cloudflare DNS/proxy/TLS + Access + Tunnel, Jenkins. Nginx phục vụ Frontend build và proxy API cùng origin tới hai Backend cùng image. VPN riêng tùy chọn, chưa chọn sản phẩm. Phiên bản/edition/license chốt trước triển khai.
 
-Codex sở hữu Backend/nghiệp vụ/SQL Server/ML/hạ tầng/API contract. Codex tuyệt đối không tạo/sửa/xóa/format frontend/** hoặc mã UI, kể cả package/lockfile/API client. Antigravity sở hữu UI, component test và tests/e2e/**; không sửa Backend/DB/ML/hạ tầng/CI/CD. Được đọc code bên kia để hiểu tích hợp. Thiếu thay đổi bên kia thì bàn giao.
+Codex sở hữu Backend/nghiệp vụ/SQL Server/hạ tầng/compose/API contract. Codex tuyệt đối không tạo/sửa/xóa/format frontend/**, mobile/** hoặc mã UI, kể cả package/lockfile/API client. Antigravity sở hữu UI web/mobile, component test và tests/e2e/**; không sửa Backend/DB/chatbot/hạ tầng/CI/CD. Claude Code (đọc CLAUDE.md) sở hữu chatbot, cấu hình Cloudflare Access/Tunnel và docs/security; không sửa UI, Backend hay compose. Được đọc code bên kia để hiểu tích hợp. Thiếu thay đổi bên kia thì bàn giao.
 
 ## Bắt đầu mỗi phiên
 1. Xác định agent từ công cụ thực tế. Đọc project-governance.md, healthcare-domain.md, testing-and-evidence.md và file scope của mình trong docs/ai/instructions/.
@@ -18,16 +18,17 @@ Codex sở hữu Backend/nghiệp vụ/SQL Server/ML/hạ tầng/API contract. C
 |---|---|---|
 | Scope Codex | codex-scope.md | — |
 | Scope Antigravity | antigravity-ui-scope.md | — |
+| Scope Claude Code | claude-scope.md | — |
 | API/kiến trúc | backend-solid-architecture.md, database-module-boundaries.md, api-contract-and-handoff.md | — |
 | SQL Server/EF Core | sqlserver-efcore.md | — |
-| UI/React/E2E | frontend-react.md, api-contract-and-handoff.md | frontend-design cho UI mới |
-| Training/inference | ml-training-serving.md | — |
+| UI/React/Expo/E2E | frontend-react.md, api-contract-and-handoff.md | frontend-design cho UI mới |
+| Chatbot/fine-tune | chatbot-langchain-ollama.md, healthcare-domain.md | skill riêng của Claude Code trong .claude/skills/ |
 | Dockerfile | linux-docker-compose.md | docker-build-strategies |
 | Compose | linux-docker-compose.md | docker-compose-patterns |
-| Proxy/TLS/hosting | nginx-cloudflare.md | — |
-| File/MinIO | object-storage.md | — |
+| Proxy/TLS/Access/Tunnel/hosting | nginx-cloudflare.md | — |
+| File/R2 | object-storage.md | — |
 | CI/CD/release | jenkins-environments-release.md | — |
-| Messaging | messaging-rabbitmq.md | — |
+| Tác vụ nền/Outbox | background-jobs-outbox.md, database-module-boundaries.md | — |
 | VPN khi được chọn | vpn-network-administration.md | — |
 | Hoàn thành/PR | testing-and-evidence.md | verification-before-completion |
 

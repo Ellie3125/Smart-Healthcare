@@ -13,7 +13,7 @@ Khi thiết kế mạng quản trị từ xa, CI/CD liên máy hoặc site-to-si
 - **VPN-04** — Chuẩn bị đường truy cập dự phòng và rollback config trước đổi routing/firewall. Giữ private key ngoài prompt/repo/image/log; backup config an toàn. Chỉ chạy cấu hình trên hệ thống được ủy quyền khi mục tiêu mạng đã chốt.
 
 ## Điều cấm
-Không tự cài VPN hoặc coi VPN là VPS; không public SQL Server/ML/MinIO Console/Jenkins để tránh xử lý kết nối quản trị. Không yêu cầu người dùng gửi private key vào chat.
+Không tự cài VPN hoặc coi VPN là VPS; không public SQL Server/chatbot/Ollama/Jenkins để tránh xử lý kết nối quản trị. Không yêu cầu người dùng gửi private key vào chat.
 
 ## Cách kiểm chứng
 Khi được chọn: peer hợp lệ vào đúng subnet/service; peer bị thu hồi bị từ chối; ngoài tunnel không vào admin services; public website hoạt động bình thường; reconnect/reboot/rollback mạng không khóa quản trị. Ghi bài test và log redacted thật, hiện tại Not run.
