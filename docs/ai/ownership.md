@@ -39,6 +39,8 @@
 | `docs/testing/**` | Codex |
 | `docs/reports/**` | Codex |
 | `docs/adr/**` | Codex |
+| `docs/db/**` | Codex |
+| `docs/plans/**` | Codex |
 | `docs/process/**` | Codex |
 | `docs/ai/**` | Codex |
 | `docs/standards/**` | Codex |
@@ -48,6 +50,7 @@
 | `docs/sessions/codex/**` | Codex |
 | `docs/evidence/codex/**` | Codex |
 | `.agents/**` | Codex |
+| `.config/**` | Codex |
 | `.github/**` | Codex |
 | `AGENTS.md` | Codex |
 | `GEMINI.md` | Codex |

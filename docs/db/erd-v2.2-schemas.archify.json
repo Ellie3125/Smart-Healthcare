@@ -1,0 +1,59 @@
+{
+  "schema_version": 1,
+  "diagram_type": "architecture",
+  "meta": {
+    "title": "Smart Healthcare: 6 schema SQL Server và tham chiếu ID xuyên schema (ERD v2.2)",
+    "locale": "vi",
+    "output": "docs/db/erd-v2.2-schemas.html",
+    "quality_profile": "showcase",
+    "repository": {
+      "url": "https://github.com/Ellie3125/Smart-Healthcare",
+      "provider": "github",
+      "link_mode": "local-only",
+      "revision": "67527e7f40ef0f2992300968b9d9bbda03f17929"
+    },
+    "legend": {
+      "entries": {
+        "database": { "label": "Schema SQL Server (một DbContext)" }
+      }
+    }
+  },
+  "components": [
+    { "id": "catalog", "type": "database", "label": "catalog", "sublabel": "7 bảng · 4 FK nội bộ", "tag": "CatalogDbContext", "pos": [430, 40], "size": [180, 70],
+      "sources": [{ "path": "backend/src/Modules/Catalog/Infrastructure/CatalogDbContext.cs", "label": "HasDefaultSchema" }] },
+    { "id": "workflow", "type": "database", "label": "workflow", "sublabel": "5 bảng · 4 FK nội bộ", "tag": "WorkflowDbContext", "pos": [40, 260], "size": [180, 70],
+      "sources": [{ "path": "backend/src/Modules/Workflow/Infrastructure/WorkflowDbContext.cs", "label": "HasDefaultSchema" }] },
+    { "id": "identity", "type": "database", "label": "identity", "sublabel": "9 bảng · 9 FK nội bộ", "tag": "IdentityDbContext", "pos": [430, 260], "size": [180, 70],
+      "sources": [{ "path": "backend/src/Modules/Identity/Infrastructure/IdentityDbContext.cs", "label": "HasDefaultSchema" }] },
+    { "id": "scheduling", "type": "database", "label": "scheduling", "sublabel": "8 bảng · 12 FK nội bộ", "tag": "SchedulingDbContext", "pos": [820, 260], "size": [180, 70],
+      "sources": [{ "path": "backend/src/Modules/Scheduling/Infrastructure/SchedulingDbContext.cs", "label": "HasDefaultSchema" }] },
+    { "id": "billing", "type": "database", "label": "billing", "sublabel": "7 bảng · 8 FK nội bộ", "tag": "BillingDbContext", "pos": [40, 500], "size": [180, 70],
+      "sources": [{ "path": "backend/src/Modules/Billing/Infrastructure/BillingDbContext.cs", "label": "HasDefaultSchema" }] },
+    { "id": "clinical", "type": "database", "label": "clinical", "sublabel": "10 bảng · 9 FK nội bộ", "tag": "ClinicalDbContext", "pos": [820, 500], "size": [180, 70],
+      "sources": [{ "path": "backend/src/Modules/Clinical/Infrastructure/ClinicalDbContext.cs", "label": "HasDefaultSchema" }] }
+  ],
+  "connections": [
+    { "id": "identity-catalog", "from": "identity", "to": "catalog", "label": "2 ID", "variant": "dashed" },
+    { "id": "catalog-identity", "from": "catalog", "to": "identity", "label": "3 ID", "variant": "dashed" },
+    { "id": "scheduling-identity", "from": "scheduling", "to": "identity", "label": "11 ID", "variant": "dashed" },
+    { "id": "workflow-identity", "from": "workflow", "to": "identity", "label": "8 ID", "variant": "dashed" },
+    { "id": "clinical-identity", "from": "clinical", "to": "identity", "label": "9 ID", "variant": "dashed" },
+    { "id": "billing-identity", "from": "billing", "to": "identity", "label": "3 ID", "variant": "dashed" },
+    { "id": "scheduling-clinical", "from": "scheduling", "to": "clinical", "label": "4 ID", "variant": "dashed" },
+    { "id": "clinical-scheduling", "from": "clinical", "to": "scheduling", "label": "1 ID", "variant": "dashed" },
+    { "id": "billing-clinical", "from": "billing", "to": "clinical", "label": "3 ID", "variant": "dashed" },
+    { "id": "billing-workflow", "from": "billing", "to": "workflow", "label": "1 ID", "variant": "dashed" },
+    { "id": "billing-scheduling", "from": "billing", "to": "scheduling", "label": "2 ID", "variant": "dashed" },
+    { "id": "billing-catalog", "from": "billing", "to": "catalog", "label": "1 ID", "variant": "dashed" },
+    { "id": "clinical-catalog", "from": "clinical", "to": "catalog", "label": "2 ID", "variant": "dashed" },
+    { "id": "workflow-catalog", "from": "workflow", "to": "catalog", "label": "1 ID", "variant": "dashed" },
+    { "id": "scheduling-workflow", "from": "scheduling", "to": "workflow", "label": "1 ID", "variant": "dashed" }
+  ],
+  "cards": [
+    { "dot": "slate", "title": "Cách đọc", "items": ["Mỗi hộp là một schema và một DbContext riêng (MOD-01)", "Nét đứt: cột ID trỏ sang schema khác, chỉ có index, không FK constraint, không navigation", "FK nội bộ (46) nằm trong từng schema, OnDelete Restrict", "Nguồn: docs/db/erd-v2.2.json và cấu hình Configurations/*.cs"] },
+    { "dot": "cyan", "title": "scheduling → khác (16)", "items": ["identity: DoctorSessionSlotQuota.DoctorId/AssignedRoomId, ActiveBookingClaim.DoctorId/PatientId, Reservation.PatientId/AppUserId, Appointment.PatientId, ServiceStation.RoomId, QueueTicket.TargetRoomId, ActivePatientEngagement.PatientId, ActiveStationAllocation.CurrentPatientId", "clinical: QueueTicket.EncounterId/ServiceOrderId/ServiceOrderItemId, ActivePatientEngagement.EncounterId", "workflow: Reservation.BookingAttemptId"] },
+    { "dot": "emerald", "title": "clinical → khác (12)", "items": ["identity: Encounter.PatientId/OriginalDoctorId/OriginalRoomId, EncounterClinicalRecord.UpdatedByDoctorId, VitalSign.RecordedByStaffId, ServiceOrder.PrescribedByDoctorId, CLSResult.PerformedByStaffId/ApprovedByStaffId, Prescription.PrescribedByDoctorId", "scheduling: Encounter.AppointmentId", "catalog: ServiceOrderItem.MedicalServiceId, PrescriptionItem.MedicationId"] },
+    { "dot": "amber", "title": "billing → khác (10)", "items": ["clinical: BillingItem.EncounterId/ServiceOrderItemId, PaymentIntent.EncounterId", "scheduling: BillingItem.AppointmentId, RefundRequest.AppointmentId", "identity: PaymentIntent.PayerAppUserId/PatientId, RefundRequest.DecisionByStaffId", "catalog: BillingItem.PriceListItemId", "workflow: PaymentIntent.BookingAttemptId"] },
+    { "dot": "violet", "title": "workflow, identity, catalog → khác (14)", "items": ["workflow → identity: BookingAttempt.AppUserId/PatientId/SelectedDoctorId, Operation.InitiatedByUserId, AuditLog.PerformedByUserId/RoomAccountId/RoomDeviceSessionId/StaffShiftAssignmentId", "workflow → catalog: BookingAttempt.SelectedDoctorRankId", "identity → catalog: Doctor.SpecialtyId/DoctorRankId", "catalog → identity: MedicalService.DefaultRoomId, MedicalServiceRoom.RoomId, PriceListItem.DoctorId"] }
+  ]
+}

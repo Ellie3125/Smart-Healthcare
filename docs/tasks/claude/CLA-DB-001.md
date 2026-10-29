@@ -8,13 +8,13 @@ Yêu cầu của trưởng nhóm trong chat ngày 29/10/2026: prompt "Nhiệm v�
 - base_commit: aa087a7
 - branch: feat/db-erd-v2.2
 - requirement_ids: MOD-01, MOD-04, DB-01, DB-03, DB-05, OWN-10; ERD v2.2 (quyết định 1B, 2A, 3B, 4B)
-- allowed_paths: docs/db/**, docs/plans/db-erd-v2.2.md, backend/src/Modules/{Identity,Catalog,Scheduling,Clinical,Billing,Workflow}/{Domain,Infrastructure}/**, backend/src/Shared/Persistence/**, backend/src/Tools/DbMigrator/**, backend/SmartHealthcare.slnx, tests/backend/Database.Tests/**, Directory.Packages.props, .config/dotnet-tools.json, docs/tasks/claude/**, docs/sessions/claude/**, docs/evidence/claude/**, docs/handoffs/claude-to-codex/**
+- allowed_paths: docs/db/**, docs/plans/db-erd-v2.2.md, backend/src/Modules/{Identity,Catalog,Scheduling,Clinical,Billing,Workflow}/{Domain,Infrastructure}/**, backend/src/Shared/Persistence/**, backend/src/Tools/DbMigrator/**, backend/SmartHealthcare.slnx, backend/Directory.Build.props, tests/backend/Database.Tests/**, Directory.Packages.props, .config/dotnet-tools.json, docs/tasks/claude/**, docs/sessions/claude/**, docs/evidence/claude/**, docs/handoffs/claude-to-codex/**, global.json, .gitignore, docs/ai/ownership.md
 - contract_version: không áp dụng (không có API)
 - acceptance_criteria: theo mục "Tiêu chí hoàn thành" trong docs/plans/db-erd-v2.2.md
-- status: In progress (chờ trưởng nhóm duyệt kế hoạch)
+- status: In review
 - depends_on: không
-- next_action: Trưởng nhóm duyệt docs/plans/db-erd-v2.2.md và trả lời mục "Cần trưởng nhóm xác nhận"; sau đó làm module identity.
+- next_action: Trưởng nhóm review branch feat/db-erd-v2.2 (báo cáo docs/db/erd-v2.2-implementation.md) và cho phép push/mở PR; Codex xử lý docs/handoffs/claude-to-codex/CLA-DB-001.md; nhóm trả lời mục 10 báo cáo.
 
 ## Quyết định trong phiên
 - Chia schema theo 6 domain của ERD; lệch so với Giải pháp v2.2 §8.1 ghi trong kế hoạch và báo cáo cuối.
-- Mặc định tôi đã đề xuất và trưởng nhóm chưa phản đối: EF Core 10 (khớp .NET SDK 10.0.401), dotnet-ef dạng local tool, docs/db/ và docs/plans/ coi như vùng của Codex mà Claude sửa theo OWN-10.
+- Trưởng nhóm duyệt kế hoạch ("Duyệt, làm đi") với toàn bộ đề xuất mục 8; mặc định khác: EF Core 10 (khớp .NET SDK 10.0.401), dotnet-ef dạng local tool, docs/db/ và docs/plans/ coi như vùng của Codex mà Claude sửa theo OWN-10.
