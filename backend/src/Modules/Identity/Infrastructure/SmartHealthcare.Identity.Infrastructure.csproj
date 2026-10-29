@@ -1,0 +1,7 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <ItemGroup>
+    <PackageReference Include="Microsoft.EntityFrameworkCore.SqlServer" />
+    <ProjectReference Include="..\Domain\SmartHealthcare.Identity.Domain.csproj" />
+    <ProjectReference Include="..\..\..\Shared\Persistence\SmartHealthcare.Shared.Persistence.csproj" />
+  </ItemGroup>
+</Project>
