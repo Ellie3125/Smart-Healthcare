@@ -3,7 +3,7 @@
 ## Ủy quyền của trưởng nhóm (chép nguyên văn)
 Tôi là trưởng nhóm và chủ repo. Riêng trong task này, tôi cho phép Claude Code sửa các file hiện thuộc Codex theo docs/ai/ownership.md: AGENTS.md, GEMINI.md, README.md, .gitignore, .agents/**, docs/ai/**. Mục đích là đổi owner và cập nhật quy chuẩn theo GOV-06. Quyền này hết khi task kết thúc. Không sửa backend/**, frontend/** hay code ứng dụng.
 
-Bổ sung ngày 29/10/2026 (trưởng nhóm duyệt trong chat, quyết định A): commit nguyên văn hai file nguồn v2.1 vào docs/business/ và docs/architecture/ trên nhánh này.
+Bổ sung ngày 29/10/2026 (trưởng nhóm duyệt trong chat, quyết định A): commit nguyên văn hai file nguồn v2.1 vào docs/business/ và docs/architecture/ trên nhánh này. Sau đó trưởng nhóm yêu cầu thêm đoạn "Môi trường triển khai và giảm khác biệt giữa các môi trường" vào cuối mục 8.6 của docs/architecture/giai-phap-ky-thuat-v2.1.md (do phiên fork viết, trưởng nhóm duyệt commit trong chat); file này không còn giống hệt bản gốc ở Downloads, không chép đè lại.
 
 ## Trường GOV-03
 - task_id: CLA-GOV-001

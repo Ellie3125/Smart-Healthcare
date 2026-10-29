@@ -561,6 +561,15 @@ Trong Access Policy kiểu Allow, cách viết Include cho email hoặc nhóm SS
 
 Tệp nội bộ đi qua tuyến Staff được bảo vệ và Backend kiểm quyền; bệnh nhân chỉ xem nội dung đã phát hành thuộc quyền qua tuyến bệnh nhân. Không biến một presigned URL R2 thành bằng chứng người tải đang ở mạng viện. Loại URL này cho người giữ URL thực hiện thao tác được ký cho đến khi hết hạn; thiết kế hiện tại dùng proxy hoặc stream qua Backend để áp dụng kiểm soát truy cập. [T12]
 
+**Môi trường triển khai và giảm khác biệt giữa các môi trường:** Laptop là môi trường Dev và chạy Jenkins; VPS 1 riêng là Staging; VPS 2 riêng là Prod. Chatbot (profile `chatbot`) chạy trên cả Staging và Prod, bật sau cùng. Để kết quả kiểm thử trên laptop và Staging phản ánh đúng Prod:
+
+1. CI trên laptop chỉ build và test, mỗi lần build ra một image với digest cố định.
+2. Staging và Prod pull đúng digest đó. VPS không build lại source.
+3. Staging là chỗ kiểm thật. Cấu hình Staging giống Prod: cùng image, cùng OS, cùng Access/Tunnel, R2, cổng thanh toán sandbox. Chỉ khác secrets, dữ liệu và hostname. Qua được Staging thì gần như chắc sẽ chạy được trên Prod.
+4. Build image cho đúng kiến trúc của VPS, ví dụ `linux/amd64`.
+
+Rủi ro khi đặt Jenkins trên laptop: laptop tắt thì không có CI. Jenkins trên laptop cũng không được giữ secret Prod ngoài credential store.
+
 ### 8.7 Lớp chatbot và ranh giới xác nhận
 
 Theo trang 1, FastAPI nhận hội thoại từ phiên .NET đã xác thực và nạp đúng ngữ cảnh của tài khoản cùng ConversationId. Danh tính người dùng do .NET truyền sang; model không được tự điền UserId hay PatientId vào tham số công cụ.
