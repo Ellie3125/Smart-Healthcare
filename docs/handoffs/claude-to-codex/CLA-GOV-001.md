@@ -1,7 +1,7 @@
 # Handoff claude-to-codex — CLA-GOV-001
 
 ## Task / use case
-CLA-GOV-001 cập nhật bộ quy chuẩn theo Phạm vi nghiệp vụ v2.1 và Giải pháp kỹ thuật v2.1 (docs/business/pham-vi-nghiep-vu-v2.1.md, docs/architecture/giai-phap-ky-thuat-v2.1.md). Luật đã được sửa; các phần dưới đây thuộc Codex nên Claude Code không tự làm.
+CLA-GOV-001 cập nhật bộ quy chuẩn theo Phạm vi nghiệp vụ v2.1 và Giải pháp kỹ thuật v2.2 (docs/business/pham-vi-nghiep-vu-v2.1.md, docs/architecture/giai-phap-ky-thuat-v2.2.md). Luật đã được sửa; các phần dưới đây thuộc Codex nên Claude Code không tự làm.
 
 ## Contract commit/hash
 Chưa có contract API (docs/api/ trống). Bộ luật tham chiếu: nhánh ellie3125/claude-governance, commit 44eeee0 trở về sau.

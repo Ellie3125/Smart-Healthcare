@@ -22,4 +22,4 @@ Không tự đổi hosting, thêm cloud storage ngoài R2 hoặc mở service n�
 nginx -t; SPA refresh; API prefix; 413 trước/sau bằng dữ liệu giả; TLS chain; CORS; hai instance ID. Host Staff: đúng danh tính nhưng IP ngoài mạng viện bị Access chặn; đúng IP nhưng sai danh tính bị chặn; host Public không tới được tuyến Staff. Quét cổng origin từ ngoài có ủy quyền không thấy cổng ứng dụng. Kiểm Jenkins/công cụ quản trị không public ngoài policy.
 
 ## Nguồn
-Phạm vi nghiệp vụ v2.1 §2.3; Giải pháp kỹ thuật v2.1 §8.6 [T11][T12]; Prompt_Stack_Smart_Healthcare §2,4,7–9; Buổi 8 tr.1–5. Cơ chế Cloudflare phải tra tài liệu phiên bản thực tế khi triển khai.
+Phạm vi nghiệp vụ v2.1 §2.3; Giải pháp kỹ thuật v2.2 §8.6 [T11][T12]; Prompt_Stack_Smart_Healthcare §2,4,7–9; Buổi 8 tr.1–5. Cơ chế Cloudflare phải tra tài liệu phiên bản thực tế khi triển khai.

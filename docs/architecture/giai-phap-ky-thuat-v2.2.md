@@ -1,10 +1,20 @@
 # Giải pháp kỹ thuật và xử lý sự cố Smart Healthcare
 
 **Ngày cập nhật:** 29/10/2026  
-**Phiên bản:** 2.1 bổ sung phân ngữ cảnh module, giao tiếp giữa module và cập nhật chatbot  
-**Trạng thái:** Đã chốt kiến trúc và cơ chế bảo vệ đồng thời; cần triển khai, kiểm chứng và hoàn thiện tham số vận hành.
+**Phiên bản:** 2.2 bổ sung lộ trình chatbot theo giai đoạn, bốn lớp thiết kế và bộ nhớ ngắn hạn  
+**Trạng thái:** Đã chốt kiến trúc và cơ chế bảo vệ đồng thời; đã chốt giai đoạn 1 của chatbot; giai đoạn 2 và 3 của chatbot là định hướng. Cần triển khai, kiểm chứng và hoàn thiện tham số vận hành.
 
 Tài liệu xác định cách triển khai các quy tắc trong Phạm vi nghiệp vụ Smart Healthcare, cơ chế bảo vệ dữ liệu, xử lý lỗi và khôi phục tiến trình. Kiến trúc triển khai là Modular Monolith cùng worker riêng, với mục tiêu tiến dần đến microservices theo ranh giới nghiệp vụ.
+
+**Thay đổi trong phiên bản 2.2 (29/10/2026):**
+
+| Nội dung | Từ phiên bản 2.1 | Thành phiên bản 2.2 |
+| --- | --- | --- |
+| Model chatbot | Model do nhóm fine-tune ngay trong bản triển khai | Giai đoạn 1 dùng model nền chưa fine-tune qua Ollama; fine-tune chuyển sang giai đoạn 3, khi phạm vi chatbot ổn định và có dữ liệu hội thoại |
+| Lý do hoãn fine-tune | Chưa nêu | Chatbot thiết kế riêng cho dự án nên chưa có dữ liệu huấn luyện; quy tắc phạm vi còn đang sửa đổi, fine-tune sẽ gắn quy tắc vào trọng số và phải huấn luyện lại mỗi lần đổi |
+| Thiết kế chatbot | Danh sách công cụ và ranh giới xác nhận | Bổ sung bốn lớp: Data Schema, State Schema, Context Schema, Short-term Memory; thiết kế từ dữ liệu lưu trong DB và các kịch bản bệnh nhân nhờ chatbot hỗ trợ |
+| Bộ nhớ chatbot | Lịch sử hội thoại theo ConversationId bằng checkpointer | Gọi rõ là Short-term Memory trong phạm vi một cuộc trò chuyện; Long-term Memory là định hướng giai đoạn 2 |
+| Đánh số mục 11 | 11.1 phương án, 11.2 xác nhận, 11.3 cache | 11.1 phương án; thêm 11.2 lộ trình, 11.3 bốn lớp thiết kế, 11.4 bộ nhớ; mục 11.2 và 11.3 cũ chuyển thành 11.5 và 11.6, nội dung giữ nguyên |
 
 **Thay đổi trong phiên bản 2.1 (29/10/2026):**
 
@@ -27,7 +37,7 @@ Các quyết định áp dụng cho bản triển khai hiện tại:
 | Kiến trúc và worker | Hai replica .NET của cùng Modular Monolith; worker .NET riêng chạy Hangfire với SQL Server, Operation và Outbox |
 | Hướng phát triển | Giữ ranh giới module và contract rõ từ đầu; tách service từng bước khi đã đáp ứng điều kiện dữ liệu, kiểm thử và vận hành |
 | Giao tiếp giữa module | Gọi đồng bộ qua contract công khai; lệnh nguyên tử nhiều module qua application service và unit of work chung; việc sau commit qua integration event, Outbox và worker; không truy cập chéo DbContext hoặc bảng |
-| Chatbot | Hướng 2 với FastAPI, LangChain `create_agent` và Ollama chạy model trong VPS; chỉ gọi API nghiệp vụ .NET |
+| Chatbot | Hướng 2 với FastAPI, LangChain `create_agent` và Ollama chạy model trong VPS; chỉ gọi API nghiệp vụ .NET. Giai đoạn 1 dùng model nền cùng Data Schema, State Schema, Context Schema và Short-term Memory; Long-term Memory và fine-tune theo lộ trình mục 11.2 |
 
 Khóa lạc quan và khóa bi quan được dùng theo loại thao tác. Transaction và idempotency vẫn áp dụng cùng các cơ chế khóa để bảo vệ thay đổi liên quan và xử lý yêu cầu gửi lại. Model nền cụ thể cùng các tham số tải, retry và timeout cần tiếp tục được lựa chọn hoặc đo kiểm; quyết định về kiến trúc và cơ chế bảo vệ đồng thời đã chốt.
 
@@ -257,7 +267,7 @@ Giữ nền công nghệ đã chọn trong báo cáo tuần 1; lần điều ch�
 | --- | --- |
 | Backend và dữ liệu | Hai replica BE1 và BE2 của ASP.NET Core .NET, EF Core, cùng dùng SQL Server primary cho mọi quyết định nghiệp vụ quan trọng |
 | Giao diện | React và React Hook Form cho web; React Native cùng Expo cho app bệnh nhân |
-| Chatbot | Hướng 2 đã chọn: model do nhóm fine-tune, phục vụ bằng Ollama trong VPS; FastAPI quản lý API và ngữ cảnh, LangChain `create_agent` khai báo công cụ, gọi model và giữ lịch sử hội thoại; không tự dựng graph LangGraph, không dùng Model Adapter |
+| Chatbot | Hướng 2: model chạy nội bộ bằng Ollama trong VPS; giai đoạn 1 dùng model nền chưa fine-tune, fine-tune theo lộ trình mục 11.2. FastAPI quản lý API và ngữ cảnh, LangChain `create_agent` khai báo công cụ, gọi model và giữ Short-term Memory; không tự dựng graph LangGraph, không dùng Model Adapter |
 | Công việc nền | Worker .NET riêng chạy Hangfire với SQL Server; Operation và Outbox giữ tiến trình nghiệp vụ, áp dụng cùng quy tắc bảo vệ dữ liệu như API |
 | Tệp kết quả | Cloudflare R2 private cùng metadata và kiểm quyền tại Backend; không lấy bài học MinIO làm quyết định đổi kho lưu |
 | Triển khai | Docker Compose, Nginx, VPS Ubuntu, Cloudflare và Zero Trust; Jenkins theo lộ trình triển khai |
@@ -574,11 +584,11 @@ Rủi ro khi đặt Jenkins trên laptop: laptop tắt thì không có CI. Jenki
 
 Theo trang 1, FastAPI nhận hội thoại từ phiên .NET đã xác thực và nạp đúng ngữ cảnh của tài khoản cùng ConversationId. Danh tính người dùng do .NET truyền sang; model không được tự điền UserId hay PatientId vào tham số công cụ.
 
-LangChain `create_agent` khai báo danh sách công cụ được phép ở mục 11.2, gọi model qua Ollama và xử lý kết quả API. Lịch sử hội thoại được giữ theo ConversationId bằng checkpointer của LangChain. `create_agent` chạy trên runtime LangGraph như một thư viện phụ thuộc; nhóm **không tự thiết kế graph LangGraph** và không dùng Unified Model Adapter, vì phạm vi chatbot chỉ gồm vài công cụ lịch khám và một vòng gọi công cụ là đủ. Bước chờ xác nhận được thể hiện bằng đề nghị do .NET lưu (mục 11.2), không bằng trạng thái graph.
+LangChain `create_agent` khai báo danh sách công cụ được phép ở mục 11.5, gọi model qua Ollama và xử lý kết quả API. Lịch sử hội thoại được giữ theo ConversationId bằng checkpointer của LangChain, đóng vai trò Short-term Memory (mục 11.4). `create_agent` chạy trên runtime LangGraph như một thư viện phụ thuộc; nhóm **không tự thiết kế graph LangGraph** và không dùng Unified Model Adapter, vì phạm vi chatbot chỉ gồm vài công cụ lịch khám và một vòng gọi công cụ là đủ. Bước chờ xác nhận được thể hiện bằng đề nghị do .NET lưu (mục 11.5), không bằng trạng thái graph.
 
-Ollama chạy trong cùng VPS dưới dạng container riêng, chỉ mở trong mạng Docker nội bộ. Ghim tag model và phiên bản image Ollama, dùng cùng cấu hình ở laptop và VPS để môi trường local giống production. Model nền đề xuất cho demo là dòng Qwen2.5 cỡ 3B; bản fine-tune của Hướng 2 được nạp vào Ollama qua Modelfile (GGUF hoặc adapter). Model cụ thể, tốc độ phản hồi và giới hạn tài nguyên cần đo trên VPS thực tế trước khi chốt. Không tự chuyển dữ liệu bệnh nhân sang API model nhà cung cấp khi model nội bộ lỗi.
+Ollama chạy trong cùng VPS dưới dạng container riêng, chỉ mở trong mạng Docker nội bộ. Ghim tag model và phiên bản image Ollama, dùng cùng cấu hình ở laptop và VPS để môi trường local giống production. Model nền đề xuất cho demo là dòng Qwen2.5 cỡ 3B; giai đoạn 1 dùng trực tiếp model nền, chưa fine-tune. Khi đến giai đoạn 3 của lộ trình mục 11.2, bản fine-tune được nạp vào Ollama qua Modelfile (GGUF hoặc adapter) mà không đổi kiến trúc. Model cụ thể, tốc độ phản hồi và giới hạn tài nguyên cần đo trên VPS thực tế trước khi chốt. Không tự chuyển dữ liệu bệnh nhân sang API model nhà cung cấp khi model nội bộ lỗi.
 
-Lịch sử hội thoại chỉ phục vụ ngữ cảnh chat; BookingAttempt, Reservation, Appointment và Operation vẫn nằm trong nguồn nghiệp vụ của .NET. Khi có xác nhận, cả BE1 và BE2 đều kiểm lại primary theo mục 11.2. Không giữ transaction khi suy luận hoặc chờ người dùng và không cấp công cụ chạy SQL tùy ý cho model.
+Lịch sử hội thoại chỉ phục vụ ngữ cảnh chat; BookingAttempt, Reservation, Appointment và Operation vẫn nằm trong nguồn nghiệp vụ của .NET. Khi có xác nhận, cả BE1 và BE2 đều kiểm lại primary theo mục 11.5. Không giữ transaction khi suy luận hoặc chờ người dùng và không cấp công cụ chạy SQL tùy ý cho model.
 
 ## 9 Lộ trình từ Modular Monolith cùng worker đến microservices
 
@@ -627,25 +637,186 @@ Chuyển trạng thái lịch, kết thúc claim và điều chỉnh hoặc khó
 
 Trạng thái hoàn tiền có thể còn Pending sau khi lịch đã hủy; không giữ transaction chờ cổng thanh toán. Nếu mất phản hồi, tra Operation trước khi gửi lại. Kiểm quyền để tài khoản phòng CLS không hủy lịch gốc hoặc hoàn tiền; lệnh trong lúc đang phục vụ phải đi qua quy trình hỗ trợ có thẩm quyền.
 
-## 11 Chatbot theo Hướng 2 với model do nhóm fine tune
+## 11 Chatbot theo Hướng 2 và lộ trình theo giai đoạn
 
 ### 11.1 Phương án được chọn
 
-**Hướng 2 đã được chọn để triển khai.** Nhóm lấy một model nền phù hợp tiếng Việt và tài nguyên thực tế, xây dữ liệu hội thoại nghiệp vụ, fine-tune tham số hoặc adapter, đánh giá rồi phục vụ model qua Ollama chạy nội bộ trong VPS. Phạm vi vẫn là tìm lịch, đặt, xem, đổi và hủy lịch; tra vé và trạng thái thanh toán khám theo quyền. Hướng 1 dùng API model nhà cung cấp được giữ làm tài liệu so sánh lịch sử, không còn là phương án triển khai song song trong kế hoạch này.
+**Hướng 2 đã được chọn để triển khai:** model chạy nội bộ qua Ollama trong VPS, không gửi dữ liệu bệnh nhân sang API model nhà cung cấp. Phạm vi vẫn là tìm lịch, đặt, xem, đổi và hủy lịch; tra vé và trạng thái thanh toán khám theo quyền. Hướng 1 dùng API model nhà cung cấp được giữ làm tài liệu so sánh lịch sử, không còn là phương án triển khai song song trong kế hoạch này.
 
-| Thành phần | Trách nhiệm trong Hướng 2 |
+**Điều chỉnh từ phiên bản 2.2:** bản triển khai đầu dùng model nền chưa fine-tune. Chatbot được thiết kế riêng cho dự án nên chưa có dữ liệu hội thoại để huấn luyện, và quy tắc phạm vi của chatbot còn đang sửa đổi. Nếu fine-tune lúc này, quy tắc sẽ gắn vào trọng số model; mỗi lần đổi phạm vi phải tạo lại dữ liệu và huấn luyện lại, còn quy tắc cũ có thể sót trong model. Vì vậy toàn bộ quy tắc được đặt ngoài model, trong bốn lớp thiết kế ở mục 11.3 và trong kiểm tra tại Backend; fine-tune chuyển sang giai đoạn 3 của lộ trình.
+
+| Thành phần | Trách nhiệm |
 | --- | --- |
-| Model do nhóm fine-tune | Hiểu yêu cầu tiếng Việt, hỏi thêm thông tin, đề xuất công cụ và diễn đạt kết quả đã nhận |
-| Dữ liệu huấn luyện | Hội thoại có đầu ra chuẩn do nhóm xây dựng; có trường hợp thiếu thông tin, hết chỗ, quá hạn, timeout và sai quyền |
-| Bộ dữ liệu đánh giá | Tách train, validation và test theo kịch bản; so sánh model nền trước fine-tune với model sau fine-tune |
-| Ollama (máy chủ suy luận nội bộ) | Nạp model hoặc adapter đã được đánh giá qua Modelfile, ghim tag phiên bản và trả kết quả cho lớp điều phối; không tự giữ quyền cập nhật DB nghiệp vụ |
-| FastAPI và LangChain | FastAPI nhận API và ngữ cảnh; LangChain `create_agent` khai báo công cụ, gọi model qua Ollama và giữ lịch sử hội thoại theo ConversationId; không tự dựng graph LangGraph |
+| Model nền (giai đoạn 1) | Hiểu yêu cầu tiếng Việt, hỏi thêm thông tin, chọn công cụ và diễn đạt kết quả đã nhận; không chứa quy tắc nghiệp vụ |
+| Bốn lớp thiết kế | Data Schema, State Schema, Context Schema và Short-term Memory giữ cấu trúc dữ liệu, trạng thái hội thoại, ngữ cảnh người dùng và bộ nhớ trong phiên (mục 11.3, 11.4) |
+| Ollama (máy chủ suy luận nội bộ) | Nạp model nền, sau này là model hoặc adapter đã fine-tune, qua Modelfile; ghim tag phiên bản; không tự giữ quyền cập nhật DB nghiệp vụ |
+| FastAPI và LangChain | FastAPI nhận API và ngữ cảnh; LangChain `create_agent` khai báo công cụ, `state_schema`, `context_schema`, gọi model qua Ollama và giữ Short-term Memory bằng checkpointer theo ConversationId; không tự dựng graph LangGraph |
 | BE1 và BE2 .NET | Xác thực, kiểm quyền, đọc API nghiệp vụ, kiểm xác nhận và thực hiện lệnh trên cùng primary |
 | SQL Server primary | Nguồn hiện hành về lịch, reservation, vé, thanh toán và trạng thái điều phối |
 
-Lịch hẹn và trạng thái thanh toán thay đổi được lấy qua API nghiệp vụ khi cần, không đưa vào trọng số rồi huấn luyện lại mỗi lần có người đặt lịch. Nhóm cần lưu phiên bản dữ liệu, model nền, cấu hình huấn luyện, adapter hoặc checkpoint và kết quả đánh giá. Chỉ tải model về chạy hoặc sửa prompt chưa phải hoàn thành phần fine-tune.
+Lịch hẹn và trạng thái thanh toán thay đổi được lấy qua API nghiệp vụ khi cần, không đưa vào trọng số model ở bất kỳ giai đoạn nào.
 
-### 11.2 Model đề xuất và Backend xác nhận nghiệp vụ
+### 11.2 Lộ trình chatbot theo giai đoạn
+
+| Giai đoạn | Thành phần | Trạng thái | Điều kiện chuyển sang giai đoạn sau |
+| --- | --- | --- | --- |
+| 1 | Model nền cùng Data Schema, State Schema, Context Schema và Short-term Memory | Đã chốt, triển khai ngay | Các công cụ và kịch bản chạy ổn định trên Staging; luồng xác nhận ở mục 11.5 đạt kiểm thử mục 13.2 |
+| 2 | Bổ sung Long-term Memory theo bệnh nhân | Định hướng | Phạm vi dữ liệu được lưu dài hạn đã chốt; có chức năng cho bệnh nhân xem và xóa |
+| 3 | Fine-tune model cho các phần ít thay đổi: nhận diện intent, trích slot từ câu tiếng Việt, giọng văn | Định hướng | Phạm vi chatbot được đóng băng; có đủ dữ liệu hội thoại đã ẩn danh và bộ đánh giá |
+
+Quy tắc khi sang giai đoạn 3:
+
+- Quy tắc nghiệp vụ vẫn nằm ngoài model; fine-tune chỉ cải thiện khả năng hiểu câu và gọi đúng công cụ.
+- Tách dữ liệu train, validation và test theo kịch bản; so sánh model nền với model sau fine-tune trên cùng bộ test.
+- Lưu phiên bản dữ liệu, model nền, cấu hình huấn luyện, adapter hoặc checkpoint và kết quả đánh giá. Chỉ tải model về chạy hoặc sửa prompt chưa phải hoàn thành phần fine-tune.
+
+### 11.3 Bốn lớp thiết kế của giai đoạn 1
+
+Bốn lớp được thiết kế từ dữ liệu đã lưu trong DB và các kịch bản bệnh nhân nhờ chatbot hỗ trợ trong phạm vi mục 11.1. Mỗi lớp ánh xạ vào một tham số có sẵn của LangChain `create_agent`, nên không cần tự dựng graph.
+
+| Lớp | Vai trò | Ánh xạ trong LangChain | Nơi sửa khi đổi phạm vi |
+| --- | --- | --- | --- |
+| Data Schema | Hình dạng dữ liệu chatbot được đọc hoặc đề nghị ghi, qua API .NET | Pydantic model cho input và output của công cụ | DTO của công cụ |
+| State Schema | Trạng thái hội thoại thay đổi qua từng lượt: intent, slot, bước | `state_schema` kế thừa `AgentState` | Danh sách intent và slot |
+| Context Schema | Thông tin cố định trong một lần gọi: ai đang hỏi, cuộc trò chuyện nào | `context_schema`, công cụ đọc qua `runtime.context` | Hiếm khi đổi |
+| Short-term Memory | Nhớ trong phạm vi một cuộc trò chuyện | `checkpointer` cùng `thread_id` = ConversationId | Tham số cửa sổ và thời hạn |
+
+#### 11.3.1 Data Schema
+
+Chatbot chỉ thấy DB qua API nghiệp vụ .NET dưới dạng DTO; không có công cụ chạy SQL tùy ý. Tên trường dưới đây là gợi ý, hoàn thiện theo contract API khi lập trình.
+
+```python
+from pydantic import BaseModel
+from datetime import date
+from typing import Literal
+
+class SlotOption(BaseModel):          # kết quả tìm lịch; số suất chỉ để tham khảo
+    doctor_id: str
+    doctor_name: str
+    doctor_level: str                 # cấp bậc làm căn cứ áp giá
+    service_date: date
+    remaining_hint: int | None
+
+class AppointmentOut(BaseModel):
+    appointment_id: str
+    doctor_name: str
+    service_date: date
+    status: str                       # theo trạng thái do Scheduling trả về
+    allowed_actions: list[str]        # do Backend tính, ví dụ đổi hoặc hủy
+
+class TicketOut(BaseModel):
+    ticket_no: int
+    service_date: date
+    status: str
+
+class ExamPaymentOut(BaseModel):
+    appointment_id: str
+    status: Literal["Pending", "Paid", "Failed", "Unknown", "RefundPending", "Refunded"]
+
+class ProposalOut(BaseModel):         # đề nghị do .NET lưu, chờ bệnh nhân xác nhận (mục 11.5)
+    proposal_id: str
+    action: Literal["Book", "Reschedule", "Cancel"]
+    summary: str
+    expires_at_utc: str
+```
+
+#### 11.3.2 State Schema
+
+```python
+from langchain.agents import AgentState
+from typing import Literal, NotRequired
+
+Intent = Literal[
+    "SEARCH_SLOTS", "BOOK", "VIEW_APPOINTMENTS", "RESCHEDULE", "CANCEL",
+    "VIEW_TICKET", "VIEW_EXAM_PAYMENT", "OUT_OF_SCOPE",
+]
+Stage = Literal["COLLECTING", "AWAITING_CONFIRMATION", "DONE", "ABORTED"]
+
+class ChatState(AgentState):
+    intent: NotRequired[Intent]
+    stage: NotRequired[Stage]
+    slots: NotRequired[dict]
+    missing_slots: NotRequired[list[str]]
+    proposal_id: NotRequired[str]      # chỉ tham chiếu; nội dung và thời hạn do .NET giữ
+```
+
+| Intent | Slot cần có | Thay đổi dữ liệu | Cần xác nhận |
+| --- | --- | --- | --- |
+| SEARCH_SLOTS | cấp bậc hoặc bác sĩ, ngày (tùy chọn) | Không | Không |
+| BOOK | bác sĩ, ngày khám | Có | Có |
+| VIEW_APPOINTMENTS | Không, lấy theo người dùng trong Context | Không | Không |
+| RESCHEDULE | lịch cần đổi, ngày mới | Có | Có |
+| CANCEL | lịch cần hủy | Có | Có |
+| VIEW_TICKET | lịch hoặc ngày khám (tùy chọn) | Không | Không |
+| VIEW_EXAM_PAYMENT | lịch (tùy chọn) | Không | Không |
+| OUT_OF_SCOPE | Không | Không | Không; chatbot trả lời ngoài phạm vi và gợi ý thao tác thủ công |
+
+Luồng chung: `COLLECTING → AWAITING_CONFIRMATION → DONE`; intent không thay đổi dữ liệu bỏ qua bước chờ xác nhận. Bệnh nhân từ chối hoặc đổi ý ở bất kỳ bước nào thì chuyển `ABORTED`. State chỉ mô tả hội thoại; trạng thái nghiệp vụ thật luôn đọc lại từ API.
+
+#### 11.3.3 Context Schema
+
+```python
+from dataclasses import dataclass
+
+@dataclass(frozen=True)
+class ChatContext:
+    user_id: str               # .NET truyền sang từ phiên đã xác thực
+    patient_id: str            # bệnh nhân đang được thao tác, đã được .NET kiểm quyền
+    conversation_id: str
+    access_token: str          # công cụ dùng để gọi API .NET thay người dùng
+    locale: str = "vi"
+```
+
+Công cụ lấy danh tính qua `runtime.context`, không nhận UserId hay PatientId làm tham số do model điền. Quy tắc cố định trong system prompt: chỉ trả lời dựa trên kết quả công cụ; mọi thao tác đặt, đổi, hủy phải tóm tắt và chờ xác nhận; không đưa ra nhận định chuyên môn; yêu cầu ngoài phạm vi thì từ chối và gợi ý thao tác thủ công. Quy tắc quan trọng được Backend kiểm lại, không chỉ dựa vào prompt.
+
+### 11.4 Bộ nhớ của chatbot
+
+#### 11.4.1 Short-term Memory (giai đoạn 1)
+
+```python
+agent = create_agent(
+    model=ChatOllama(model="<tag model đã ghim>"),
+    tools=[...],
+    state_schema=ChatState,
+    context_schema=ChatContext,
+    checkpointer=checkpointer,          # bộ lưu bền ở Staging và Prod; bộ nhớ RAM chỉ dùng khi dev
+)
+
+agent.invoke(
+    {"messages": [{"role": "user", "content": message}]},
+    config={"configurable": {"thread_id": conversation_id}},
+    context=ChatContext(...),
+)
+```
+
+| Quy ước | Giá trị đề xuất |
+| --- | --- |
+| Phạm vi | Một ConversationId; không chia sẻ giữa các cuộc trò chuyện hay giữa người dùng |
+| Cửa sổ | Giữ các lượt gần nhất, phần cũ hơn được tóm tắt hoặc cắt bớt; số lượt chốt sau khi đo với context của model trên VPS |
+| Thời hạn | Hết thời gian không hoạt động thì xóa checkpoint; giá trị chốt cùng chính sách phiên đăng nhập |
+| Nội dung | Tin nhắn và State Schema; không lưu thông tin thẻ, bí mật thanh toán hay access token |
+| Vai trò | Khôi phục câu chuyện; không là bằng chứng đã có suất, đã thanh toán hay đã xác nhận (mục 2.1) |
+
+Checkpointer phải dùng bộ lưu chung cho mọi bản chạy của dịch vụ chatbot, không phụ thuộc RAM riêng của một tiến trình, để khớp nguyên tắc môi trường local giống production.
+
+#### 11.4.2 Long-term Memory (định hướng giai đoạn 2)
+
+| | Short-term Memory | Long-term Memory |
+| --- | --- | --- |
+| Phạm vi | Một cuộc trò chuyện | Nhiều cuộc trò chuyện, theo người dùng |
+| Lưu ở | Checkpointer, khóa ConversationId | Store của LangChain, namespace theo UserId |
+| Nội dung | Tin nhắn, intent, slot đang điền | Thói quen dùng dịch vụ, ví dụ bác sĩ hoặc cấp bậc hay chọn, cách xưng hô, ngôn ngữ |
+| Thời hạn | Xóa khi hết phiên | Lâu dài, bệnh nhân xem và xóa được |
+
+Nguyên tắc cho giai đoạn 2:
+
+- Không lưu thông tin sức khỏe, nội dung chuyên môn hoặc dữ liệu thanh toán vào Long-term Memory; các dữ liệu này đã có nguồn nghiệp vụ riêng.
+- Long-term Memory chỉ được đọc theo UserId trong Context Schema, giống các công cụ khác.
+- Long-term Memory chỉ dùng để gợi ý; mọi lựa chọn vẫn phải được bệnh nhân xác nhận và Backend kiểm lại.
+
+Chuẩn bị ngay từ giai đoạn 1 để giai đoạn 2 không phải sửa agent: tách lớp truy cập bộ nhớ riêng trong dịch vụ chatbot, giai đoạn 1 chỉ cài phần Short-term; giữ UserId trong Context Schema.
+
+### 11.5 Model đề xuất và Backend xác nhận nghiệp vụ
 
 Chatbot chỉ gọi các công cụ đã cho phép như tìm lịch, xem lịch của tôi, chuẩn bị đặt hoặc đổi hoặc hủy, tra vé và xem thanh toán khám của tôi. Danh tính đến từ phiên đăng nhập, không lấy UserId do model tự tạo. Hành động xác nhận phải gắn với đề nghị cụ thể, nội dung, người dùng và thời hạn; trường confirmed do model sinh không đủ để thực thi.
 
@@ -659,7 +830,7 @@ Ví dụ chatbot vừa hiển thị một bác sĩ còn một suất nhưng ngư
 
 Model timeout hoặc trả tham số không hợp lệ không làm mất tiến trình đã lưu. Giao diện mở lại BookingAttempt và cho tiếp tục thủ công. Ngữ cảnh của mỗi người tách theo tài khoản và cuộc trò chuyện; trạng thái thành công phải đến từ API nghiệp vụ, không dựa vào câu trả lời trôi chảy.
 
-### 11.3 Cache danh mục và tra cứu thuốc
+### 11.6 Cache danh mục và tra cứu thuốc
 
 Danh mục ít đổi có thể cache với thời hạn và cách làm mới đã quy định. Kết quả cache dùng để gợi ý hoặc tra cứu; dữ liệu cũ không được dùng để tự xác nhận nghiệp vụ. Lịch khả dụng đã hiển thị cũng không phải bằng chứng đã giữ suất. Khi xác nhận đặt, đổi, hủy hoặc bắt đầu phục vụ, Backend xét lại trên primary theo cùng quy tắc ở mọi kênh.
 
@@ -694,7 +865,7 @@ Tra thuốc của bác sĩ là một chức năng tìm kiếm riêng. Có thể 
 4. Nối thanh toán sandbox và đối soát; kiểm callback trùng, callback muộn, mất phản hồi và PaidUnallocated.
 5. Xây check in, PatientEngagement, tài nguyên phòng, CLS và quay lại đúng bác sĩ; kiểm một tài khoản phòng trên nhiều thiết bị.
 6. Triển khai worker .NET riêng chạy Hangfire SQL Server, xử lý Operation và Outbox, chống lặp, giám sát và xử lý thủ công. Dùng cơ chế nhận job của Hangfire; kiểm restart trước và sau tác dụng nghiệp vụ.
-7. Triển khai chatbot Hướng 2 trên các API đã ổn định: xây dữ liệu có nhãn, đánh giá model nền, fine-tune, đánh giá model sau fine-tune và phục vụ qua Ollama trong VPS. Khai báo dịch vụ chatbot và Ollama trong Docker Compose dưới một profile riêng để bật khi sẵn sàng; khi chưa bật, API chat trả trạng thái chưa hỗ trợ và các chức năng khác vẫn chạy. Kiểm toàn bộ luồng trên BE1 và BE2 dùng chung primary.
+7. Triển khai chatbot giai đoạn 1 trên các API đã ổn định: model nền qua Ollama trong VPS cùng Data Schema, State Schema, Context Schema và Short-term Memory theo mục 11.3 và 11.4. Khai báo dịch vụ chatbot và Ollama trong Docker Compose dưới một profile riêng để bật khi sẵn sàng; khi chưa bật, API chat trả trạng thái chưa hỗ trợ và các chức năng khác vẫn chạy. Kiểm toàn bộ luồng trên BE1 và BE2 dùng chung primary. Long-term Memory và fine-tune thực hiện theo lộ trình mục 11.2 khi đủ điều kiện.
 8. Chỉ tách service khi có số đo, nhu cầu triển khai độc lập hoặc yêu cầu vận hành cụ thể; bổ sung Saga và hợp đồng phân tán tương ứng.
 
 ### 13.2 Các kiểm thử bắt buộc
@@ -735,6 +906,9 @@ Tra thuốc của bác sĩ là một chức năng tìm kiếm riêng. Có thể 
 | Model phản hồi chậm hoặc người dùng để màn hình xác nhận mở lâu | Không giữ transaction DB; bản nháp và reservation có thời hạn được theo dõi độc lập |
 | Cache hiển thị còn suất nhưng primary đã hết | Từ chối xác nhận theo dữ liệu hiện hành, giữ thông tin để chọn lại |
 | Cùng tiến trình đi qua BE1 rồi BE2 | Giữ cùng Operation và quy tắc nghiệp vụ trên primary; không phụ thuộc bộ nhớ riêng của một BE |
+| Chatbot nhận yêu cầu ngoài phạm vi | Trả intent OUT_OF_SCOPE, không gọi công cụ thay đổi dữ liệu, gợi ý thao tác thủ công |
+| Hai cuộc trò chuyện của hai người dùng chạy song song | Short-term Memory tách theo ConversationId; không lẫn tin nhắn hoặc slot |
+| Restart dịch vụ chatbot giữa cuộc trò chuyện | Short-term Memory còn trong checkpointer; đề nghị chờ xác nhận vẫn đọc lại được từ .NET |
 
 Đây là kế hoạch kiểm chứng, chưa phải kết quả chạy thử. Khi nghiệm thu cần lưu dữ liệu đầu vào, số request, cấu hình replica, thời điểm lỗi được chèn, trạng thái cuối DB và log thao tác. Theo dõi p95 thời gian giữ chỗ, số xung đột, deadlock, tiến trình treo quá hạn, PaidUnallocated và thời gian chờ quay lại; chốt ngưỡng sau đo thử, không tự công bố thành tích chưa có số liệu.
 
@@ -749,7 +923,7 @@ Quy đổi các mốc theo Asia/Ho_Chi_Minh sang UTC cho từng ngày phục v�
 | Hai Backend | BE1 và BE2 dùng cùng SQL Server primary cho giữ chỗ, đổi, hủy và điều phối |
 | Transaction và kiểm soát đồng thời | Transaction ngắn kết hợp khóa bi quan tại điểm tranh chấp, rowversion cho dữ liệu cũ, idempotency và unique constraint; không chờ model, người dùng hoặc dịch vụ ngoài |
 | Cache | Chỉ dùng cho tra cứu theo chính sách; xác nhận nghiệp vụ phải kiểm lại nguồn có thẩm quyền |
-| Chatbot | Hướng 2, model nhóm fine-tune phục vụ qua Ollama trong VPS; FastAPI và LangChain `create_agent`; Backend kiểm quyền, tham số và xác nhận |
+| Chatbot | Hướng 2 qua Ollama trong VPS; FastAPI và LangChain `create_agent`. Giai đoạn 1 dùng model nền cùng bốn lớp thiết kế và Short-term Memory; Long-term Memory và fine-tune theo lộ trình mục 11.2. Backend kiểm quyền, tham số và xác nhận |
 | Giao tiếp giữa module | Bốn phương thức ở mục 8.2; architecture test chặn tham chiếu sai giữa các module |
 | Tài nguyên triển khai demo | Đề xuất VPS 4 vCPU, 8 GB RAM, 50 GB SSD; giới hạn RAM từng container; Ollama xử lý một request mỗi lần và giữ model trong RAM; cần đo thời gian phản hồi trước khi chốt |
 | Công việc nền | Worker .NET riêng chạy Hangfire SQL Server, dùng Operation và Outbox; không có scheduler song song |

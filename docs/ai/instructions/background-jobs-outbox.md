@@ -20,4 +20,4 @@ Không để handler trừ slot sau khi đã xác nhận lịch để giải quy
 Dừng worker→commit nghiệp vụ→Outbox còn→bật worker phát đúng; worker chết trước và sau side effect; cùng EventId gửi lại không lặp tác dụng; restart Web API khi worker đang xử lý; retry quá giới hạn vào ManualReview; callback và hết hạn chạy đồng thời chỉ một chuyển trạng thái thắng.
 
 ## Nguồn
-Giải pháp kỹ thuật v2.1 §8.2–8.5, §9, §13.2 [T7][T8][T14]; Buổi 12 tr.2–5; Hangfire official docs.
+Giải pháp kỹ thuật v2.2 §8.2–8.5, §9, §13.2 [T7][T8][T14]; Buổi 12 tr.2–5; Hangfire official docs.

@@ -19,4 +19,4 @@ Không sửa nhỏ ngoài scope để test xanh, không sửa API client hay loc
 Đối chiếu toàn bộ diff theo docs/ai/check_ownership.md và ownership.md; với thay đổi theo OWN-10 kiểm thêm task CLA tương ứng và handoff báo owner. .claude/settings.json chỉ chặn đọc .env.
 
 ## Nguồn
-Ủy quyền của trưởng nhóm trong docs/tasks/claude/CLA-GOV-001.md và CLA-GOV-002.md; Giải pháp kỹ thuật v2.1 §8.7, §11; mẫu codex-scope.md.
+Ủy quyền của trưởng nhóm trong docs/tasks/claude/CLA-GOV-001.md và CLA-GOV-002.md; Giải pháp kỹ thuật v2.2 §8.7, §11; mẫu codex-scope.md.

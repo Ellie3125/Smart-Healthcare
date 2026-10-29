@@ -24,4 +24,4 @@ Không gọi hệ thống là công cụ chẩn đoán, không biến điểm m�
 Test A không xem B; CCCD đúng vẫn thiếu quyền; bác sĩ không được phân công bị từ chối; kết quả draft không thấy ở bệnh nhân; callback lặp/muộn/sai chữ ký/sai số tiền; hai backend tranh suất cuối.
 
 ## Nguồn
-Phạm vi nghiệp vụ v2.1 §2, §5.5, §6; Giải pháp kỹ thuật v2.1 §5, §11. Master phần I §2–4,7–8,11,13; đây là Project requirements, không gán cho PDF học phần.
+Phạm vi nghiệp vụ v2.1 §2, §5.5, §6; Giải pháp kỹ thuật v2.2 §5, §11. Master phần I §2–4,7–8,11,13; đây là Project requirements, không gán cho PDF học phần.

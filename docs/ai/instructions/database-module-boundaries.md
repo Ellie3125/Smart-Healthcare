@@ -20,4 +20,4 @@ Không dùng stored procedure/view/query raw để lách boundary. Không tạo 
 Kiểm dependency/type rules và query access; review ERD ghi owner; test contract ở biên; demo tách module chỉ thay adapter/network, không truy cập dữ liệu module khác.
 
 ## Nguồn
-Giải pháp kỹ thuật v2.1 §8.1.5, §8.2; Buổi 12 tr.2–5; Master III SQL Server; Thiết kế module/schema phải được chốt trước implementation; không giả một bản ADR mẫu là quyết định đã duyệt.
+Giải pháp kỹ thuật v2.2 §8.1.5, §8.2; Buổi 12 tr.2–5; Master III SQL Server; Thiết kế module/schema phải được chốt trước implementation; không giả một bản ADR mẫu là quyết định đã duyệt.

@@ -13,7 +13,7 @@ Thiết kế module/use case, sửa dependency hoặc DI.
 - **BE-01** — Controller xử lý transport/validation rồi gọi use case. Dùng DTO tách entity; nullable rõ; async IO và CancellationToken; DI lifetime đúng, không capture scoped DbContext trong singleton.
 - **BE-02** — Giữ framework test/namespace của repo khi có; repo mới chốt bằng ADR. Không thêm Semantic Kernel/Azure/telemetry vì skill gợi ý. Pin SDK/EF provider tương thích; build reproducible.
 
-## Cấu trúc Backend theo Giải pháp kỹ thuật v2.1 §8.2.2
+## Cấu trúc Backend theo Giải pháp kỹ thuật v2.2 §8.2.2
 
 | Đường dẫn | Vai trò |
 |---|---|
@@ -24,7 +24,7 @@ Thiết kế module/use case, sửa dependency hoặc DI.
 | backend/src/Shared/Shared.Infrastructure/ | Outbox, bảng ProcessedEvent, unit of work, dispatcher Hangfire |
 | tests/backend/ArchitectureTests/ | Kiểm luật tham chiếu giữa các module |
 
-Các module: Scheduling, Clinical, Billing, IdentityPatients, MedicationCatalog, Notifications (Workflow và Notifications) và DocumentsReporting; ranh giới, bất biến và lý do chia ở Giải pháp kỹ thuật v2.1 §8.1. Cây backend/src hiện có (Api/, SharedKernel/, Identity và Patients tách riêng, Documents và Reporting tách riêng, thư mục Presentation/, chưa có MedicationCatalog) là cấu trúc cũ chờ Codex chuyển theo handoff claude-to-codex/CLA-GOV-001.
+Các module: Scheduling, Clinical, Billing, IdentityPatients, MedicationCatalog, Notifications (Workflow và Notifications) và DocumentsReporting; ranh giới, bất biến và lý do chia ở Giải pháp kỹ thuật v2.2 §8.1. Cây backend/src hiện có (Api/, SharedKernel/, Identity và Patients tách riêng, Documents và Reporting tách riêng, thư mục Presentation/, chưa có MedicationCatalog) là cấu trúc cũ chờ Codex chuyển theo handoff claude-to-codex/CLA-GOV-001.
 
 Với mỗi module:
 - <Module>.Domain: entity, value object, invariant và domain event; không phụ thuộc EF Core, ASP.NET Core hoặc tầng ngoài.
@@ -46,4 +46,4 @@ Không expose EF entity trực tiếp làm API, không sync-over-async, không h
 Ở bước khởi tạo chỉ kiểm các đường dẫn và việc không phát sinh file. Khi có code: architecture test kiểm ProjectReference/type dependency, chiều phụ thuộc và ranh giới module; unit test invariant; demo trước/sau S,O,L,I,D trong lab Backend và giải thích một use case đi qua các tầng. Không báo architecture tests pass khi mới có thư mục.
 
 ## Nguồn
-Buổi 2 tr.1–2; Buổi 3 tr.1–2; Buổi 4 tr.1–3 (cho phép dùng EF Core không thêm repository); Buổi 12 tr.2,4. Master III §7–8. Giải pháp kỹ thuật v2.1 §8.1–8.3, §9.
+Buổi 2 tr.1–2; Buổi 3 tr.1–2; Buổi 4 tr.1–3 (cho phép dùng EF Core không thêm repository); Buổi 12 tr.2,4. Master III §7–8. Giải pháp kỹ thuật v2.2 §8.1–8.3, §9.

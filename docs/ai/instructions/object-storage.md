@@ -19,4 +19,4 @@ Không access/secret key trong frontend, app mobile, repo hoặc image. Không b
 Test quyền A/B, kết quả Draft không tải được, file lớn/sai magic bytes, upload dở/orphan, copy lỗi không delete nguồn, restore DB cùng objects đọc được tài liệu giả. Test checksum tải xuống và metadata đúng lượt khám. Kiểm không có đường tải trực tiếp từ R2 mà không qua Backend.
 
 ## Nguồn
-Giải pháp kỹ thuật v2.1 §6.4, §8, §8.1.3, §8.6 [T12]; Buổi 9 tr.1–4 (kiến thức object storage).
+Giải pháp kỹ thuật v2.2 §6.4, §8, §8.1.3, §8.6 [T12]; Buổi 9 tr.1–4 (kiến thức object storage).

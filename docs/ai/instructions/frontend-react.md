@@ -21,4 +21,4 @@ Không optimistic-confirm thanh toán/slot. Không sửa docs/api hay Backend. K
 Component test tương tác; E2E với API thật cho happy/error/permission; viewport mobile/desktop, keyboard; dùng locator assertion chờ điều kiện, không bắt buộc networkidle hay sleep tùy ý.
 
 ## Nguồn
-Giải pháp kỹ thuật v2.1 §8, §8.6; Master I §8, IV §3; React và Expo official docs; Playwright official API. frontend-design chỉ áp trong ranh giới y tế.
+Giải pháp kỹ thuật v2.2 §8, §8.6; Master I §8, IV §3; React và Expo official docs; Playwright official API. frontend-design chỉ áp trong ranh giới y tế.

@@ -17,4 +17,4 @@ license: "Complete terms in LICENSE.md"
 
 Khi có compose.yaml thật, dùng Docker Compose kiểm cấu hình và chạy các bước kiểm chứng theo task. Đọc skill không chứng minh stack đã chạy hoặc đáp ứng yêu cầu nhiều máy.
 
-Nguồn: https://github.com/docker/skills/tree/f79172733725e2fd236343ee7b963c446ed85d09/skills/docker-compose-patterns. Bản hướng dẫn đã được biên tập cho Smart Healthcare, ngày 16/10/2026, cập nhật theo Giải pháp kỹ thuật v2.1 ngày 29/10/2026; giữ license tác giả trong LICENSE.md.
+Nguồn: https://github.com/docker/skills/tree/f79172733725e2fd236343ee7b963c446ed85d09/skills/docker-compose-patterns. Bản hướng dẫn đã được biên tập cho Smart Healthcare, ngày 16/10/2026, cập nhật theo Giải pháp kỹ thuật v2.2 ngày 29/10/2026; giữ license tác giả trong LICENSE.md.

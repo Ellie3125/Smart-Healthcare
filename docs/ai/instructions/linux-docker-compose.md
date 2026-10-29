@@ -22,4 +22,4 @@ Không copy asset PostgreSQL/Redis từ skill làm stack của dự án; không 
 docker compose -f compose.yaml -f compose.<env>.yaml config --quiet cho từng env và thêm --profile chatbot cho Staging/Prod; build/inspect user; gọi API thật; tạo dữ liệu→recreate container không xóa volume→dữ liệu còn; request qua hai instance; kiểm port từ ngoài. Lệnh runtime chưa chạy trong kit này.
 
 ## Nguồn
-Buổi 5 tr.2; Buổi 6 tr.1–2; Buổi 7 tr.1–5. Master H2 và III SQL Server; docker skill snapshot. Giải pháp kỹ thuật v2.1 §8.6–8.7, §13.1 bước 7, §14.
+Buổi 5 tr.2; Buổi 6 tr.1–2; Buổi 7 tr.1–5. Master H2 và III SQL Server; docker skill snapshot. Giải pháp kỹ thuật v2.2 §8.6–8.7, §13.1 bước 7, §14.

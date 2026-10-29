@@ -1,10 +1,11 @@
 ---
 name: chatbot-finetune-eval
-description: "Dùng khi chuẩn bị dữ liệu hội thoại, fine-tune model nền, đánh giá trước/sau, xuất Modelfile Ollama hoặc đổi tag model của chatbot."
+description: "Dùng khi đánh giá model nền, chuẩn bị dữ liệu hội thoại, fine-tune (chỉ giai đoạn 3), đánh giá trước/sau, xuất Modelfile Ollama hoặc đổi tag model của chatbot."
 ---
 
 # Fine-tune và đánh giá chatbot
 
+0. Giai đoạn 1 (v2.2 §11.2) chỉ làm bước 2–4, 7–8 cho model nền; bước 5–6 chỉ làm khi task ghi trưởng nhóm đã chuyển sang giai đoạn 3.
 1. Đọc chatbot-langchain-ollama.md (BOT-08, BOT-09) và healthcare-domain.md (SEC-02). Ghi task với model nền, phiên bản dữ liệu và tiêu chí đạt.
 2. Dữ liệu: hội thoại giả lập trong ml-service/, có đầu ra chuẩn; bao gồm thiếu thông tin, hết chỗ, quá hạn 05:00/09:30, timeout, sai quyền và yêu cầu chuyên môn phải từ chối. Không dữ liệu bệnh nhân thật.
 3. Tách train/validation/test theo kịch bản trước khi huấn luyện; ghi checksum từng tập. Không chỉnh dữ liệu test sau khi xem kết quả.
