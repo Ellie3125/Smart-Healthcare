@@ -1,0 +1,17 @@
+{
+  "schemaVersion": 1,
+  "receiptId": "30924e53-2a1f-4b98-9be7-c8d5a22a0ad7",
+  "status": "current",
+  "command": "deliver",
+  "type": "architecture",
+  "input": "C:\\Users\\Asus\\AppData\\Local\\Temp\\claude\\C--Users-Asus--claude-spares-spare-tZ7ley\\bb5229f6-8e64-40c6-8a90-89461c3f37f8\\scratchpad\\archify\\candidate.json",
+  "output": "D:\\ĐA\\Smart-Healthcare\\docs\\db\\erd-v2.2-schemas.html",
+  "specification": {
+    "sha256": "3ac421221e20e10a50f453938a1241ffc4fda4e1b7b697783cbeb78513ae695b",
+    "bytes": 6377
+  },
+  "artifact": {
+    "sha256": "5406db000acd87b36a77c3c20d9735f16487f9901a80594230c534e3faf81de8",
+    "bytes": 851717
+  }
+}
