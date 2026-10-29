@@ -1,7 +1,7 @@
 # chatbot-langchain-ollama
 
 ## Phạm vi
-Claude Code: ml-service/** (dịch vụ chatbot FastAPI/LangChain, Modelfile Ollama, dữ liệu và script fine-tune/đánh giá), tests/ml/** và docs/ml/**. Service `chatbot` và `ollama` trong docker-compose.yml do Codex sửa theo handoff.
+Claude Code: ml-service/** (dịch vụ chatbot FastAPI/LangChain, Modelfile Ollama, dữ liệu và script fine-tune/đánh giá), tests/ml/** và docs/ml/**. Service `chatbot` và `ollama` trong compose.yaml và các file override compose.*.yaml do Codex sửa theo handoff.
 
 ## Khi nào đọc
 Thiết kế hoặc sửa chatbot, thêm công cụ, chuẩn bị dữ liệu hội thoại, fine-tune, đánh giá, viết Modelfile hoặc đóng gói chatbot.
@@ -14,7 +14,7 @@ Thiết kế hoặc sửa chatbot, thêm công cụ, chuẩn bị dữ liệu h�
 - **BOT-05** — Thay đổi lịch chỉ thực thi qua đề nghị do .NET lưu, gắn người dùng, nội dung và thời hạn; trường `confirmed` hay câu đồng ý do model sinh không đủ để thực thi. Khi xác nhận, Backend kiểm lại quyền, version, thời hạn, sức chứa và idempotency trên primary. Thành công chỉ báo theo phản hồi API.
 - **BOT-06** — Không giữ transaction DB khi chờ model hoặc người dùng. Model lỗi, timeout hoặc trả tham số sai không thay đổi DB; người dùng tiếp tục thủ công trên cùng BookingAttempt. Checkpoint hội thoại không là bằng chứng có suất hay đã thanh toán. Lời gọi model và API có timeout giới hạn.
 - **BOT-07** — FastAPI + LangChain `create_agent`, lịch sử theo ConversationId bằng checkpointer của LangChain. Không tự dựng graph LangGraph, không dùng Unified Model Adapter hay lớp adapter đa nhà cung cấp.
-- **BOT-08** — Ollama chạy container riêng, chỉ mở trong mạng Docker nội bộ, không publish port. Ghim tag model và phiên bản image (không latest); dùng cùng cấu hình ở laptop và VPS. Không gửi dữ liệu bệnh nhân ra API model bên ngoài, kể cả khi model nội bộ lỗi. Model nền (đề xuất Qwen2.5 3B), tốc độ phản hồi và giới hạn tài nguyên phải đo trên VPS thực trước khi chốt.
+- **BOT-08** — Ollama chạy container riêng, chỉ mở trong mạng Docker nội bộ, không publish port. Ghim tag model và phiên bản image (không latest); Staging và Prod dùng cùng image, tag model và cấu hình; VPS Staging đủ RAM cho Ollama. Không gửi dữ liệu bệnh nhân ra API model bên ngoài, kể cả khi model nội bộ lỗi. Model nền (đề xuất Qwen2.5 3B), tốc độ phản hồi và giới hạn tài nguyên phải đo trên VPS thực trước khi chốt.
 - **BOT-09** — Fine-tune: version hóa dữ liệu, model nền, cấu hình huấn luyện, adapter/checkpoint, Modelfile và kết quả đánh giá. Dữ liệu hội thoại giả lập, có trường hợp thiếu thông tin, hết chỗ, quá hạn, timeout và sai quyền. Tách train/validation/test theo kịch bản trước huấn luyện; so sánh model nền và model sau fine-tune trên cùng tập test. Không bịa metrics; chỉ tải model hoặc sửa prompt chưa là fine-tune. Lịch và trạng thái thay đổi lấy qua API, không huấn luyện vào trọng số.
 - **BOT-10** — Không log token, CCCD, nội dung hội thoại chi tiết hay dữ liệu cá nhân. Bộ hội thoại đối kháng (xin chẩn đoán, hỏi dữ liệu người khác, ép xác nhận, prompt injection) phải đạt trước khi bật profile `chatbot`: không lộ dữ liệu, không thay đổi gì khi thiếu quyền.
 

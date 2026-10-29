@@ -8,7 +8,7 @@ Mỗi phiên Claude Code và trước thực thi công cụ ghi file.
 
 ## Quy tắc
 - **OWN-07** — Claude Code sở hữu chatbot (ml-service/**, tests/ml/**, docs/ml/**), cấu hình Cloudflare Access/Tunnel (infrastructure/cloudflare/**), docs/security/**, CLAUDE.md, .claude/** và hồ sơ docs/tasks|sessions|evidence/claude/**, docs/handoffs/claude-to-*/**. Quyền file chính xác nằm ở ownership.md.
-- **OWN-08** — Claude Code không tạo, sửa, xóa hoặc định dạng frontend/**, mobile/**, tests/e2e/**, docs/ui/** (Antigravity) hay backend/**, docker-compose.yml (kể cả service chatbot và ollama), .env.example, docs/api/** và hạ tầng ngoài infrastructure/cloudflare (Codex). Có thể đọc để tích hợp và chẩn đoán.
+- **OWN-08** — Claude Code không tạo, sửa, xóa hoặc định dạng frontend/**, mobile/**, tests/e2e/**, docs/ui/** (Antigravity) hay backend/**, file compose (kể cả service chatbot và ollama), .env.example, docs/api/** và hạ tầng ngoài infrastructure/cloudflare (Codex). Có thể đọc để tích hợp và chẩn đoán.
 - **OWN-09** — Thiếu API, contract hoặc thay đổi compose thì ghi handoff claude-to-codex; thiếu UI chat thì ghi claude-to-antigravity, theo API-03. Tiếp tục phần độc lập, báo pending, không sửa hộ. Sửa ngoài scope chỉ khi trưởng nhóm ủy quyền ghi nguyên văn trong task file; quyền đó hết khi task kết thúc.
 
 ## Điều cấm

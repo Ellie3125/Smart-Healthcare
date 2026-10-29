@@ -55,7 +55,10 @@
 | `.gitignore` | Codex |
 | `.gitattributes` | Codex |
 | `Jenkinsfile` | Codex |
-| `docker-compose.yml` | Codex |
+| `compose.yaml` | Codex |
+| `compose.dev.yaml` | Codex |
+| `compose.staging.yaml` | Codex |
+| `compose.prod.yaml` | Codex |
 | `.env.example` | Codex |
 | `.editorconfig` | Codex |
 | `global.json` | Codex |
@@ -63,11 +66,11 @@
 | `Directory.Packages.props` | Codex |
 | `NuGet.Config` | Codex |
 
-`/**` áp dụng cho mọi file con; dòng có đường dẫn cụ thể hơn thắng dòng bao quát. File chưa thuộc bảng phải được xác định owner trước khi sửa; không tự suy thành file dùng chung. Các tên như global.json, docker-compose.yml và Jenkinsfile trong bảng là file ứng dụng/hạ tầng tương lai, không phải file quy tắc phải đổi đuôi.
+`/**` áp dụng cho mọi file con; dòng có đường dẫn cụ thể hơn thắng dòng bao quát. File chưa thuộc bảng phải được xác định owner trước khi sửa; không tự suy thành file dùng chung. Các tên như global.json, compose.yaml và Jenkinsfile trong bảng là file ứng dụng/hạ tầng tương lai, không phải file quy tắc phải đổi đuôi.
 
-Service `chatbot` và `ollama` trong docker-compose.yml vẫn do Codex sửa; Claude Code cần thay đổi thì gửi handoff claude-to-codex. Đề xuất đổi tên `ml-service` thành `chatbot-service` chỉ được ghi nhận, chưa áp dụng.
+Service `chatbot` và `ollama` trong compose.yaml và các file override compose.*.yaml vẫn do Codex sửa; Claude Code cần thay đổi thì gửi handoff claude-to-codex. Đề xuất đổi tên `ml-service` thành `chatbot-service` chỉ được ghi nhận, chưa áp dụng.
 
-Codex không sửa mã UI dù đặt ngoài frontend/** hoặc mobile/**. Antigravity không sửa logic nghiệp vụ server, DB/migration, chatbot, hạ tầng hoặc pipeline dù file được chuyển tên. Claude Code không sửa UI, Backend, docker-compose.yml, docs/api hay hạ tầng ngoài infrastructure/cloudflare. Formatter/generator và lockfile cũng chịu cùng ranh giới.
+Codex không sửa mã UI dù đặt ngoài frontend/** hoặc mobile/**. Antigravity không sửa logic nghiệp vụ server, DB/migration, chatbot, hạ tầng hoặc pipeline dù file được chuyển tên. Claude Code không sửa UI, Backend, file compose, docs/api hay hạ tầng ngoài infrastructure/cloudflare. Formatter/generator và lockfile cũng chịu cùng ranh giới.
 
 Khi cần bên kia sửa, ghi handoff đúng chiều; không sửa thay. Thay đổi owner/chính sách cần trưởng nhóm review, không sửa luật để hợp thức hóa diff đã vượt scope. Ủy quyền ngoại lệ của trưởng nhóm phải ghi trong task file và hết hạn khi task kết thúc.
 

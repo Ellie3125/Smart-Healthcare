@@ -20,7 +20,7 @@ Bổ sung ngày 29/10/2026 (trưởng nhóm duyệt trong chat, quyết định 
 
 ## Quyết định đã duyệt (Bước 0)
 - A. Commit hai file v2.1 nguyên văn.
-- B. Một docker-compose.yml cho laptop và VPS, chỉ khác .env; REL-02 tách môi trường bằng .env/secrets/volume/bucket/Access riêng.
+- B (đổi lại ngày 29/10/2026, trưởng nhóm chốt trong phiên fork, nguyên văn: "B vẫn phải tách riêng ra vì 1 cái triển khai trên laptop còn sau là đưa lên server vps mà vẫn triển khai đủ các môi trường và chỉ là chatbot được đưa lên server cuối cùng thôi vì nó nặng quá", chọn phương án 1): compose.yaml base + override dev/staging/prod, .env riêng từng môi trường. Dev = laptop, Staging = VPS 1, Prod = VPS 2; chatbot profile `chatbot` ở Staging và Prod, bật sau cùng; Jenkins trên laptop, build một lần, Staging rồi Prod pull cùng digest; Staging giống Prod trừ secrets/dữ liệu/hostname.
 - C. App Expo ở mobile/**, owner Antigravity.
 - D. Sửa đoạn cấu trúc Backend theo v2.1 §8.2.2; code giữ nguyên, chuyển đổi qua handoff Codex.
 - E. messaging-rabbitmq.md → background-jobs-outbox.md; object-storage.md giữ tên.

@@ -40,7 +40,7 @@ json.loads((root / ".claude/settings.json").read_text(encoding="utf-8"))
 print("settings.json valid")
 sys.exit(1 if missing or dupes else 0)
 ```
-Giới hạn: chỉ kiểm đường dẫn .agents/.claude/docs/ai/docs/business/docs/architecture và tên file dạng kebab-case `.md`; đường dẫn ứng dụng tương lai (docker-compose.yml, mobile/**) là dòng owner, không phải tham chiếu bắt buộc tồn tại.
+Giới hạn: chỉ kiểm đường dẫn .agents/.claude/docs/ai/docs/business/docs/architecture và tên file dạng kebab-case `.md`; đường dẫn ứng dụng tương lai (compose.yaml, compose.*.yaml, mobile/**) là dòng owner, không phải tham chiếu bắt buộc tồn tại.
 
 ## 2. Luật công nghệ trái v2.1
 Command: `grep -rnE "MinIO|RabbitMQ|VNPAY|CatBoost|LightGBM" --include=*.md --include=*.json . | grep -vE "^\./docs/(business|architecture)/"`

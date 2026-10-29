@@ -20,9 +20,10 @@ Chỉ tự kiểm bộ luật (docs/evidence/claude/CLA-GOV-001-selfcheck.md). C
    - backend/src/SharedKernel/ → backend/src/Shared/Shared.Abstractions/ và Shared.Infrastructure/; thêm tests/backend/ArchitectureTests/.
    - Acceptance: cây thư mục khớp bảng trong backend-solid-architecture.md; không còn Identity/, Patients/, Documents/, Reporting/, SharedKernel/, Presentation/ cũ.
 2. Hạ tầng: bỏ infrastructure/minio/ và infrastructure/rabbitmq/ (không còn trong stack v2.1). Acceptance: không còn thư mục này.
-3. Compose: tạo một docker-compose.yml dùng chung laptop và VPS, chỉ khác .env (CTR-03); service `chatbot` và `ollama` trong profile `chatbot`, Ollama không publish port, chỉ mạng nội bộ (OPS-01, BOT-08). Acceptance: `docker compose config --quiet` và `docker compose --profile chatbot config --quiet` exit 0; không có compose.*.yaml override.
-4. .env.example: thêm `CHATBOT_URL` (địa chỉ nội bộ của chatbot cho .NET, ví dụ http://chatbot:8000) cùng các biến không bí mật khác. Acceptance: có `CHATBOT_URL`, không có secret thật.
+3. Compose (CTR-03, REL-01/02): compose.yaml base + compose.dev.yaml (laptop), compose.staging.yaml (VPS 1), compose.prod.yaml (VPS 2), .env riêng từng môi trường; service `chatbot` và `ollama` trong profile `chatbot`, bật ở Staging và Prod sau cùng; Ollama không publish port, chỉ mạng nội bộ (OPS-01, BOT-08). Staging giống Prod, chỉ khác secrets/dữ liệu/hostname. Acceptance: `docker compose -f compose.yaml -f compose.<env>.yaml config --quiet` exit 0 cho cả ba env, thêm `--profile chatbot` cho Staging/Prod.
+6. Jenkins trên laptop: build image một lần, push registry, Staging rồi Prod pull cùng digest; VPS không build source (REL-01..03, OPS-03). Secret Prod chỉ trong credential store.
+4. .env.example (hoặc một mẫu cho mỗi môi trường): thêm `CHATBOT_URL` (địa chỉ nội bộ của chatbot cho .NET, ví dụ http://chatbot:8000) cùng các biến không bí mật khác. Acceptance: có `CHATBOT_URL`, không có secret thật.
 5. API chat: khi profile `chatbot` chưa bật, endpoint chat của .NET trả trạng thái chưa hỗ trợ, các API khác vẫn chạy (v2.1 §13.1 bước 7). Contract cho các công cụ chatbot (tìm lịch, xem lịch của tôi, chuẩn bị đặt/đổi/hủy, xác nhận đề nghị, tra vé, xem thanh toán khám) cần được đề xuất trong docs/api/ trước khi Claude Code làm công cụ.
 
 ## next_action
-Codex lập task trong docs/tasks/codex/ cho mục 1–4, phản hồi tại docs/handoffs/codex-to-claude/CLA-GOV-001.md; contract chatbot (mục 5) làm khi bắt đầu API lịch/vé/thanh toán.
+Codex lập task trong docs/tasks/codex/ cho mục 1–4 và 6, phản hồi tại docs/handoffs/codex-to-claude/CLA-GOV-001.md; contract chatbot (mục 5) làm khi bắt đầu API lịch/vé/thanh toán.
