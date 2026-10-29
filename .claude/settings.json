@@ -12,10 +12,6 @@
       "Bash(ruff *)"
     ],
     "deny": [
-      "Edit(/frontend/**)",
-      "Edit(/backend/**)",
-      "Edit(/tests/e2e/**)",
-      "Edit(/docs/api/**)",
       "Read(/**/.env)",
       "Read(/**/.env.*)"
     ]

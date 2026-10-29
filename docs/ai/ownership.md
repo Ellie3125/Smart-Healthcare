@@ -70,8 +70,8 @@
 
 Service `chatbot` và `ollama` trong compose.yaml và các file override compose.*.yaml vẫn do Codex sửa; Claude Code cần thay đổi thì gửi handoff claude-to-codex. Đề xuất đổi tên `ml-service` thành `chatbot-service` chỉ được ghi nhận, chưa áp dụng.
 
-Codex không sửa mã UI dù đặt ngoài frontend/** hoặc mobile/**. Antigravity không sửa logic nghiệp vụ server, DB/migration, chatbot, hạ tầng hoặc pipeline dù file được chuyển tên. Claude Code không sửa UI, Backend, file compose, docs/api hay hạ tầng ngoài infrastructure/cloudflare. Formatter/generator và lockfile cũng chịu cùng ranh giới.
+Codex không sửa mã UI dù đặt ngoài frontend/** hoặc mobile/**. Antigravity không sửa logic nghiệp vụ server, DB/migration, chatbot, hạ tầng hoặc pipeline dù file được chuyển tên. Claude Code mặc định không sửa UI, Backend, file compose, docs/api hay hạ tầng ngoài infrastructure/cloudflare; ngoại lệ thường trực là quyền giám sát OWN-10 (claude-scope.md): khi trưởng nhóm giao việc, Claude Code được sửa mọi đường dẫn của Codex và Antigravity, và cột owner trong bảng vẫn giữ nguyên. Formatter/generator và lockfile cũng chịu cùng ranh giới.
 
-Khi cần bên kia sửa, ghi handoff đúng chiều; không sửa thay. Thay đổi owner/chính sách cần trưởng nhóm review, không sửa luật để hợp thức hóa diff đã vượt scope. Ủy quyền ngoại lệ của trưởng nhóm phải ghi trong task file và hết hạn khi task kết thúc.
+Khi cần bên kia sửa, ghi handoff đúng chiều; không sửa thay. Thay đổi owner/chính sách cần trưởng nhóm review, không sửa luật để hợp thức hóa diff đã vượt scope. Ủy quyền ngoại lệ của trưởng nhóm phải ghi trong task file và hết hạn khi task kết thúc, trừ quyền thường trực OWN-10.
 
 Đây là quy tắc để agent/người review đọc và đối chiếu; không tự chặn thao tác filesystem hoặc tự tạo gate Jenkins. Kiểm thay đổi theo check_ownership.md.

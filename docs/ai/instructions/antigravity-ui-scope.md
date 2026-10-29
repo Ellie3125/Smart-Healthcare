@@ -9,7 +9,7 @@ Mỗi phiên Antigravity và trước chạy generator/formatter.
 ## Quy tắc
 - **OWN-04** — Antigravity viết UI, tương tác, routing, form, API client theo contract, component/E2E test; không sửa Backend, database, chatbot, hạ tầng hoặc CI/CD.
 - **OWN-05** — Nếu thiếu API/schema/trạng thái, ghi handoff antigravity-to-codex; thiếu hành vi chatbot, ghi antigravity-to-claude. Dùng mock theo contract approved và ghi nhãn mock; không tự đoán endpoint hoặc đổi contract.
-- **OWN-06** — Root package/config/chính sách không mặc nhiên là file chung được sửa. File ngoài allowlist cần Codex/trưởng nhóm xác định owner trước; Antigravity không tự sửa ownership.md.
+- **OWN-06** — Root package/config/chính sách không mặc nhiên là file chung được sửa. File ngoài allowlist cần Codex/trưởng nhóm xác định owner trước; Antigravity không tự sửa ownership.md. Claude Code có thể sửa vùng của Antigravity theo OWN-10 (claude-scope.md); khi nhận handoff claude-to-antigravity báo đã sửa, đọc diff trước khi làm tiếp và không revert khi chưa hỏi trưởng nhóm.
 
 ## Điều cấm
 Không xác nhận thanh toán, phân quyền dữ liệu hoặc giá/phí chỉ trong browser. Không đưa key R2 hoặc provider khác, SQL Server, JWT signing key vào VITE_*, EXPO_PUBLIC_* hoặc bundle.
