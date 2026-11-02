@@ -2,6 +2,7 @@
   <Folder Name="/src/" />
   <Folder Name="/src/Bootstrapper/">
     <Project Path="src/Bootstrapper/SmartHealthcare.Api/SmartHealthcare.Api.csproj" />
+    <Project Path="src/Bootstrapper/SmartHealthcare.Worker/SmartHealthcare.Worker.csproj" />
   </Folder>
   <Folder Name="/src/Modules/" />
   <Folder Name="/src/Modules/Billing/">
