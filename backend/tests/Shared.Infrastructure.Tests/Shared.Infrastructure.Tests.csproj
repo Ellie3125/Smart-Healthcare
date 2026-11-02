@@ -1,0 +1,19 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <IsPackable>false</IsPackable>
+  </PropertyGroup>
+  <ItemGroup>
+    <PackageReference Include="xunit.v3" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\..\src\Modules\IdentityPatients\IdentityPatients.Infrastructure\IdentityPatients.Infrastructure.csproj" />
+    <ProjectReference Include="..\..\src\Modules\Scheduling\Scheduling.Infrastructure\Scheduling.Infrastructure.csproj" />
+    <ProjectReference Include="..\..\src\Modules\Clinical\Clinical.Infrastructure\Clinical.Infrastructure.csproj" />
+    <ProjectReference Include="..\..\src\Modules\MedicationCatalog\MedicationCatalog.Infrastructure\MedicationCatalog.Infrastructure.csproj" />
+    <ProjectReference Include="..\..\src\Modules\Billing\Billing.Infrastructure\Billing.Infrastructure.csproj" />
+    <ProjectReference Include="..\..\src\Modules\Notifications\Notifications.Infrastructure\Notifications.Infrastructure.csproj" />
+    <ProjectReference Include="..\..\src\Modules\DocumentsReporting\DocumentsReporting.Infrastructure\DocumentsReporting.Infrastructure.csproj" />
+    <ProjectReference Include="..\..\src\Shared\Shared.Infrastructure\Shared.Infrastructure.csproj" />
+  </ItemGroup>
+</Project>

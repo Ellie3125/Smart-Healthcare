@@ -1,0 +1,41 @@
+<Solution>
+  <Folder Name="/src/" />
+  <Folder Name="/src/Bootstrapper/">
+    <Project Path="src/Bootstrapper/SmartHealthcare.Api/SmartHealthcare.Api.csproj" />
+  </Folder>
+  <Folder Name="/src/Modules/" />
+  <Folder Name="/src/Modules/Billing/">
+    <Project Path="src/Modules/Billing/Billing.Domain/Billing.Domain.csproj" />
+    <Project Path="src/Modules/Billing/Billing.Infrastructure/Billing.Infrastructure.csproj" />
+  </Folder>
+  <Folder Name="/src/Modules/Clinical/">
+    <Project Path="src/Modules/Clinical/Clinical.Domain/Clinical.Domain.csproj" />
+    <Project Path="src/Modules/Clinical/Clinical.Infrastructure/Clinical.Infrastructure.csproj" />
+  </Folder>
+  <Folder Name="/src/Modules/DocumentsReporting/">
+    <Project Path="src/Modules/DocumentsReporting/DocumentsReporting.Domain/DocumentsReporting.Domain.csproj" />
+    <Project Path="src/Modules/DocumentsReporting/DocumentsReporting.Infrastructure/DocumentsReporting.Infrastructure.csproj" />
+  </Folder>
+  <Folder Name="/src/Modules/IdentityPatients/">
+    <Project Path="src/Modules/IdentityPatients/IdentityPatients.Domain/IdentityPatients.Domain.csproj" />
+    <Project Path="src/Modules/IdentityPatients/IdentityPatients.Infrastructure/IdentityPatients.Infrastructure.csproj" />
+  </Folder>
+  <Folder Name="/src/Modules/MedicationCatalog/">
+    <Project Path="src/Modules/MedicationCatalog/MedicationCatalog.Domain/MedicationCatalog.Domain.csproj" />
+    <Project Path="src/Modules/MedicationCatalog/MedicationCatalog.Infrastructure/MedicationCatalog.Infrastructure.csproj" />
+  </Folder>
+  <Folder Name="/src/Modules/Notifications/">
+    <Project Path="src/Modules/Notifications/Notifications.Domain/Notifications.Domain.csproj" />
+    <Project Path="src/Modules/Notifications/Notifications.Infrastructure/Notifications.Infrastructure.csproj" />
+  </Folder>
+  <Folder Name="/src/Modules/Scheduling/">
+    <Project Path="src/Modules/Scheduling/Scheduling.Domain/Scheduling.Domain.csproj" />
+    <Project Path="src/Modules/Scheduling/Scheduling.Infrastructure/Scheduling.Infrastructure.csproj" />
+  </Folder>
+  <Folder Name="/src/Shared/">
+    <Project Path="src/Shared/Shared.Infrastructure/Shared.Infrastructure.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/Shared.Infrastructure.Tests/Shared.Infrastructure.Tests.csproj" />
+  </Folder>
+</Solution>
