@@ -9,16 +9,6 @@ GEMINI.md
 **/GEMINI.md
 .claude/
 .agents/
-.github/copilot-instructions.md
-.github/instructions/
-.github/prompts/
-.github/agents/
-.github/chatmodes/
-.cursor/
-.cursorrules
-.windsurfrules
-.clinerules
-.kiro/
 docs/ai/
 # Tài liệu nghiệp vụ và giải pháp kỹ thuật (gửi riêng)
 docs/business/
