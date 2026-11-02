@@ -1,1 +1,31 @@
 .claude/settings.local.json
+
+# ===== Agent rules (không đẩy lên GitHub, gửi riêng cho thành viên) =====
+AGENTS.md
+**/AGENTS.md
+CLAUDE.md
+**/CLAUDE.md
+GEMINI.md
+**/GEMINI.md
+.claude/
+.agents/
+.github/copilot-instructions.md
+.github/instructions/
+.github/prompts/
+.github/agents/
+.github/chatmodes/
+.cursor/
+.cursorrules
+.windsurfrules
+.clinerules
+.kiro/
+docs/ai/
+# Tài liệu nghiệp vụ và giải pháp kỹ thuật (gửi riêng)
+docs/business/
+docs/architecture/
+# Hồ sơ công việc của agent (chỉ lưu cục bộ)
+docs/tasks/
+docs/sessions/
+docs/evidence/
+docs/handoffs/
+# ===== end agent rules =====
