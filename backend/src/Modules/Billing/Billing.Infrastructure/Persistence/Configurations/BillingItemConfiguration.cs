@@ -8,7 +8,10 @@ internal sealed class BillingItemConfiguration : IEntityTypeConfiguration<Billin
 {
     public void Configure(EntityTypeBuilder<BillingItem> builder)
     {
-        builder.ToTable("BillingItem");
+        builder.ToTable("BillingItem", t =>
+        {
+            t.HasCheckConstraint("CK_BillingItem_TotalAmount", "[TotalAmount] = [UnitPrice] * [Quantity]");
+        });
         builder.HasKey(x => x.Id);
 
         builder.Property(x => x.ItemType).HasConversion<string>().HasMaxLength(32);
