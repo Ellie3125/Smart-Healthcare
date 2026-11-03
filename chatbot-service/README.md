@@ -4,7 +4,7 @@ Dịch vụ chatbot của bệnh nhân: FastAPI + LangChain `create_agent`, gọ
 
 | Thư mục | Nội dung |
 |---|---|
-| `app/` | FastAPI: nhận hội thoại từ phiên .NET, khai báo agent với Data/State/Context Schema và Short-term Memory (checkpointer theo ConversationId), theo Giải pháp kỹ thuật v2.7 §11.3–11.4 |
+| `app/` | FastAPI: nhận hội thoại từ phiên .NET, khai báo agent với Data/State/Context Schema và Short-term Memory (checkpointer theo ConversationId), theo Giải pháp kỹ thuật v2.8 §11.3–11.4 |
 | `app/tools/` | Công cụ trong whitelist, mỗi công cụ gọi một REST API .NET theo contract Approved (skill chatbot-add-tool) |
 | `ollama/` | Modelfile và tag model đã ghim |
 | `../tests/ml/` | Test công cụ với API giả; `safety/` chứa bộ hội thoại đối kháng (skill chatbot-safety-check) |

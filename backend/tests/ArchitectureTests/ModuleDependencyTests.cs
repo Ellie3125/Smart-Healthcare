@@ -5,7 +5,7 @@ using Xunit;
 
 namespace ArchitectureTests;
 
-// Kiểm luật tham chiếu theo Giải pháp kỹ thuật v2.7 §8.2.2 (MOD-01, MOD-04) ở mức assembly đã biên dịch.
+// Kiểm luật tham chiếu theo Giải pháp kỹ thuật v2.8 §8.2.2 (MOD-01, MOD-04) ở mức assembly đã biên dịch.
 public class ModuleDependencyTests
 {
     private static readonly string[] Modules =
