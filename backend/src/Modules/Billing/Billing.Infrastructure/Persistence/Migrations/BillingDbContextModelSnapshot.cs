@@ -94,7 +94,10 @@ namespace Billing.Infrastructure.Persistence.Migrations
 
                     b.HasIndex("ServiceOrderItemId");
 
-                    b.ToTable("BillingItem", "billing");
+                    b.ToTable("BillingItem", "billing", t =>
+                        {
+                            t.HasCheckConstraint("CK_BillingItem_TotalAmount", "[TotalAmount] = [UnitPrice] * [Quantity]");
+                        });
                 });
 
             modelBuilder.Entity("Billing.Domain.Entities.PaymentAllocation", b =>
@@ -456,7 +459,10 @@ namespace Billing.Infrastructure.Persistence.Migrations
 
                     b.HasIndex("OriginalPaymentTransactionId");
 
-                    b.ToTable("RefundRequest", "billing");
+                    b.ToTable("RefundRequest", "billing", t =>
+                        {
+                            t.HasCheckConstraint("CK_RefundRequest_PolicyRule", "([RefundReason] = 'CancelledBefore0500' AND [PolicyRuleApplied] = 'FullRefundPre0500') OR ([RefundReason] <> 'CancelledBefore0500' AND [PolicyRuleApplied] = 'CustomApproval')");
+                        });
                 });
 
             modelBuilder.Entity("Billing.Domain.Entities.RefundTransaction", b =>

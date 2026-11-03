@@ -8,7 +8,10 @@ internal sealed class RefundRequestConfiguration : IEntityTypeConfiguration<Refu
 {
     public void Configure(EntityTypeBuilder<RefundRequest> builder)
     {
-        builder.ToTable("RefundRequest");
+        builder.ToTable("RefundRequest", t =>
+        {
+            t.HasCheckConstraint("CK_RefundRequest_PolicyRule", "([RefundReason] = 'CancelledBefore0500' AND [PolicyRuleApplied] = 'FullRefundPre0500') OR ([RefundReason] <> 'CancelledBefore0500' AND [PolicyRuleApplied] = 'CustomApproval')");
+        });
         builder.HasKey(x => x.Id);
 
         builder.Property(x => x.RequestedAmount).HasPrecision(18, 2);
