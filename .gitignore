@@ -1,6 +1,6 @@
 .claude/settings.local.json
 
-# ===== Agent rules (không đẩy lên GitHub, gửi riêng cho thành viên) =====
+# ===== Agent rules =====
 AGENTS.md
 **/AGENTS.md
 CLAUDE.md
@@ -9,11 +9,13 @@ GEMINI.md
 **/GEMINI.md
 .claude/
 .agents/
+.codex/
+.cursor/
 docs/ai/
-# Tài liệu nghiệp vụ và giải pháp kỹ thuật (gửi riêng)
+# Tài liệu nghiệp vụ và giải pháp kỹ thuật 
 docs/business/
 docs/architecture/
-# Hồ sơ công việc của agent (chỉ lưu cục bộ)
+# Hồ sơ công việc của agent 
 docs/tasks/
 docs/sessions/
 docs/evidence/
