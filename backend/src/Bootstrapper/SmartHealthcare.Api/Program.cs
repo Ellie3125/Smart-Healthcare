@@ -26,5 +26,9 @@ builder.Services
     .AddDocumentsReportingInfrastructure(connectionString)
     .AddSharedInfrastructure(connectionString);
 
+// Liveness: tiến trình đang phục vụ HTTP; không kiểm DB để container không bị coi là chết khi SQL Server tạm gián đoạn.
+builder.Services.AddHealthChecks();
+
 var app = builder.Build();
+app.MapHealthChecks("/health/live");
 app.Run();

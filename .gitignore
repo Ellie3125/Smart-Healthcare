@@ -19,3 +19,8 @@ docs/sessions/
 docs/evidence/
 docs/handoffs/
 # ===== end agent rules =====
+
+# Secret môi trường cho Docker Compose (chỉ commit file mẫu)
+.env
+.env.*
+!.env.*.example
