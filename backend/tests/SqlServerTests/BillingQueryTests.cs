@@ -8,6 +8,12 @@ namespace SqlServerTests;
 
 // Truy vấn bảng giá và khoản thu của Billing (EfPriceCatalog, EfChargeStore) chạy trên SQL Server thật,
 // qua BillingModule; mọi dữ liệu nằm trong transaction của test và bị rollback. Giá là giả lập.
+// Chạy riêng, không song song với ConstraintTests: cả hai giữ transaction chưa commit trên billing.PriceList/PriceListItem
+// của cùng DB SmartHealthcare_Test; chạy cùng lúc thì truy vấn bảng giá chờ khóa của nhau (timeout, deadlock).
+[CollectionDefinition(nameof(BillingQuerySerialCollection), DisableParallelization = true)]
+public sealed class BillingQuerySerialCollection;
+
+[Collection(nameof(BillingQuerySerialCollection))]
 public class BillingQueryTests
 {
     private static readonly DateTime From = new(2026, 12, 31, 17, 0, 0, DateTimeKind.Utc);
