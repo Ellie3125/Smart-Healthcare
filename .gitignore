@@ -19,3 +19,5 @@ docs/sessions/
 docs/evidence/
 docs/handoffs/
 # ===== end agent rules =====
+agent-rules-export
+legacy-ui
