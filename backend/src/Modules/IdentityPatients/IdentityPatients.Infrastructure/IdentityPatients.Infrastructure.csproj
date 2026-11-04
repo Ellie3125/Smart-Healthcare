@@ -1,9 +1,11 @@
 <Project Sdk="Microsoft.NET.Sdk">
   <ItemGroup>
     <PackageReference Include="Microsoft.EntityFrameworkCore.SqlServer" />
+    <PackageReference Include="Microsoft.Extensions.Identity.Core" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\IdentityPatients.Domain\IdentityPatients.Domain.csproj" />
+    <ProjectReference Include="..\IdentityPatients.Contracts\IdentityPatients.Contracts.csproj" />
     <ProjectReference Include="..\..\..\Shared\Shared.Infrastructure\Shared.Infrastructure.csproj" />
   </ItemGroup>
 </Project>
