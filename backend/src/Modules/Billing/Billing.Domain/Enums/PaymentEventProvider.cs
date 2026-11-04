@@ -2,6 +2,6 @@ namespace Billing.Domain.Enums;
 
 public enum PaymentEventProvider
 {
-    VNPT,
+    VNPAY,
     MoMo
 }

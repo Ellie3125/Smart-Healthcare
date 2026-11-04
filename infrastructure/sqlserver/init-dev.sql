@@ -1,7 +1,8 @@
 -- Chỉ dùng cho môi trường dev (compose.dev.yaml, service db-init). Chạy bằng sqlcmd với identity quản trị.
 -- Tạo DB, login runtime riêng cho Api/Worker (không dùng sa trong runtime), và schema hangfire do login runtime sở hữu
 -- để Hangfire tự tạo bảng của nó. Bảng nghiệp vụ do migrator tạo, login runtime chỉ đọc/ghi dữ liệu.
--- Biến sqlcmd: DB_NAME, APP_LOGIN, APP_PASSWORD (mật khẩu không chứa dấu nháy đơn).
+-- Biến sqlcmd: DB_NAME, APP_LOGIN (qua -v); APP_PASSWORD đọc từ biến môi trường, không truyền qua dòng lệnh
+-- (mật khẩu không chứa dấu nháy đơn).
 SET NOCOUNT ON;
 
 IF DB_ID(N'$(DB_NAME)') IS NULL

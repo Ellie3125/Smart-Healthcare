@@ -20,9 +20,11 @@ services:
       - -v
       - DB_NAME=SmartHealthcare
       - APP_LOGIN=${SQL_APP_LOGIN:?Thiếu SQL_APP_LOGIN}
-      - APP_PASSWORD=${SQL_APP_PASSWORD:?Thiếu SQL_APP_PASSWORD}
+    # Mật khẩu không truyền qua tham số dòng lệnh (tiến trình khác đọc được qua ps, /proc/*/cmdline).
+    # sqlcmd tự nhận biến môi trường làm scripting variable, nên init-dev.sql vẫn dùng $(APP_PASSWORD).
     environment:
       SQLCMDPASSWORD: ${MSSQL_SA_PASSWORD:?Thiếu MSSQL_SA_PASSWORD}
+      APP_PASSWORD: ${SQL_APP_PASSWORD:?Thiếu SQL_APP_PASSWORD}
     volumes:
       - ./infrastructure/sqlserver/init-dev.sql:/init/init-dev.sql:ro
     depends_on:
