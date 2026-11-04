@@ -9,10 +9,7 @@
     </PackageReference>
   </ItemGroup>
   <ItemGroup>
-    <ProjectReference Include="..\..\Modules\IdentityPatients\IdentityPatients.Contracts\IdentityPatients.Contracts.csproj" />
-    <ProjectReference Include="..\..\Modules\IdentityPatients\IdentityPatients.Application\IdentityPatients.Application.csproj" />
     <ProjectReference Include="..\..\Modules\IdentityPatients\IdentityPatients.Infrastructure\IdentityPatients.Infrastructure.csproj" />
-    <ProjectReference Include="..\..\Modules\IdentityPatients\IdentityPatients.Api\IdentityPatients.Api.csproj" />
     <ProjectReference Include="..\..\Modules\Scheduling\Scheduling.Infrastructure\Scheduling.Infrastructure.csproj" />
     <ProjectReference Include="..\..\Modules\Clinical\Clinical.Infrastructure\Clinical.Infrastructure.csproj" />
     <ProjectReference Include="..\..\Modules\MedicationCatalog\MedicationCatalog.Infrastructure\MedicationCatalog.Infrastructure.csproj" />
