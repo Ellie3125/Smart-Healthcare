@@ -2,7 +2,7 @@ namespace Billing.Domain.Enums;
 
 public enum PaymentIntentProvider
 {
-    VNPT,
+    VNPAY,
     MoMo,
     Counter
 }
