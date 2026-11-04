@@ -88,6 +88,51 @@ public sealed record ChargeDto(
     Guid? AppointmentId,
     Guid? ServiceOrderItemId);
 
+/// <summary>Cổng thanh toán bệnh nhân chọn trên app (BR-002).</summary>
+public enum PaymentProvider
+{
+    VNPAY,
+    MoMo,
+}
+
+public enum PaymentState
+{
+    Pending,
+    Processing,
+    Succeeded,
+    Failed,
+    Unknown,
+    Expired,
+    Cancelled,
+}
+
+/// <param name="Purpose">InitialConsultation: cần BookingAttemptId, khoản là phí khám. CLSOrderBatch: cần EncounterId, khoản là phí CLS của lượt đó.</param>
+/// <param name="ChargeIds">Các khoản thu (ChargeId) cần trả, không rỗng, không trùng.</param>
+/// <param name="ExpiresAtUtc">Hạn của yêu cầu thanh toán, UTC, phải sau thời điểm hiện tại; phí khám thường là ExpiresAt của reservation.</param>
+public sealed record CreatePayment(
+    PaymentPurpose Purpose,
+    Guid PatientId,
+    Guid PayerAppUserId,
+    Guid? BookingAttemptId,
+    Guid? EncounterId,
+    IReadOnlyList<Guid> ChargeIds,
+    PaymentProvider Provider,
+    DateTime ExpiresAtUtc);
+
+/// <param name="TransactionReference">Mã đơn hàng gửi cổng thanh toán (vnp_TxnRef / orderId); duy nhất, tối đa 64 ký tự.</param>
+/// <param name="Amount">Số tiền gửi cổng, do Billing tính (API-04).</param>
+public sealed record PaymentDto(
+    Guid PaymentIntentId,
+    string IntentNumber,
+    string TransactionReference,
+    PaymentPurpose Purpose,
+    PaymentProvider Provider,
+    decimal Amount,
+    string Currency,
+    PaymentState Status,
+    DateTime ExpiresAtUtc,
+    IReadOnlyList<Guid> ChargeIds);
+
 /// <param name="TotalPayable">Tổng thành tiền các khoản còn hiệu lực (không tính Cancelled, Waived).</param>
 /// <param name="TotalPaid">Tổng đã thanh toán đã xác minh.</param>
 /// <param name="TotalRefunded">Tổng đã hoàn đã xác minh.</param>

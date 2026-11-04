@@ -1,6 +1,7 @@
 using Billing.Application;
 using Billing.Contracts;
 using Billing.Infrastructure.Persistence;
+using Shared.Infrastructure.Persistence;
 using Xunit;
 using static SqlServerTests.TestDatabase;
 
@@ -124,7 +125,9 @@ public class BillingQueryTests
     private static BillingModule Module(TestDatabase db)
     {
         var context = db.CreateContext<BillingDbContext>(options => new BillingDbContext(options));
-        return new BillingModule(new EfPriceCatalog(context), new EfChargeStore(context), TimeProvider.System);
+        var shared = db.CreateContext<SharedDbContext>(options => new SharedDbContext(options));
+        var payments = new PaymentService(new EfPaymentStore(context, new OutboxWriter(shared, TimeProvider.System)), TimeProvider.System);
+        return new BillingModule(new EfPriceCatalog(context), new EfChargeStore(context), payments, TimeProvider.System);
     }
 
     private static Task<Guid> PriceListAsync(TestDatabase db, DateTime from, DateTime? to, string currency = "VND", bool active = true) =>

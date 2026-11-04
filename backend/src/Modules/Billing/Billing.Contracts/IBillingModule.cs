@@ -24,4 +24,12 @@ public interface IBillingModule
 
     /// <summary>Tổng hợp chi phí của một lượt khám theo năm chỉ tiêu ở Phạm vi nghiệp vụ v2.5 §5.5.</summary>
     Task<EncounterCostSummary> GetEncounterCostSummaryAsync(Guid encounterId, CancellationToken ct);
+
+    /// <summary>
+    /// Tạo yêu cầu thanh toán cho các khoản thu: PaymentIntent + PaymentTransaction (Pending) + PaymentAllocation
+    /// cho từng khoản, số tiền = phần còn phải trả do Billing tính. Không gọi cổng thanh toán (MOD-05).
+    /// Gọi lại khi đã có yêu cầu đang mở cho cùng BookingAttempt / cùng khoản với cùng cổng thì trả yêu cầu đó.
+    /// Bên gọi đã kiểm quyền của người trả trên hồ sơ PatientId (MED-05).
+    /// </summary>
+    Task<PaymentDto> CreatePaymentAsync(CreatePayment command, CancellationToken ct);
 }

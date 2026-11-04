@@ -23,7 +23,8 @@ public class BillingModuleTests
     {
         var list = List("BG-2027", Jan1);
         _catalog.Items.AddRange([RankFee(list, Rank, 150_000m), ClsFee(list, Ultrasound, 200_000m), ClsFee(list, XRay, 120_000m)]);
-        _module = new BillingModule(_catalog, _store, new FixedClock(Mid));
+        var clock = new FixedClock(Mid);
+        _module = new BillingModule(_catalog, _store, new PaymentService(new UnusedPaymentStore(), clock), clock);
     }
 
     [Fact]

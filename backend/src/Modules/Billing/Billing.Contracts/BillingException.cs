@@ -13,6 +13,18 @@ public enum BillingErrorCode
 
     /// <summary>Một ServiceOrderItem đang có nhiều hơn một khoản thu chưa hủy; dữ liệu cần đối soát, không tự chọn.</summary>
     DuplicateCharge,
+
+    /// <summary>Khoản thu không tồn tại, đã hủy/miễn/trả đủ, hoặc không đúng loại/lượt khám của yêu cầu thanh toán.</summary>
+    ChargeNotPayable,
+
+    /// <summary>Đã có yêu cầu thanh toán đang mở chồng lên yêu cầu này (khác khoản hoặc khác cổng); hoặc giao dịch đã ghi nhận bằng mã khác.</summary>
+    PaymentConflict,
+
+    /// <summary>Không có giao dịch với mã tham chiếu này.</summary>
+    PaymentNotFound,
+
+    /// <summary>Số tiền hoặc loại tiền cổng báo không khớp giao dịch; không ghi nhận đã trả (BR-002).</summary>
+    AmountMismatch,
 }
 
 /// <summary>Lỗi nghiệp vụ Billing trả cho module gọi. Không retry: dữ liệu hoặc cấu hình phải được sửa trước (DB-12).</summary>

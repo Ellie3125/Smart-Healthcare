@@ -65,4 +65,22 @@ public sealed class BillingItem
             ServiceOrderItemId = serviceOrderItemId,
         };
     }
+
+    /// <summary>Khoản còn là nghĩa vụ thanh toán: không bị hủy, không được miễn.</summary>
+    public bool IsInEffect => Status is not (BillingItemStatus.Cancelled or BillingItemStatus.Waived);
+
+    /// <summary>Phần còn phải trả = thành tiền − (đã trả − đã hoàn); 0 với khoản đã hủy hoặc miễn.</summary>
+    public decimal Outstanding => IsInEffect ? Math.Max(0m, TotalAmount - (PaidAmount - RefundedAmount)) : 0m;
+
+    /// <summary>
+    /// Ghi nhận tiền của một giao dịch đã xác minh vào khoản (PaidAmount là cache, cập nhật cùng transaction — ERD v2.4).
+    /// Đủ thành tiền thì Paid, chưa đủ thì PartiallyPaid. Khoản đã hủy/miễn vẫn nhận tiền để theo dõi tiền chờ hoàn.
+    /// </summary>
+    public void ApplyPayment(decimal amount)
+    {
+        ArgumentOutOfRangeException.ThrowIfNegativeOrZero(amount);
+        PaidAmount += amount;
+        if (IsInEffect)
+            Status = PaidAmount - RefundedAmount >= TotalAmount ? BillingItemStatus.Paid : BillingItemStatus.PartiallyPaid;
+    }
 }
