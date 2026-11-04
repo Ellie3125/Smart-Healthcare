@@ -1,0 +1,84 @@
+# Base dùng chung mọi môi trường (CTR-03). Ghép với override của từng môi trường:
+#   docker compose --env-file .env.dev -f compose.yaml -f compose.dev.yaml up -d
+# SQL Server và Redis không publish port ra host (OPS-01); chỉ mở trong mạng Docker nội bộ.
+# Secret chỉ đến từ file .env của môi trường (không commit), không nằm trong file này.
+name: smart-healthcare
+
+x-logging: &default-logging
+  driver: json-file
+  options:
+    max-size: "10m"
+    max-file: "3"
+
+services:
+  sqlserver:
+    image: mcr.microsoft.com/mssql/server:2022-CU27-ubuntu-22.04
+    environment:
+      ACCEPT_EULA: "Y"
+      MSSQL_PID: ${MSSQL_PID:?Thiếu MSSQL_PID (edition SQL Server)}
+      MSSQL_SA_PASSWORD: ${MSSQL_SA_PASSWORD:?Thiếu MSSQL_SA_PASSWORD}
+      MSSQL_MEMORY_LIMIT_MB: "2560"
+    volumes:
+      - sqlserver-data:/var/opt/mssql
+    mem_limit: 3g
+    healthcheck:
+      test: ["CMD-SHELL", "/opt/mssql-tools18/bin/sqlcmd -C -S localhost -U sa -P \"$$MSSQL_SA_PASSWORD\" -Q \"SELECT 1\" -b -o /dev/null"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 30s
+    restart: unless-stopped
+    logging: *default-logging
+    networks: [backend]
+
+  redis:
+    # Chỉ làm SignalR backplane (GP v2.8 §8.6, CTR-08): không persistence, không giữ dữ liệu nghiệp vụ.
+    image: redis:7.4.12-alpine
+    command: ["redis-server", "--maxmemory", "96mb", "--save", "", "--appendonly", "no"]
+    mem_limit: 128m
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+    restart: unless-stopped
+    logging: *default-logging
+    networks: [backend]
+
+  api:
+    image: ${API_IMAGE:?Thiếu API_IMAGE}
+    environment:
+      ASPNETCORE_ENVIRONMENT: ${APP_ENVIRONMENT:?Thiếu APP_ENVIRONMENT}
+      ConnectionStrings__SmartHealthcare: ${APP_DB_CONNECTION:?Thiếu APP_DB_CONNECTION}
+      ConnectionStrings__Redis: redis:6379
+    depends_on:
+      sqlserver:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    mem_limit: 768m
+    restart: unless-stopped
+    logging: *default-logging
+    networks: [backend]
+
+  worker:
+    image: ${WORKER_IMAGE:?Thiếu WORKER_IMAGE}
+    environment:
+      DOTNET_ENVIRONMENT: ${APP_ENVIRONMENT:?Thiếu APP_ENVIRONMENT}
+      ConnectionStrings__SmartHealthcare: ${APP_DB_CONNECTION:?Thiếu APP_DB_CONNECTION}
+      ConnectionStrings__Redis: redis:6379
+    depends_on:
+      sqlserver:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    mem_limit: 384m
+    restart: unless-stopped
+    logging: *default-logging
+    networks: [backend]
+
+networks:
+  backend: {}
+
+volumes:
+  sqlserver-data:

@@ -36,6 +36,9 @@ builder.Services
     .AddDocumentsReportingInfrastructure(connectionString)
     .AddSharedInfrastructure(connectionString);
 
+// Liveness: tiến trình đang phục vụ HTTP; không kiểm DB để container không bị coi là chết khi SQL Server tạm gián đoạn.
+builder.Services.AddHealthChecks();
+
 var app = builder.Build();
 
 // Seed dữ liệu ban đầu cho Identity (chỉ trong Development hoặc khi bật cờ Seed:Enabled)
@@ -54,4 +57,5 @@ app.UseAuthorization();
 
 app.MapControllers();
 
+app.MapHealthChecks("/health/live");
 app.Run();

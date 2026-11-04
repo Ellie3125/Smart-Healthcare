@@ -1,0 +1,10 @@
+**/bin/
+**/obj/
+**/TestResults/
+**/*.user
+**/.vs/
+**/.vscode/
+**/appsettings.*.local.json
+tests/
+**/*.md
+.dockerignore

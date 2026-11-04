@@ -22,4 +22,47 @@ public sealed class BillingItem
     public BillingItemStatus Status { get; set; }
     public byte[] RowVersion { get; set; } = null!;
     public DateTime CreatedAtUtc { get; set; }
+
+    public const int ItemNameMaxLength = 200;
+
+    /// <summary>
+    /// Tạo khoản thu Pending với đơn giá đã áp dụng (snapshot); thành tiền = đơn giá × số lượng (CK_BillingItem_TotalAmount).
+    /// Đổi bảng giá về sau không tính lại khoản này (Phạm vi v2.5 §5.5).
+    /// </summary>
+    public static BillingItem CreatePending(
+        Guid priceListItemId,
+        ItemType itemType,
+        string itemNameSnapshot,
+        decimal unitPrice,
+        int quantity,
+        DateTime createdAtUtc,
+        Guid? encounterId = null,
+        Guid? appointmentId = null,
+        Guid? serviceOrderItemId = null)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(itemNameSnapshot);
+        if (itemNameSnapshot.Length > ItemNameMaxLength)
+            throw new ArgumentException($"Tên khoản thu tối đa {ItemNameMaxLength} ký tự.", nameof(itemNameSnapshot));
+        ArgumentOutOfRangeException.ThrowIfNegative(unitPrice);
+        ArgumentOutOfRangeException.ThrowIfNegativeOrZero(quantity);
+        if (createdAtUtc.Kind != DateTimeKind.Utc)
+            throw new ArgumentException("Thời điểm phải là UTC.", nameof(createdAtUtc));
+
+        return new BillingItem
+        {
+            PriceListItemId = priceListItemId,
+            ItemType = itemType,
+            ItemNameSnapshot = itemNameSnapshot,
+            UnitPrice = unitPrice,
+            Quantity = quantity,
+            TotalAmount = unitPrice * quantity,
+            PaidAmount = 0m,
+            RefundedAmount = 0m,
+            Status = BillingItemStatus.Pending,
+            CreatedAtUtc = createdAtUtc,
+            EncounterId = encounterId,
+            AppointmentId = appointmentId,
+            ServiceOrderItemId = serviceOrderItemId,
+        };
+    }
 }
