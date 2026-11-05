@@ -6,4 +6,7 @@
     <ProjectReference Include="..\Billing.Domain\Billing.Domain.csproj" />
     <ProjectReference Include="..\Billing.Contracts\Billing.Contracts.csproj" />
   </ItemGroup>
+  <ItemGroup>
+    <InternalsVisibleTo Include="Billing.Tests" />
+  </ItemGroup>
 </Project>
