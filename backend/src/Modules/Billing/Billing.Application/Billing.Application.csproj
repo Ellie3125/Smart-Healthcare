@@ -1,5 +1,8 @@
 <Project Sdk="Microsoft.NET.Sdk">
   <ItemGroup>
+    <PackageReference Include="Microsoft.Extensions.DependencyInjection.Abstractions" />
+  </ItemGroup>
+  <ItemGroup>
     <ProjectReference Include="..\Billing.Domain\Billing.Domain.csproj" />
     <ProjectReference Include="..\Billing.Contracts\Billing.Contracts.csproj" />
   </ItemGroup>
