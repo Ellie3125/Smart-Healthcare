@@ -32,6 +32,9 @@ namespace IdentityPatients.Infrastructure.Persistence.Migrations
                     b.Property<DateTime>("CreatedAtUtc")
                         .HasColumnType("datetime2");
 
+                    b.Property<Guid?>("DoctorId")
+                        .HasColumnType("uniqueidentifier");
+
                     b.Property<string>("Email")
                         .HasMaxLength(256)
                         .HasColumnType("nvarchar(256)");
@@ -44,8 +47,8 @@ namespace IdentityPatients.Infrastructure.Persistence.Migrations
 
                     b.Property<string>("PasswordHash")
                         .IsRequired()
-                        .HasMaxLength(128)
-                        .HasColumnType("nvarchar(128)");
+                        .HasMaxLength(256)
+                        .HasColumnType("nvarchar(256)");
 
                     b.Property<string>("PhoneNumber")
                         .HasMaxLength(32)
@@ -53,6 +56,20 @@ namespace IdentityPatients.Infrastructure.Persistence.Migrations
 
                     b.Property<bool>("PhoneNumberConfirmed")
                         .HasColumnType("bit");
+
+                    b.Property<string>("Role")
+                        .IsRequired()
+                        .HasMaxLength(32)
+                        .HasColumnType("nvarchar(32)");
+
+                    b.Property<Guid?>("RoomId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<byte[]>("RowVersion")
+                        .IsConcurrencyToken()
+                        .IsRequired()
+                        .ValueGeneratedOnAddOrUpdate()
+                        .HasColumnType("rowversion");
 
                     b.Property<string>("UserName")
                         .IsRequired()
@@ -69,6 +86,8 @@ namespace IdentityPatients.Infrastructure.Persistence.Migrations
                         .IsUnique()
                         .HasFilter("[PhoneNumber] IS NOT NULL");
 
+                    b.HasIndex("Role");
+
                     b.HasIndex("UserName")
                         .IsUnique();
 
@@ -84,6 +103,9 @@ namespace IdentityPatients.Infrastructure.Persistence.Migrations
                     b.Property<string>("Biography")
                         .HasColumnType("nvarchar(max)");
 
+                    b.Property<Guid?>("DefaultRoomId")
+                        .HasColumnType("uniqueidentifier");
+
                     b.Property<Guid>("DoctorRankId")
                         .HasColumnType("uniqueidentifier");
 
@@ -97,6 +119,8 @@ namespace IdentityPatients.Infrastructure.Persistence.Migrations
                         .HasColumnType("uniqueidentifier");
 
                     b.HasKey("Id");
+
+                    b.HasIndex("DefaultRoomId");
 
                     b.HasIndex("DoctorRankId");
 
@@ -169,6 +193,9 @@ namespace IdentityPatients.Infrastructure.Persistence.Migrations
                         .HasMaxLength(64)
                         .HasColumnType("nvarchar(64)");
 
+                    b.Property<Guid?>("OwnerUserId")
+                        .HasColumnType("uniqueidentifier");
+
                     b.Property<string>("PhoneNumber")
                         .IsRequired()
                         .HasMaxLength(32)
@@ -179,6 +206,8 @@ namespace IdentityPatients.Infrastructure.Persistence.Migrations
                     b.HasIndex("NationalId")
                         .IsUnique()
                         .HasFilter("[NationalId] IS NOT NULL");
+
+                    b.HasIndex("OwnerUserId");
 
                     b.ToTable("Patient", "identity");
                 });
@@ -452,6 +481,11 @@ namespace IdentityPatients.Infrastructure.Persistence.Migrations
 
             modelBuilder.Entity("IdentityPatients.Domain.Entities.Doctor", b =>
                 {
+                    b.HasOne("IdentityPatients.Domain.Entities.Room", null)
+                        .WithMany()
+                        .HasForeignKey("DefaultRoomId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
                     b.HasOne("IdentityPatients.Domain.Entities.DoctorRank", null)
                         .WithMany()
                         .HasForeignKey("DoctorRankId")
