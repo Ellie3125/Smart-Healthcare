@@ -8,8 +8,9 @@ using DocumentsReporting.Api;
 using DocumentsReporting.Application;
 using DocumentsReporting.Infrastructure;
 using IdentityPatients.Api;
-using IdentityPatients.Application;
 using IdentityPatients.Infrastructure;
+using IdentityPatients.Infrastructure.Seed;
+using IdentityPatients.Application;
 using MedicationCatalog.Api;
 using MedicationCatalog.Application;
 using MedicationCatalog.Infrastructure;
@@ -30,9 +31,25 @@ if (string.IsNullOrWhiteSpace(connectionString))
     throw new InvalidOperationException("ConnectionStrings:SmartHealthcare chưa được cấu hình (dotnet user-secrets hoặc biến môi trường ConnectionStrings__SmartHealthcare).");
 }
 
+builder.Services.AddControllers()
+    .AddIdentityPatientsApi();
+
+builder.Services.AddProblemDetails();
+
+builder.Services.AddCors(options =>
+{
+    options.AddDefaultPolicy(policy =>
+    {
+        policy.WithOrigins("http://localhost:5173", "http://localhost:3000", "http://127.0.0.1:5173")
+              .AllowAnyHeader()
+              .AllowAnyMethod()
+              .AllowCredentials();
+    });
+});
+
 // Migration chạy bằng dotnet ef như một bước release có kiểm soát (DB-03), không tự migrate khi khởi động.
 builder.Services
-    .AddIdentityPatientsInfrastructure(connectionString)
+    .AddIdentityPatientsInfrastructure(builder.Configuration, connectionString)
     .AddSchedulingInfrastructure(connectionString)
     .AddClinicalInfrastructure(connectionString)
     .AddMedicationCatalogInfrastructure(connectionString)
@@ -74,6 +91,20 @@ builder.Services.AddOpenApi(options => options.AddDocumentTransformer((document,
 }));
 
 var app = builder.Build();
+
+app.UseCors();
+app.UseAuthentication();
+app.UseAuthorization();
+
+app.MapControllers();
+
+// Seed dữ liệu mẫu (idempotent) chỉ chạy trong môi trường Development hoặc khi bật cấu hình Seed:Enabled
+if (app.Environment.IsDevelopment() || app.Configuration.GetValue<bool>("Seed:Enabled"))
+{
+    using var scope = app.Services.CreateScope();
+    var seedService = scope.ServiceProvider.GetRequiredService<IdentityPatientsSeedService>();
+    await seedService.SeedAsync();
+}
 
 app.UseExceptionHandler();
 app.UseStatusCodePages();

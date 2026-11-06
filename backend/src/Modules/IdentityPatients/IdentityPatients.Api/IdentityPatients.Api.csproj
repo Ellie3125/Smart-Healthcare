@@ -1,8 +1,10 @@
 <Project Sdk="Microsoft.NET.Sdk">
   <ItemGroup>
-    <FrameworkReference Include="Microsoft.AspNetCore.App" />
-  </ItemGroup>
-  <ItemGroup>
+    <ProjectReference Include="..\IdentityPatients.Contracts\IdentityPatients.Contracts.csproj" />
     <ProjectReference Include="..\IdentityPatients.Application\IdentityPatients.Application.csproj" />
   </ItemGroup>
+  <ItemGroup>
+    <FrameworkReference Include="Microsoft.AspNetCore.App" />
+  </ItemGroup>
 </Project>
+

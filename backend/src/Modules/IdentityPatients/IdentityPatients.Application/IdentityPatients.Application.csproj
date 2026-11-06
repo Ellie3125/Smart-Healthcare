@@ -1,9 +1,11 @@
 <Project Sdk="Microsoft.NET.Sdk">
   <ItemGroup>
-    <PackageReference Include="Microsoft.Extensions.DependencyInjection.Abstractions" />
+    <ProjectReference Include="..\IdentityPatients.Contracts\IdentityPatients.Contracts.csproj" />
+    <ProjectReference Include="..\IdentityPatients.Domain\IdentityPatients.Domain.csproj" />
+    <ProjectReference Include="..\..\..\Shared\Shared.Abstractions\Shared.Abstractions.csproj" />
   </ItemGroup>
   <ItemGroup>
-    <ProjectReference Include="..\IdentityPatients.Domain\IdentityPatients.Domain.csproj" />
-    <ProjectReference Include="..\IdentityPatients.Contracts\IdentityPatients.Contracts.csproj" />
+    <FrameworkReference Include="Microsoft.AspNetCore.App" />
   </ItemGroup>
 </Project>
+
