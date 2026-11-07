@@ -88,7 +88,10 @@ public sealed record ChargeDto(
     Guid? AppointmentId,
     Guid? ServiceOrderItemId);
 
-/// <summary>Cổng thanh toán bệnh nhân chọn trên app (BR-002).</summary>
+/// <summary>
+/// Cổng thanh toán trên app (BR-002). Hiện chỉ VNPAY có adapter (sandbox); MoMo tạo được yêu cầu nhưng chưa tạo được liên kết.
+/// Thu tại quầy (Counter) đi luồng riêng của tiếp tân, không qua CreatePayment.
+/// </summary>
 public enum PaymentProvider
 {
     VNPAY,
@@ -119,7 +122,7 @@ public sealed record CreatePayment(
     PaymentProvider Provider,
     DateTime ExpiresAtUtc);
 
-/// <param name="TransactionReference">Mã đơn hàng gửi cổng thanh toán (vnp_TxnRef / orderId); duy nhất, tối đa 64 ký tự.</param>
+/// <param name="TransactionReference">Mã tham chiếu gửi cổng thanh toán (vnp_TxnRef của VNPAY); duy nhất, chữ và số, tối đa 64 ký tự.</param>
 /// <param name="Amount">Số tiền gửi cổng, do Billing tính (API-04).</param>
 public sealed record PaymentDto(
     Guid PaymentIntentId,

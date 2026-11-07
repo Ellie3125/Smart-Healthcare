@@ -8,11 +8,10 @@ namespace IdentityPatients.Api;
 
 public static class DependencyInjection
 {
+    public const string Tag = "IdentityPatients";
+
     public static IMvcBuilder AddIdentityPatientsApi(this IMvcBuilder builder) =>
         builder.AddApplicationPart(typeof(AuthController).Assembly);
-}
-
-    public const string Tag = "IdentityPatients";
 
     public static IServiceCollection AddIdentityPatientsApi(this IServiceCollection services) => services;
 

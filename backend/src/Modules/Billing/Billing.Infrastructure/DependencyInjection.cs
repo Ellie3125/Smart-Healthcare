@@ -1,5 +1,6 @@
 using Billing.Application;
 using Billing.Contracts;
+using Billing.Infrastructure.Gateway;
 using Billing.Infrastructure.Persistence;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
@@ -19,7 +20,13 @@ public static class DependencyInjection
         services.AddScoped<IChargeStore, EfChargeStore>();
         services.AddScoped<IPaymentStore, EfPaymentStore>();
         services.AddScoped<PaymentService>();
+        services.AddScoped<PaymentCheckoutService>();
         services.AddScoped<IBillingModule, BillingModule>();
+
+        // Cổng thanh toán VNPAY. Thiếu cấu hình thì Api vẫn chạy; chỉ tạo liên kết và IPN trả GatewayUnavailable.
+        services.AddOptions<VnpayOptions>().BindConfiguration(VnpayOptions.Section);
+        services.AddScoped<IPaymentGateway, VnpayGateway>();
+        services.AddScoped<IPaymentCallbackHandler, VnpayIpnHandler>();
         return services;
     }
 }

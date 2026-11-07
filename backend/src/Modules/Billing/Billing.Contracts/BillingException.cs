@@ -25,6 +25,12 @@ public enum BillingErrorCode
 
     /// <summary>Số tiền hoặc loại tiền cổng báo không khớp giao dịch; không ghi nhận đã trả (BR-002).</summary>
     AmountMismatch,
+
+    /// <summary>Không gọi được cổng thanh toán hoặc cổng chưa được cấu hình; yêu cầu thanh toán vẫn giữ, gọi lại để lấy liên kết.</summary>
+    GatewayUnavailable,
+
+    /// <summary>Kết quả gửi về không có chữ ký hợp lệ của cổng (sai khóa, sửa nội dung, quá hạn); không ghi nhận gì.</summary>
+    InvalidSignature,
 }
 
 /// <summary>Lỗi nghiệp vụ Billing trả cho module gọi. Không retry: dữ liệu hoặc cấu hình phải được sửa trước (DB-12).</summary>

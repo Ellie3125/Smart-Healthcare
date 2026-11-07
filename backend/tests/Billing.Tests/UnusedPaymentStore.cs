@@ -1,6 +1,7 @@
 using Billing.Application;
 using Billing.Contracts;
 using Billing.Domain.Entities;
+using Billing.Domain.Enums;
 
 namespace Billing.Tests;
 
@@ -9,6 +10,10 @@ internal sealed class UnusedPaymentStore : IPaymentStore
 {
     private static InvalidOperationException Unused() => new("Test không được dùng IPaymentStore.");
     public Task<T> InTransactionAsync<T>(Func<CancellationToken, Task<T>> work, CancellationToken ct) => throw Unused();
+    public bool HasActiveTransaction => throw Unused();
+    public Task<(PaymentIntent Intent, PaymentTransaction Transaction)?> FindPaymentAsync(Guid paymentIntentId, CancellationToken ct) => throw Unused();
+    public Task<bool> HasEventAsync(PaymentEventProvider provider, string eventId, CancellationToken ct) => throw Unused();
+    public void AddEvent(PaymentEvent paymentEvent) => throw Unused();
     public Task<IReadOnlyList<BillingItem>> LockChargesAsync(IReadOnlyList<Guid> chargeIds, CancellationToken ct) => throw Unused();
     public Task LockBookingAttemptAsync(Guid bookingAttemptId, CancellationToken ct) => throw Unused();
     public Task<IReadOnlyList<OpenPayment>> FindOpenPaymentsAsync(IReadOnlyCollection<Guid> chargeIds, Guid? bookingAttemptId, DateTime nowUtc, CancellationToken ct) => throw Unused();
