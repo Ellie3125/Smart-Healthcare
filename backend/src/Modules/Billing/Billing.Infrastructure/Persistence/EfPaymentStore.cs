@@ -41,6 +41,24 @@ internal sealed class EfPaymentStore(BillingDbContext db, OutboxWriter outbox) :
         }
     }
 
+    public bool HasActiveTransaction => db.Database.CurrentTransaction is not null;
+
+    public async Task<(PaymentIntent Intent, PaymentTransaction Transaction)?> FindPaymentAsync(Guid paymentIntentId, CancellationToken ct)
+    {
+        var row = await (
+                from intent in db.Set<PaymentIntent>().AsNoTracking()
+                join transaction in db.Set<PaymentTransaction>().AsNoTracking() on intent.Id equals transaction.PaymentIntentId
+                where intent.Id == paymentIntentId
+                select new { intent, transaction })
+            .SingleOrDefaultAsync(ct);
+        return row is null ? null : (row.intent, row.transaction);
+    }
+
+    public Task<bool> HasEventAsync(PaymentEventProvider provider, string eventId, CancellationToken ct) =>
+        db.Set<PaymentEvent>().AnyAsync(e => e.Provider == provider && e.EventId == eventId, ct);
+
+    public void AddEvent(PaymentEvent paymentEvent) => db.Add(paymentEvent);
+
     public async Task<IReadOnlyList<BillingItem>> LockChargesAsync(IReadOnlyList<Guid> chargeIds, CancellationToken ct)
     {
         var locked = new List<BillingItem>(chargeIds.Count);

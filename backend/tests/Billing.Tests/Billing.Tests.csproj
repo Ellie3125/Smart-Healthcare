@@ -8,5 +8,7 @@
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\..\src\Modules\Billing\Billing.Application\Billing.Application.csproj" />
+    <!-- Chữ ký và adapter VNPAY (Billing.Infrastructure/Gateway). -->
+    <ProjectReference Include="..\..\src\Modules\Billing\Billing.Infrastructure\Billing.Infrastructure.csproj" />
   </ItemGroup>
 </Project>

@@ -27,7 +27,8 @@ public interface IBillingModule
 
     /// <summary>
     /// Tạo yêu cầu thanh toán cho các khoản thu: PaymentIntent + PaymentTransaction (Pending) + PaymentAllocation
-    /// cho từng khoản, số tiền = phần còn phải trả do Billing tính. Không gọi cổng thanh toán (MOD-05).
+    /// cho từng khoản, số tiền = phần còn phải trả do Billing tính. Không gọi cổng thanh toán, nên gọi được bên trong
+    /// unit of work của module khởi phát; Billing gọi cổng ở bước riêng sau khi commit (MOD-05, Giải pháp kỹ thuật mục 5.4).
     /// Gọi lại khi đã có yêu cầu đang mở cho cùng BookingAttempt / cùng khoản với cùng cổng thì trả yêu cầu đó.
     /// Bên gọi đã kiểm quyền của người trả trên hồ sơ PatientId (MED-05).
     /// </summary>
