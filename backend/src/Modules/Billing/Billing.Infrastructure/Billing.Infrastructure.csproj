@@ -1,19 +1,9 @@
 <Project Sdk="Microsoft.NET.Sdk">
   <ItemGroup>
-    <!-- BindConfiguration cho cấu hình cổng thanh toán. -->
-    <FrameworkReference Include="Microsoft.AspNetCore.App" />
-  </ItemGroup>
-  <ItemGroup>
     <PackageReference Include="Microsoft.EntityFrameworkCore.SqlServer" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\Billing.Domain\Billing.Domain.csproj" />
-    <ProjectReference Include="..\Billing.Application\Billing.Application.csproj" />
     <ProjectReference Include="..\..\..\Shared\Shared.Infrastructure\Shared.Infrastructure.csproj" />
-  </ItemGroup>
-  <ItemGroup>
-    <!-- Test truy vấn EF của adapter trên SQL Server thật (SmartHealthcare_Test). -->
-    <InternalsVisibleTo Include="SqlServerTests" />
-    <InternalsVisibleTo Include="Billing.Tests" />
   </ItemGroup>
 </Project>

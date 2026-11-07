@@ -6,61 +6,38 @@
   </Folder>
   <Folder Name="/src/Modules/" />
   <Folder Name="/src/Modules/Billing/">
-    <Project Path="src/Modules/Billing/Billing.Contracts/Billing.Contracts.csproj" />
     <Project Path="src/Modules/Billing/Billing.Domain/Billing.Domain.csproj" />
-    <Project Path="src/Modules/Billing/Billing.Application/Billing.Application.csproj" />
     <Project Path="src/Modules/Billing/Billing.Infrastructure/Billing.Infrastructure.csproj" />
-    <Project Path="src/Modules/Billing/Billing.Api/Billing.Api.csproj" />
   </Folder>
   <Folder Name="/src/Modules/Clinical/">
-    <Project Path="src/Modules/Clinical/Clinical.Contracts/Clinical.Contracts.csproj" />
     <Project Path="src/Modules/Clinical/Clinical.Domain/Clinical.Domain.csproj" />
-    <Project Path="src/Modules/Clinical/Clinical.Application/Clinical.Application.csproj" />
     <Project Path="src/Modules/Clinical/Clinical.Infrastructure/Clinical.Infrastructure.csproj" />
-    <Project Path="src/Modules/Clinical/Clinical.Api/Clinical.Api.csproj" />
   </Folder>
   <Folder Name="/src/Modules/DocumentsReporting/">
-    <Project Path="src/Modules/DocumentsReporting/DocumentsReporting.Contracts/DocumentsReporting.Contracts.csproj" />
     <Project Path="src/Modules/DocumentsReporting/DocumentsReporting.Domain/DocumentsReporting.Domain.csproj" />
-    <Project Path="src/Modules/DocumentsReporting/DocumentsReporting.Application/DocumentsReporting.Application.csproj" />
     <Project Path="src/Modules/DocumentsReporting/DocumentsReporting.Infrastructure/DocumentsReporting.Infrastructure.csproj" />
-    <Project Path="src/Modules/DocumentsReporting/DocumentsReporting.Api/DocumentsReporting.Api.csproj" />
   </Folder>
   <Folder Name="/src/Modules/IdentityPatients/">
-    <Project Path="src/Modules/IdentityPatients/IdentityPatients.Contracts/IdentityPatients.Contracts.csproj" />
     <Project Path="src/Modules/IdentityPatients/IdentityPatients.Domain/IdentityPatients.Domain.csproj" />
-    <Project Path="src/Modules/IdentityPatients/IdentityPatients.Application/IdentityPatients.Application.csproj" />
     <Project Path="src/Modules/IdentityPatients/IdentityPatients.Infrastructure/IdentityPatients.Infrastructure.csproj" />
-    <Project Path="src/Modules/IdentityPatients/IdentityPatients.Api/IdentityPatients.Api.csproj" />
   </Folder>
   <Folder Name="/src/Modules/MedicationCatalog/">
-    <Project Path="src/Modules/MedicationCatalog/MedicationCatalog.Contracts/MedicationCatalog.Contracts.csproj" />
     <Project Path="src/Modules/MedicationCatalog/MedicationCatalog.Domain/MedicationCatalog.Domain.csproj" />
-    <Project Path="src/Modules/MedicationCatalog/MedicationCatalog.Application/MedicationCatalog.Application.csproj" />
     <Project Path="src/Modules/MedicationCatalog/MedicationCatalog.Infrastructure/MedicationCatalog.Infrastructure.csproj" />
-    <Project Path="src/Modules/MedicationCatalog/MedicationCatalog.Api/MedicationCatalog.Api.csproj" />
   </Folder>
   <Folder Name="/src/Modules/Notifications/">
-    <Project Path="src/Modules/Notifications/Notifications.Contracts/Notifications.Contracts.csproj" />
     <Project Path="src/Modules/Notifications/Notifications.Domain/Notifications.Domain.csproj" />
-    <Project Path="src/Modules/Notifications/Notifications.Application/Notifications.Application.csproj" />
     <Project Path="src/Modules/Notifications/Notifications.Infrastructure/Notifications.Infrastructure.csproj" />
-    <Project Path="src/Modules/Notifications/Notifications.Api/Notifications.Api.csproj" />
   </Folder>
   <Folder Name="/src/Modules/Scheduling/">
-    <Project Path="src/Modules/Scheduling/Scheduling.Contracts/Scheduling.Contracts.csproj" />
     <Project Path="src/Modules/Scheduling/Scheduling.Domain/Scheduling.Domain.csproj" />
-    <Project Path="src/Modules/Scheduling/Scheduling.Application/Scheduling.Application.csproj" />
     <Project Path="src/Modules/Scheduling/Scheduling.Infrastructure/Scheduling.Infrastructure.csproj" />
-    <Project Path="src/Modules/Scheduling/Scheduling.Api/Scheduling.Api.csproj" />
   </Folder>
   <Folder Name="/src/Shared/">
-    <Project Path="src/Shared/Shared.Abstractions/Shared.Abstractions.csproj" />
     <Project Path="src/Shared/Shared.Infrastructure/Shared.Infrastructure.csproj" />
   </Folder>
   <Folder Name="/tests/">
     <Project Path="tests/ArchitectureTests/ArchitectureTests.csproj" />
-    <Project Path="tests/Billing.Tests/Billing.Tests.csproj" />
     <Project Path="tests/Shared.Infrastructure.Tests/Shared.Infrastructure.Tests.csproj" />
     <Project Path="tests/SqlServerTests/SqlServerTests.csproj" />
   </Folder>

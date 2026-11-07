@@ -4,7 +4,6 @@
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\DocumentsReporting.Domain\DocumentsReporting.Domain.csproj" />
-    <ProjectReference Include="..\DocumentsReporting.Contracts\DocumentsReporting.Contracts.csproj" />
     <ProjectReference Include="..\..\..\Shared\Shared.Infrastructure\Shared.Infrastructure.csproj" />
   </ItemGroup>
 </Project>
