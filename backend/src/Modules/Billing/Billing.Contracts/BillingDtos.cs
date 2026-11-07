@@ -89,13 +89,12 @@ public sealed record ChargeDto(
     Guid? ServiceOrderItemId);
 
 /// <summary>
-/// Cổng thanh toán trên app (BR-002). Hiện chỉ VNPAY có adapter (sandbox); MoMo tạo được yêu cầu nhưng chưa tạo được liên kết.
+/// Cổng thanh toán trên app (BR-002): chỉ VNPAY sandbox.
 /// Thu tại quầy (Counter) đi luồng riêng của tiếp tân, không qua CreatePayment.
 /// </summary>
 public enum PaymentProvider
 {
     VNPAY,
-    MoMo,
 }
 
 public enum PaymentState
