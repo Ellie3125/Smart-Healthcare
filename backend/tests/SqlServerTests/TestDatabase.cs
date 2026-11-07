@@ -1,6 +1,5 @@
 using System.Data;
 using Microsoft.Data.SqlClient;
-using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Xunit;
 
@@ -82,16 +81,6 @@ public sealed class TestDatabase : IAsyncDisposable
         }
 
         return rows;
-    }
-
-    /// <summary>
-    /// DbContext dùng chung kết nối và transaction của test, nên dữ liệu EF ghi cũng bị rollback khi dispose.
-    /// </summary>
-    public TContext CreateContext<TContext>(Func<DbContextOptions<TContext>, TContext> create) where TContext : DbContext
-    {
-        var context = create(new DbContextOptionsBuilder<TContext>().UseSqlServer(_connection).Options);
-        context.Database.UseTransaction(_transaction);
-        return context;
     }
 
     public async ValueTask DisposeAsync()
