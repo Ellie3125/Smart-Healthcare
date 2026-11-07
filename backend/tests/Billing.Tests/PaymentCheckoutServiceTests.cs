@@ -25,6 +25,7 @@ public class PaymentCheckoutServiceTests
         var sent = Assert.Single(gateway.Requests);
         Assert.Equal(store.Transaction.TransactionReference, sent.TransactionReference);
         Assert.Equal(150_000m, sent.Amount);
+        Assert.Equal(store.Intent.CreatedAtUtc, sent.CreatedAtUtc);
         Assert.Equal(store.Intent.ExpiresAtUtc, sent.ExpiresAtUtc);
         Assert.Equal("Thanh toan phi kham ban dau PI-20261105-ABC", sent.Description);
         Assert.Equal("203.0.113.7", sent.CustomerIp);
@@ -127,6 +128,7 @@ public class PaymentCheckoutServiceTests
             Status = PaymentIntentStatus.Pending,
             Currency = "VND",
             TotalExpectedAmount = 150_000m,
+            CreatedAtUtc = Now.AddMinutes(-3),
             ExpiresAtUtc = Now.AddMinutes(15),
         };
 

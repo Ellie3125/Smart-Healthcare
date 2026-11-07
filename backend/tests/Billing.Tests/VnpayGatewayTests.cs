@@ -15,16 +15,16 @@ public class VnpayGatewayTests
     private static VnpayOptions Configured() => new() { TmnCode = "TESTCODE", HashSecret = Secret, ReturnUrl = "http://127.0.0.1:5080/return" };
 
     private static GatewayCheckoutRequest Request(decimal amount = 150_000m, string currency = "VND", string? ip = "203.0.113.7") =>
-        new("REF0001", amount, currency, "Thanh toan phi kham ban dau PI-20261105-ABC", Now.AddMinutes(15), ip);
+        new("REF0001", amount, currency, "Thanh toan phi kham ban dau PI-20261105-ABC", Now.AddMilliseconds(700), Now.AddMinutes(15), ip);
 
-    private static VnpayGateway Gateway(VnpayOptions options) => new(Options.Create(options), new FixedClock(Now));
+    private static VnpayGateway Gateway(VnpayOptions options) => new(Options.Create(options));
 
     private static Dictionary<string, string> Query(string url) =>
         url[(url.IndexOf('?', StringComparison.Ordinal) + 1)..].Split('&').Select(p => p.Split('=', 2))
             .ToDictionary(p => p[0], p => WebUtility.UrlDecode(p[1]), StringComparer.Ordinal);
 
     [Fact]
-    public async Task Builds_a_signed_url_with_amount_times_100_and_gmt7_times()
+    public async Task Builds_a_signed_url_with_amount_times_100_and_stored_times_in_gmt7()
     {
         var checkout = await Gateway(Configured()).CreateCheckoutAsync(Request(), Ct);
 
@@ -70,10 +70,5 @@ public class VnpayGatewayTests
         Assert.Equal(new DateTime(2026, 11, 5, 2, 0, 0, DateTimeKind.Utc), VnpayTime.ParseUtc("20261105090000"));
         Assert.Null(VnpayTime.ParseUtc("not-a-date"));
         Assert.Null(VnpayTime.ParseUtc(null));
-    }
-
-    private sealed class FixedClock(DateTime utcNow) : TimeProvider
-    {
-        public override DateTimeOffset GetUtcNow() => new(utcNow);
     }
 }
