@@ -1,16 +1,22 @@
-# chatbot-service — chatbot Hướng 2
+# chatbot-service — chatbot cho bệnh nhân
 
-Dịch vụ chatbot của bệnh nhân: FastAPI + LangChain `create_agent`, gọi model qua Ollama nội bộ. Owner: Claude Code. Luật: docs/ai/instructions/chatbot-langchain-ollama.md (BOT-01..12).
+Chatbot trên web bệnh nhân, giúp bệnh nhân và người đại diện thao tác lịch khám bằng hội thoại tiếng Việt.
 
-| Thư mục | Nội dung |
-|---|---|
-| `app/` | FastAPI: nhận hội thoại từ phiên .NET, khai báo agent với Data/State/Context Schema và Short-term Memory (checkpointer theo ConversationId), theo Giải pháp kỹ thuật v2.11 §11.3–11.4 |
-| `app/tools/` | Công cụ trong whitelist, mỗi công cụ gọi một REST API .NET theo contract Approved (skill chatbot-add-tool) |
-| `ollama/` | Modelfile và tag model đã ghim |
-| `tests/tools/` | Test từng tool của agent với API giả theo contract (skill chatbot-add-tool) |
-| `tests/scenarios/` | Kịch bản hội thoại chuẩn theo intent (skill chatbot-finetune-eval) |
-| `tests/safety/` | Hội thoại đối kháng, câu hỏi ngoài phạm vi (skill chatbot-safety-check) |
+## Chatbot làm được
 
-Không commit trọng số model, adapter hay GGUF. Lưu chúng ngoài git và ghi tag, checksum cùng nơi lưu vào docs/evidence/claude/.
+- Tìm bác sĩ và lịch khám còn trống theo cấp bậc, chuyên khoa, ngày; cho biết phí khám.
+- Đặt, đổi, hủy lịch khám. Mọi thao tác thay đổi đều hiện đề nghị để bệnh nhân bấm xác nhận rồi mới thực hiện.
+- Xem lịch của tôi, tra vé, mã lịch hẹn, số thứ tự khám.
+- Xem trạng thái thanh toán phí khám.
+- Gợi ý chuyên khoa tham khảo từ mô tả triệu chứng của bệnh nhân; nếu có dấu hiệu nguy hiểm thì khuyên đi cấp cứu ngay.
+- Nút gợi ý nhanh: "Xem lịch của tôi", "Đổi lịch", "Hủy lịch", "Xem vé", "Tôi nên khám khoa nào".
 
-Service `chatbot` và `ollama` trong compose thuộc Codex. Chưa có pyproject/dependency vì phiên bản FastAPI, LangChain và Ollama chưa được chốt.
+## Chatbot không làm
+
+- Không chẩn đoán, không chọn thuốc, không kê đơn, không đề xuất cận lâm sàng, không quyết định thứ tự khám.
+- Không xem hay thao tác dữ liệu của người khác ngoài hồ sơ bệnh nhân mình được quyền.
+- Không trả lời câu hỏi ngoài phạm vi lịch khám, vé và thanh toán khám.
+
+## Khi nào dùng được
+
+Chatbot chỉ hoạt động trong buổi demo. Ngoài giờ demo, ô chat hiện trạng thái tạm ngưng; mọi chức năng khác của web bệnh nhân vẫn dùng bình thường qua giao diện.
