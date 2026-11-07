@@ -62,8 +62,8 @@ public class PaymentRulesTests
             {
                 { "phí khám thiếu BookingAttemptId", new(PaymentPurpose.InitialConsultation, Guid.NewGuid(), Guid.NewGuid(), null, null, one, PaymentProvider.VNPAY, later) },
                 { "phí khám mang EncounterId", new(PaymentPurpose.InitialConsultation, Guid.NewGuid(), Guid.NewGuid(), Guid.NewGuid(), Guid.NewGuid(), one, PaymentProvider.VNPAY, later) },
-                { "phí CLS thiếu EncounterId", new(PaymentPurpose.CLSOrderBatch, Guid.NewGuid(), Guid.NewGuid(), null, null, one, PaymentProvider.MoMo, later) },
-                { "phí CLS mang BookingAttemptId", new(PaymentPurpose.CLSOrderBatch, Guid.NewGuid(), Guid.NewGuid(), Guid.NewGuid(), Guid.NewGuid(), one, PaymentProvider.MoMo, later) },
+                { "phí CLS thiếu EncounterId", new(PaymentPurpose.CLSOrderBatch, Guid.NewGuid(), Guid.NewGuid(), null, null, one, PaymentProvider.VNPAY, later) },
+                { "phí CLS mang BookingAttemptId", new(PaymentPurpose.CLSOrderBatch, Guid.NewGuid(), Guid.NewGuid(), Guid.NewGuid(), Guid.NewGuid(), one, PaymentProvider.VNPAY, later) },
                 { "không có khoản", new(PaymentPurpose.InitialConsultation, Guid.NewGuid(), Guid.NewGuid(), Guid.NewGuid(), null, [], PaymentProvider.VNPAY, later) },
                 { "khoản bị trùng", new(PaymentPurpose.InitialConsultation, Guid.NewGuid(), Guid.NewGuid(), Guid.NewGuid(), null, [one[0], one[0]], PaymentProvider.VNPAY, later) },
                 { "hạn đã qua", new(PaymentPurpose.InitialConsultation, Guid.NewGuid(), Guid.NewGuid(), Guid.NewGuid(), null, one, PaymentProvider.VNPAY, Now) },
@@ -85,16 +85,20 @@ public class PaymentRulesTests
     }
 
     [Theory]
-    [InlineData("", "VNP123")]
-    [InlineData("REF", "")]
-    public async Task Verified_payment_without_references_is_rejected(string reference, string providerId)
+    [InlineData("", "VNP123", "EVT1")]
+    [InlineData("REF", "", "EVT1")]
+    [InlineData("REF", "VNP123", "")]
+    public async Task Gateway_result_without_references_is_rejected_before_any_database_work(string reference, string providerId, string eventId)
     {
         var service = new PaymentService(new UnusedPaymentStore(), new FixedClock(Now));
 
-        var error = await Assert.ThrowsAsync<BillingException>(() => service.ConfirmVerifiedAsync(
-            new VerifiedPayment(reference, providerId, 150_000m, "VND", Now, null), TestContext.Current.CancellationToken));
+        var success = await Assert.ThrowsAsync<BillingException>(() => service.ConfirmVerifiedAsync(
+            new VerifiedPayment(reference, providerId, eventId, 150_000m, "VND", Now, null), TestContext.Current.CancellationToken));
+        var failure = await Assert.ThrowsAsync<BillingException>(() => service.RecordFailedAsync(
+            new FailedPayment(reference, providerId, eventId, Now, null), TestContext.Current.CancellationToken));
 
-        Assert.Equal(BillingErrorCode.InvalidRequest, error.Code);
+        Assert.Equal(BillingErrorCode.InvalidRequest, success.Code);
+        Assert.Equal(BillingErrorCode.InvalidRequest, failure.Code);
     }
 
     private sealed class FixedClock(DateTime utcNow) : TimeProvider
