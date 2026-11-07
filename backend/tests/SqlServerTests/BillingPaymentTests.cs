@@ -45,19 +45,6 @@ public class BillingPaymentTests
     }
 
     [Fact]
-    public async Task Another_provider_for_an_open_booking_payment_is_a_conflict()
-    {
-        await using var db = await OpenAsync();
-        var charge = await ExamChargeAsync(db);
-        var attempt = Guid.NewGuid();
-        await Payments(db).CreateAsync(Exam(attempt, charge), Ct);
-
-        var error = await Assert.ThrowsAsync<BillingException>(() => Payments(db).CreateAsync(Exam(attempt, charge, PaymentProvider.MoMo), Ct));
-
-        Assert.Equal(BillingErrorCode.PaymentConflict, error.Code);
-    }
-
-    [Fact]
     public async Task Other_charges_for_an_open_booking_payment_are_a_conflict()
     {
         await using var db = await OpenAsync();

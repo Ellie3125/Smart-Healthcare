@@ -34,7 +34,7 @@ public class PaymentCheckoutServiceTests
     public async Task Provider_without_an_adapter_is_rejected()
     {
         var store = new CheckoutStore();
-        store.Intent.Provider = PaymentIntentProvider.MoMo;
+        store.Intent.Provider = PaymentIntentProvider.Counter;
         var gateway = new FakeGateway();
 
         var error = await Assert.ThrowsAsync<BillingException>(() => Service(store, gateway).StartAsync(store.Intent.Id, null, Ct));

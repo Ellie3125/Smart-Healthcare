@@ -210,7 +210,6 @@ public sealed class PaymentService(IPaymentStore store, TimeProvider clock)
     private static PaymentEventProvider EventProvider(PaymentIntent intent) => intent.Provider switch
     {
         PaymentIntentProvider.VNPAY => PaymentEventProvider.VNPAY,
-        PaymentIntentProvider.MoMo => PaymentEventProvider.MoMo,
         _ => throw Invalid($"Yêu cầu {intent.IntentNumber} dùng {intent.Provider}, không nhận kết quả từ cổng thanh toán."),
     };
 
@@ -270,7 +269,6 @@ public sealed class PaymentService(IPaymentStore store, TimeProvider clock)
     private static PaymentIntentProvider ToDomain(PaymentProvider provider) => provider switch
     {
         PaymentProvider.VNPAY => PaymentIntentProvider.VNPAY,
-        PaymentProvider.MoMo => PaymentIntentProvider.MoMo,
         _ => throw Invalid($"Cổng thanh toán {provider} không hỗ trợ."),
     };
 
@@ -282,7 +280,6 @@ public sealed class PaymentService(IPaymentStore store, TimeProvider clock)
         i.Provider switch
         {
             PaymentIntentProvider.VNPAY => PaymentProvider.VNPAY,
-            PaymentIntentProvider.MoMo => PaymentProvider.MoMo,
             _ => throw new InvalidOperationException($"Yêu cầu {i.IntentNumber} dùng {i.Provider}, không phải cổng thanh toán trên app."),
         },
         t.TransactionAmount,
