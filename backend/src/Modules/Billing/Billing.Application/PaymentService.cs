@@ -82,6 +82,7 @@ public sealed class PaymentService(IPaymentStore store, TimeProvider clock)
             var intent = await store.GetIntentAsync(transaction.PaymentIntentId, token);
             var provider = EventProvider(intent);
             var now = clock.GetUtcNow().UtcDateTime;
+            EnsureAmount(transaction, payment.Amount, payment.Currency);
 
             // Cùng sự kiện của cổng gửi lại (bấm lại, gửi lại callback): đã xử lý, trả kết quả cũ.
             if (await store.HasEventAsync(provider, payment.ProviderEventId, token))
@@ -102,11 +103,6 @@ public sealed class PaymentService(IPaymentStore store, TimeProvider clock)
                     $"Giao dịch {payment.TransactionReference} đã được cổng báo thất bại; không ghi nhận thành công cho cùng giao dịch.");
 
             EnsureSameProviderTransaction(transaction, payment.ProviderTransactionId);
-
-            if (payment.Amount != transaction.TransactionAmount
-                || !string.Equals(payment.Currency, transaction.Currency, StringComparison.Ordinal))
-                throw new BillingException(BillingErrorCode.AmountMismatch,
-                    $"Cổng báo {payment.Amount} {payment.Currency}, giao dịch {payment.TransactionReference} cần {transaction.TransactionAmount} {transaction.Currency}.");
 
             if (await store.IsProviderTransactionIdTakenAsync(payment.ProviderTransactionId, transaction.Id, token))
                 throw new BillingException(BillingErrorCode.PaymentConflict,
@@ -159,6 +155,7 @@ public sealed class PaymentService(IPaymentStore store, TimeProvider clock)
         {
             var transaction = await store.LockTransactionAsync(failure.TransactionReference, token)
                 ?? throw new BillingException(BillingErrorCode.PaymentNotFound, $"Không có giao dịch {failure.TransactionReference}.");
+            EnsureAmount(transaction, failure.Amount, failure.Currency);
 
             switch (transaction.PaymentStatus)
             {
@@ -197,6 +194,15 @@ public sealed class PaymentService(IPaymentStore store, TimeProvider clock)
         foreach (var reference in references)
             if (string.IsNullOrWhiteSpace(reference))
                 throw Invalid("Thiếu mã tham chiếu, mã giao dịch hoặc mã sự kiện của cổng thanh toán.");
+    }
+
+    // Kiểm ngay sau khi tìm thấy giao dịch, trước khi xét đã xử lý chưa: kết quả sai số tiền bị từ chối (RspCode 04) kể cả khi
+    // gửi lại (Giải pháp kỹ thuật v2.13 mục 5.4 bước 4).
+    private static void EnsureAmount(PaymentTransaction transaction, decimal amount, string currency)
+    {
+        if (amount != transaction.TransactionAmount || !string.Equals(currency, transaction.Currency, StringComparison.Ordinal))
+            throw new BillingException(BillingErrorCode.AmountMismatch,
+                $"Cổng báo {amount} {currency}, giao dịch {transaction.TransactionReference} cần {transaction.TransactionAmount} {transaction.Currency}.");
     }
 
     // Mã giao dịch cổng đã ghi cho giao dịch phải khớp mã trong kết quả (BR-002: đúng giao dịch).

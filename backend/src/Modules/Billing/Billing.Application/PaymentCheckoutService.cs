@@ -39,6 +39,7 @@ public sealed class PaymentCheckoutService(IPaymentStore store, IPaymentGateway 
                 transaction.TransactionAmount,
                 transaction.Currency,
                 Describe(intent),
+                intent.CreatedAtUtc,
                 intent.ExpiresAtUtc,
                 customerIp), ct);
         }

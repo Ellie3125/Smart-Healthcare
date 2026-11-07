@@ -14,8 +14,10 @@ public interface IPaymentGateway
 }
 
 /// <param name="Description">Nội dung thu hiển thị trên trang cổng, không dấu và không ký tự đặc biệt (VNPAY); không chứa thông tin bệnh án.</param>
+/// <param name="CreatedAtUtc">Thời điểm tạo yêu cầu đã lưu (PaymentIntent.CreatedAtUtc). Dựng lại link hay gọi querydr đều ra cùng giá trị.</param>
 /// <param name="CustomerIp">IP của người trả, nếu biết.</param>
-public sealed record GatewayCheckoutRequest(string TransactionReference, decimal Amount, string Currency, string Description, DateTime ExpiresAtUtc, string? CustomerIp);
+public sealed record GatewayCheckoutRequest(
+    string TransactionReference, decimal Amount, string Currency, string Description, DateTime CreatedAtUtc, DateTime ExpiresAtUtc, string? CustomerIp);
 
 public sealed record GatewayCheckout(string PaymentUrl);
 

@@ -73,10 +73,13 @@ public sealed record PaymentConfirmation(Guid PaymentIntentId, bool AlreadyRecor
 
 /// <summary>Cổng báo giao dịch thất bại. Đã xác minh chữ ký và người nhận.</summary>
 /// <param name="ProviderTransactionId">Mã giao dịch của cổng; null khi cổng chưa phát sinh giao dịch (ví dụ người trả hủy).</param>
+/// <param name="Amount">Số tiền cổng báo; phải khớp giao dịch như kết quả thành công.</param>
 public sealed record FailedPayment(
     string TransactionReference,
     string? ProviderTransactionId,
     string ProviderEventId,
+    decimal Amount,
+    string Currency,
     DateTime FailedAtUtc,
     string? ProviderRawData);
 
