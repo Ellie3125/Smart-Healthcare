@@ -1,8 +1,8 @@
-namespace DocumentsReporting.Domain.Enums;
-
-public enum UploadStatus
-{
-    Draft,
-    Uploaded,
-    Removed
-}
+namespace DocumentsReporting.Domain.Enums;
+
+public enum UploadStatus
+{
+    Draft,
+    Uploaded,
+    Removed
+}

@@ -1,7 +1,7 @@
-namespace Billing.Domain.Enums;
-
-public enum ItemType
-{
-    ConsultationFee,
-    CLSService
-}
+namespace Billing.Domain.Enums;
+
+public enum ItemType
+{
+    ConsultationFee,
+    CLSService
+}
