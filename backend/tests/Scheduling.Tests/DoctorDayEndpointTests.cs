@@ -91,7 +91,7 @@ public sealed class DoctorDayEndpointTests
 
     private sealed class Store : IDoctorDayStore
     {
-        public Task<bool> TryOpenAsync(DoctorDayQuota quota, CancellationToken ct) => Task.FromResult(true);
+        public Task<DoctorDayQuota?> TryOpenAsync(DoctorDayQuota quota, CancellationToken ct) => Task.FromResult<DoctorDayQuota?>(quota);
         public Task<DoctorDayResult> CloseAsync(Guid doctorId, DateOnly serviceDate, CancellationToken ct) =>
             Task.FromResult(DoctorDayResult.HasBookings);
     }

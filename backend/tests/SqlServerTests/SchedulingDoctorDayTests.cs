@@ -45,7 +45,10 @@ public sealed class SchedulingDoctorDayTests
         var doctorId = Guid.NewGuid();
         var roomId = Guid.NewGuid();
         var day = ServiceDate.ToDateTime(TimeOnly.MinValue);
-        var initial = await database.InsertAsync("scheduling.DoctorDayQuota", new { DoctorId = doctorId, ServiceDate = day, Capacity = 30 });
+        var initial = await database.InsertAsync("scheduling.DoctorDayQuota", new
+        {
+            DoctorId = doctorId, ServiceDate = day, Capacity = 30, IsOpen = true, SessionStatus = "Scheduled"
+        });
         await database.RejectsAsync(TestDatabase.UniqueIndexViolation, "scheduling.DoctorDayQuota",
             new { DoctorId = doctorId, ServiceDate = day, Capacity = 30 });
 
@@ -72,13 +75,48 @@ public sealed class SchedulingDoctorDayTests
         Assert.Equal(DoctorDayResult.Closed, await service.CloseAsync(doctorId, ServiceDate, Ct));
         Assert.Equal(DoctorDayResult.Closed, await service.CloseAsync(doctorId, ServiceDate, Ct));
         Assert.False(await db.Set<DoctorDayQuota>().Where(x => x.Id == opened.Id).Select(x => x.IsOpen).SingleAsync(Ct));
-        Assert.Equal(DoctorDayResult.AlreadyExists, (await service.OpenAsync(doctorId, ServiceDate, Ct)).Status);
+        Assert.Equal(1, await db.Set<DoctorDayQuota>().CountAsync(x => x.DoctorId == doctorId && x.ServiceDate == ServiceDate, Ct));
+    }
+
+    [Fact]
+    public async Task ReopenReturnsTheExistingQuotaWithItsOriginalSettings()
+    {
+        await using var database = await TestDatabase.OpenAsync();
+        await using var db = database.CreateContext<SchedulingDbContext>(options => new(options));
+        var doctorId = Guid.NewGuid();
+        var roomId = Guid.NewGuid();
+        var service = Service(db, roomId);
+        var (_, opened) = await service.OpenAsync(doctorId, ServiceDate, Ct);
+        Assert.NotNull(opened);
+        Assert.Equal(DoctorDayResult.Closed, await service.CloseAsync(doctorId, ServiceDate, Ct));
+
+        var newPolicy = new DoctorDayService(new DoctorDirectory(Guid.NewGuid()), new SqlDoctorDayStore(db), new(new TimeOnly(12, 0)));
+        var (status, reopened) = await newPolicy.OpenAsync(doctorId, ServiceDate, Ct);
+
+        Assert.Equal(DoctorDayResult.Opened, status);
+        Assert.NotNull(reopened);
+        Assert.Equal(opened.Id, reopened.Id);
+        Assert.Equal(roomId, reopened.AssignedRoomId);
+        Assert.Equal(opened.CheckInDeadlineUtc, reopened.CheckInDeadlineUtc);
+        Assert.True(reopened.IsOpen);
+        var saved = await db.Set<DoctorDayQuota>().AsNoTracking()
+            .SingleAsync(x => x.DoctorId == doctorId && x.ServiceDate == ServiceDate, Ct);
+        Assert.Equal(reopened.Id, saved.Id);
+        Assert.True(saved.IsOpen);
+        Assert.Equal(saved.RowVersion, reopened.RowVersion);
+        Assert.Equal(DoctorDayResult.AlreadyExists, (await newPolicy.OpenAsync(doctorId, ServiceDate, Ct)).Status);
     }
 
     [Theory]
-    [InlineData(false)]
-    [InlineData(true)]
-    public async Task CloseRejectsReservationOrAppointmentEvenWhenCountersAreZero(bool hasAppointment)
+    [InlineData("Held", null, DoctorDayResult.HasBookings)]
+    [InlineData("Confirmed", null, DoctorDayResult.HasBookings)]
+    [InlineData("Expired", null, DoctorDayResult.Closed)]
+    [InlineData("Cancelled", null, DoctorDayResult.Closed)]
+    [InlineData(null, "Scheduled", DoctorDayResult.HasBookings)]
+    [InlineData(null, "Cancelled", DoctorDayResult.Closed)]
+    [InlineData(null, "Rescheduled", DoctorDayResult.Closed)]
+    public async Task CloseUsesBookingStatusWhenCountersAreZero(
+        string? reservationStatus, string? appointmentStatus, DoctorDayResult expected)
     {
         await using var database = await TestDatabase.OpenAsync();
         await using var db = database.CreateContext<SchedulingDbContext>(options => new(options));
@@ -87,27 +125,28 @@ public sealed class SchedulingDoctorDayTests
         var (_, opened) = await service.OpenAsync(doctorId, ServiceDate, Ct);
         Assert.NotNull(opened);
 
-        var reservationQuotaId = hasAppointment
+        var reservationQuotaId = appointmentStatus is not null
             ? await database.InsertAsync("scheduling.DoctorDayQuota", new { Capacity = 30 })
             : opened.Id;
         var reservationId = await database.InsertAsync("scheduling.Reservation", new
         {
             SessionQuotaId = reservationQuotaId,
             BookingAttemptId = await database.InsertAsync("scheduling.BookingAttempt"),
-            Status = "Held"
+            Status = reservationStatus ?? "Confirmed"
         });
-        if (hasAppointment)
+        if (appointmentStatus is not null)
         {
             await database.InsertAsync("scheduling.Appointment", new
             {
                 SessionQuotaId = opened.Id,
                 ReservationId = reservationId,
-                Status = "Scheduled"
+                Status = appointmentStatus
             });
         }
 
-        Assert.Equal(DoctorDayResult.HasBookings, await service.CloseAsync(doctorId, ServiceDate, Ct));
-        Assert.True(await db.Set<DoctorDayQuota>().Where(x => x.Id == opened.Id).Select(x => x.IsOpen).SingleAsync(Ct));
+        Assert.Equal(expected, await service.CloseAsync(doctorId, ServiceDate, Ct));
+        Assert.Equal(expected == DoctorDayResult.HasBookings,
+            await db.Set<DoctorDayQuota>().Where(x => x.Id == opened.Id).Select(x => x.IsOpen).SingleAsync(Ct));
     }
 
     [Theory]

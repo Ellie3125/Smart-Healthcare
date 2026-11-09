@@ -21,7 +21,7 @@ public sealed class DoctorDayService(IDoctorDirectory doctors, IDoctorDayStore s
             return (DoctorDayResult.DoctorNotFound, null);
         }
 
-        var quota = new DoctorDayQuota
+        var newQuota = new DoctorDayQuota
         {
             DoctorId = doctorId,
             AssignedRoomId = roomId.Value,
@@ -35,7 +35,8 @@ public sealed class DoctorDayService(IDoctorDirectory doctors, IDoctorDayStore s
             IsOpen = true
         };
 
-        return await store.TryOpenAsync(quota, ct)
+        var quota = await store.TryOpenAsync(newQuota, ct);
+        return quota is not null
             ? (DoctorDayResult.Opened, quota)
             : (DoctorDayResult.AlreadyExists, null);
     }
@@ -61,7 +62,7 @@ public interface IDoctorDirectory
 
 public interface IDoctorDayStore
 {
-    Task<bool> TryOpenAsync(DoctorDayQuota quota, CancellationToken ct);
+    Task<DoctorDayQuota?> TryOpenAsync(DoctorDayQuota quota, CancellationToken ct);
     Task<DoctorDayResult> CloseAsync(Guid doctorId, DateOnly serviceDate, CancellationToken ct);
 }
 
