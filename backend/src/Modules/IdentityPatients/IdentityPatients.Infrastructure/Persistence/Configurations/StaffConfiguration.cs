@@ -15,7 +15,7 @@ internal sealed class StaffConfiguration : IEntityTypeConfiguration<Staff>
         builder.Property(x => x.FullName).HasMaxLength(200);
         builder.Property(x => x.StaffType).HasConversion<string>().HasMaxLength(32);
 
-        builder.HasOne<AppUser>().WithMany().HasForeignKey(x => x.AppUserId).OnDelete(DeleteBehavior.Restrict);
+        builder.HasOne<ApplicationUser>().WithMany().HasForeignKey(x => x.AppUserId).OnDelete(DeleteBehavior.Restrict);
 
         builder.HasIndex(x => x.AppUserId).IsUnique();
         builder.HasIndex(x => x.StaffCode).IsUnique();

@@ -13,7 +13,7 @@ internal sealed class RoomAccountConfiguration : IEntityTypeConfiguration<RoomAc
 
         builder.Property(x => x.AccountCode).HasMaxLength(64);
 
-        builder.HasOne<AppUser>().WithMany().HasForeignKey(x => x.AppUserId).OnDelete(DeleteBehavior.Restrict);
+        builder.HasOne<ApplicationUser>().WithMany().HasForeignKey(x => x.AppUserId).OnDelete(DeleteBehavior.Restrict);
         builder.HasOne<Room>().WithMany().HasForeignKey(x => x.RoomId).OnDelete(DeleteBehavior.Restrict);
 
         builder.HasIndex(x => x.AppUserId).IsUnique();

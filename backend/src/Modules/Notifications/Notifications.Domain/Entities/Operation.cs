@@ -5,7 +5,7 @@ namespace Notifications.Domain.Entities;
 public sealed class Operation
 {
     public Guid Id { get; set; }
-    // ID chéo module: identity.AppUser, không FK
+    // ID chéo module: identity.AspNetUsers, không FK
     public Guid InitiatedByUserId { get; set; }
     // ID chéo module: scheduling.BookingAttempt, không FK
     public Guid? BookingAttemptId { get; set; }

@@ -5,7 +5,7 @@ namespace Scheduling.Domain.Entities;
 public sealed class BookingAttempt
 {
     public Guid Id { get; set; }
-    // ID chéo module: identity.AppUser, không FK
+    // ID chéo module: identity.AspNetUsers, không FK
     public Guid AppUserId { get; set; }
     // ID chéo module: identity.Patient, không FK
     public Guid PatientId { get; set; }

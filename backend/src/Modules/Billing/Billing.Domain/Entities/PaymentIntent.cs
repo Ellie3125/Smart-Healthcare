@@ -6,7 +6,7 @@ public sealed class PaymentIntent
 {
     public Guid Id { get; set; }
     public string IntentNumber { get; set; } = null!;
-    // ID chéo module: identity.AppUser, không FK
+    // ID chéo module: identity.AspNetUsers, không FK
     public Guid PayerAppUserId { get; set; }
     // ID chéo module: identity.Patient, không FK
     public Guid PatientId { get; set; }

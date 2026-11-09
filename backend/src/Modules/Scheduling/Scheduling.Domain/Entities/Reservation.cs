@@ -9,7 +9,7 @@ public sealed class Reservation
     public Guid BookingAttemptId { get; set; }
     // ID chéo module: identity.Patient, không FK
     public Guid PatientId { get; set; }
-    // ID chéo module: identity.AppUser, không FK
+    // ID chéo module: identity.AspNetUsers, không FK
     public Guid AppUserId { get; set; }
     public BookingChannel BookingChannel { get; set; }
     public DateTime ReservedAtUtc { get; set; }

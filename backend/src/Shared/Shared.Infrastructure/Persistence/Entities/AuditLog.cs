@@ -5,7 +5,7 @@ namespace Shared.Infrastructure.Persistence.Entities;
 public sealed class AuditLog
 {
     public Guid Id { get; set; }
-    // ID chéo module: identity.AppUser, không FK
+    // ID chéo module: identity.AspNetUsers, không FK
     public Guid? PerformedByUserId { get; set; }
     // ID chéo module: identity.RoomAccount, không FK
     public Guid? RoomAccountId { get; set; }

@@ -92,15 +92,15 @@ public class ConstraintTests
     }
 
     [Fact]
-    public async Task AppUser_email_and_phone_are_unique_when_present()
+    public async Task AspNetUsers_email_and_phone_are_unique_when_present()
     {
         await using var db = await OpenAsync();
-        await db.InsertAsync("identity.AppUser", new { Email = (string?)null, PhoneNumber = (string?)null });
-        await db.InsertAsync("identity.AppUser", new { Email = (string?)null, PhoneNumber = (string?)null });
-        await db.InsertAsync("identity.AppUser", new { Email = "a@example.test", PhoneNumber = "0900000001" });
+        await db.InsertAsync("identity.AspNetUsers", new { Email = (string?)null, PhoneNumber = (string?)null });
+        await db.InsertAsync("identity.AspNetUsers", new { Email = (string?)null, PhoneNumber = (string?)null });
+        await db.InsertAsync("identity.AspNetUsers", new { Email = "a@example.test", PhoneNumber = "0900000001" });
 
-        await db.RejectsAsync(UniqueIndexViolation, "identity.AppUser", new { Email = "a@example.test", PhoneNumber = (string?)null });
-        await db.RejectsAsync(UniqueIndexViolation, "identity.AppUser", new { Email = (string?)null, PhoneNumber = "0900000001" });
+        await db.RejectsAsync(UniqueIndexViolation, "identity.AspNetUsers", new { Email = "a@example.test", PhoneNumber = (string?)null });
+        await db.RejectsAsync(UniqueIndexViolation, "identity.AspNetUsers", new { Email = (string?)null, PhoneNumber = "0900000001" });
     }
 
     [Fact]
@@ -180,7 +180,7 @@ public class ConstraintTests
     public async Task PatientRepresentative_is_unique_per_user_and_patient()
     {
         await using var db = await OpenAsync();
-        var user = await db.InsertAsync("identity.AppUser");
+        var user = await db.InsertAsync("identity.AspNetUsers");
         var patient = await db.InsertAsync("identity.Patient");
         await db.InsertAsync("identity.PatientRepresentative", new { AppUserId = user, PatientId = patient });
         await db.InsertAsync("identity.PatientRepresentative", new { AppUserId = user, PatientId = await db.InsertAsync("identity.Patient") });
