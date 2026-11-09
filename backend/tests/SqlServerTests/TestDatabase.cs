@@ -23,7 +23,8 @@ public sealed class TestDatabase : IAsyncDisposable
     private TestDatabase(SqlConnection connection, SqlTransaction transaction) =>
         (_connection, _transaction) = (connection, transaction);
 
-    public static async Task<TestDatabase> OpenAsync()
+    /// <summary>Connection string tới DB test; bỏ qua test khi chưa đặt, báo lỗi khi trỏ sang DB khác.</summary>
+    public static string RequiredConnectionString()
     {
         Assert.SkipWhen(string.IsNullOrWhiteSpace(ConnectionString), "Chưa đặt ConnectionStrings:SmartHealthcareTest (user-secrets của project test)");
 
@@ -33,7 +34,12 @@ public sealed class TestDatabase : IAsyncDisposable
             throw new InvalidOperationException($"ConnectionStrings:SmartHealthcareTest phải trỏ tới {DatabaseName}.");
         }
 
-        var connection = new SqlConnection(ConnectionString);
+        return ConnectionString!;
+    }
+
+    public static async Task<TestDatabase> OpenAsync()
+    {
+        var connection = new SqlConnection(RequiredConnectionString());
         await connection.OpenAsync(TestContext.Current.CancellationToken);
         if (connection.Database != DatabaseName)
         {
