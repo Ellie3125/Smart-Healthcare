@@ -1,6 +1,11 @@
 using Hangfire;
 using Hangfire.SqlServer;
 using Microsoft.Data.SqlClient;
+using Scheduling.Application;
+using Scheduling.Application.Holds;
+using Scheduling.Infrastructure;
+using Scheduling.Infrastructure.Persistence;
+using Shared.Infrastructure;
 
 var builder = Host.CreateApplicationBuilder(args);
 
@@ -23,4 +28,16 @@ builder.Services.AddHangfire(configuration => configuration
     }));
 builder.Services.AddHangfireServer();
 
-builder.Build().Run();
+builder.Services
+    .AddSharedInfrastructure(connectionString)
+    .AddSchedulingInfrastructure(connectionString)
+    .AddUnitOfWorkParticipant<SchedulingDbContext>()
+    .AddSchedulingApplication();
+
+var host = builder.Build();
+
+// Hết hạn giữ chỗ (W2-02, Giải pháp §5.1). Hangfire chạy tối đa mỗi phút; lệnh xác nhận vẫn tự kiểm ExpiresAt.
+host.Services.GetRequiredService<IRecurringJobManager>().AddOrUpdate<HoldService>(
+    "scheduling-expire-holds", service => service.ExpireDueAsync(CancellationToken.None), Cron.Minutely());
+
+host.Run();
