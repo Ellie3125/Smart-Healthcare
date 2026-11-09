@@ -19,3 +19,8 @@ docs/sessions/
 docs/evidence/
 docs/handoffs/
 # ===== end agent rules =====
+
+# ===== Secret cục bộ (CLA-GOV-011) =====
+.env
+.env.*
+!.env.example

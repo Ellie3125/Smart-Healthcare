@@ -18,9 +18,11 @@ using Microsoft.OpenApi;
 using Notifications.Api;
 using Notifications.Application;
 using Notifications.Infrastructure;
+using Notifications.Infrastructure.Persistence;
 using Scheduling.Api;
 using Scheduling.Application;
 using Scheduling.Infrastructure;
+using Scheduling.Infrastructure.Persistence;
 using Shared.Infrastructure;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -56,7 +58,10 @@ builder.Services
     .AddBillingInfrastructure(connectionString)
     .AddNotificationsInfrastructure(connectionString)
     .AddDocumentsReportingInfrastructure(connectionString)
-    .AddSharedInfrastructure(connectionString);
+    .AddSharedInfrastructure(connectionString)
+    // DbContext tham gia IUnitOfWork (W1-06). Module khác tự thêm khi cần ghi cùng transaction.
+    .AddUnitOfWorkParticipant<SchedulingDbContext>()
+    .AddUnitOfWorkParticipant<WorkflowDbContext>();
 
 builder.Services
     .AddIdentityPatientsApplication().AddIdentityPatientsApi()
