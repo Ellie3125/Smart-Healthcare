@@ -1,6 +1,6 @@
 namespace IdentityPatients.Application.Auth;
 
-public sealed record LoginRequest(string UserName, string Password);
+public sealed record LoginRequest(string UserName, string Password, string? DeviceId = null, string? DeviceIpAddress = null);
 
 public sealed record LoginResponse(
     string AccessToken,
