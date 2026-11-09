@@ -3,22 +3,23 @@ namespace Scheduling.Contracts;
 /// <summary>
 /// Contract trong tiến trình do Scheduling công bố (docs/api/scheduling.md, v0.1 Draft, chờ H-02).
 /// Module khác chỉ tham chiếu project này. Lỗi nghiệp vụ ném <see cref="SchedulingException"/> với <see cref="SchedulingErrorCode"/>.
-/// Chưa có bản cài đặt: tra suất trống thuộc W2-05, check in W3-02, tạo vé CLS + vé quay lại W3-04.
+/// Chưa có bản cài đặt: tìm bác sĩ và suất trống thuộc W2-05, check in W3-02, tạo vé CLS + vé quay lại W3-04.
 /// </summary>
 public interface ISchedulingModule
 {
     /// <summary>
-    /// Tra suất trống của nhiều bác sĩ trong một ngày phục vụ, mỗi bác sĩ một dòng theo thứ tự yêu cầu.
-    /// Suất trống = max(0, Capacity − AdmittedCount − HeldCount − LockedCancelledCount) (Phạm vi §4.3).
+    /// Tìm bác sĩ có phiên còn nhận đặt trong ngày D, kèm suất trống và phí khám, phân trang theo DoctorId.
+    /// Chỉ trả phiên IsOpen = true, SessionStatus Scheduled/InProgress và giờ DB &lt; BookingCutoffTimeUtc (09:30 ngày D);
+    /// suất trống = max(0, Capacity − AdmittedCount − HeldCount − LockedCancelledCount) (Phạm vi §4.2, §4.3), 0 là hết suất.
     /// </summary>
     /// <remarks>
-    /// Bên gọi: API tìm bác sĩ của Scheduling (W2-05, web bệnh nhân và chatbot qua REST).
+    /// Bên gọi: endpoint tìm bác sĩ của Scheduling (W2-05) cho web bệnh nhân và chatbot (qua REST).
     /// Chỉ đọc, không khóa, không cần <c>IUnitOfWork</c>; con số mang tính tham khảo, giữ chỗ (W2-02) kiểm lại dưới khóa.
-    /// <see cref="AvailabilityStatus.CutoffPassed"/> so với giờ DB (<c>IDbClock</c>) tại lúc đọc.
+    /// Phí lấy từ <c>IBillingModule</c> theo lô, không N+1.
     /// Idempotency: không áp dụng (chỉ đọc).
-    /// Lỗi: <see cref="SchedulingErrorCode.InvalidInput"/> khi danh sách rỗng, có Guid rỗng, trùng, hoặc quá <see cref="GetDoctorAvailability.MaxDoctors"/>.
+    /// Lỗi: <see cref="SchedulingErrorCode.InvalidInput"/> khi ServiceDate rỗng, bộ lọc là Guid rỗng, Page/PageSize ngoài giới hạn.
     /// </remarks>
-    Task<IReadOnlyList<DoctorDayAvailability>> GetDoctorAvailabilityAsync(GetDoctorAvailability query, CancellationToken ct);
+    Task<DoctorSearchPage> SearchDoctorsAsync(DoctorSearchQuery query, CancellationToken ct);
 
     /// <summary>
     /// Check in lịch hẹn đã xác nhận: Appointment Scheduled → CheckedIn, phát <see cref="TicketCheckedIn"/> trong cùng transaction.

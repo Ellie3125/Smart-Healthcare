@@ -1,49 +1,29 @@
 namespace Scheduling.Contracts;
 
-// ---------- Tra suất trống ----------
+// ---------- Tìm bác sĩ và suất trống (cùng dạng với DTO tạm của W2-05, PR #44) ----------
 
-/// <param name="DoctorIds">1..<see cref="MaxDoctors"/> bác sĩ, không trùng, không Guid rỗng.</param>
-/// <param name="ServiceDate">Ngày phục vụ D theo giờ Việt Nam.</param>
-public sealed record GetDoctorAvailability(IReadOnlyList<Guid> DoctorIds, DateOnly ServiceDate)
+/// <param name="ServiceDate">Ngày phục vụ D theo giờ Việt Nam; bắt buộc.</param>
+/// <param name="DoctorRankId">Lọc theo cấp bậc (identity.DoctorRank), null là mọi cấp.</param>
+/// <param name="SpecialtyId">Lọc theo chuyên khoa, null là mọi chuyên khoa.</param>
+/// <param name="Page">1..<see cref="MaxPage"/>.</param>
+/// <param name="PageSize">1..<see cref="MaxPageSize"/>, mặc định 20.</param>
+public sealed record DoctorSearchQuery(DateOnly ServiceDate, Guid? DoctorRankId = null, Guid? SpecialtyId = null,
+    int Page = 1, int PageSize = 20)
 {
-    /// <summary>Bằng giới hạn pageSize của API tìm bác sĩ, để một trang kết quả tra trong một lần gọi.</summary>
-    public const int MaxDoctors = 50;
+    public const int MaxPage = 1000;
+    public const int MaxPageSize = 50;
 }
 
-public enum AvailabilityStatus
-{
-    /// <summary>Lịch mở, còn suất, chưa tới BookingCutoff: nhận giữ chỗ.</summary>
-    Open,
+/// <summary>Một bác sĩ có phiên còn nhận đặt trong ngày D.</summary>
+/// <param name="AvailableSlots">max(0, Capacity − AdmittedCount − HeldCount − LockedCancelledCount); 0 là hết suất.</param>
+/// <param name="ExamFee">Phí khám ban đầu do Billing báo giá (không lấy từ client).</param>
+/// <param name="Currency">"VND".</param>
+public sealed record DoctorSearchItem(Guid DoctorId, string FullName, Guid DoctorRankId, Guid SpecialtyId,
+    int AvailableSlots, decimal ExamFee, string Currency);
 
-    /// <summary>Hết suất (AvailableSlots = 0).</summary>
-    Full,
-
-    /// <summary>Giờ DB đã tới BookingCutoffTimeUtc (09:30 ngày D).</summary>
-    CutoffPassed,
-
-    /// <summary>Phiên có nhưng IsOpen = false (admin đóng ngày) hoặc phiên bị hủy.</summary>
-    Closed,
-
-    /// <summary>Bác sĩ chưa có phiên ngày đó.</summary>
-    NotScheduled,
-}
-
-/// <summary>
-/// Suất trống của một bác sĩ trong ngày D. Khi <see cref="Status"/> = NotScheduled thì các trường của phiên là null và AvailableSlots = 0.
-/// Thứ tự ưu tiên khi nhiều điều kiện cùng đúng: NotScheduled, Closed, CutoffPassed, Full, Open.
-/// </summary>
-/// <param name="AvailableSlots">max(0, Capacity − AdmittedCount − HeldCount − LockedCancelledCount); 0 khi Status khác Open.</param>
-/// <param name="AssignedRoomId">Phòng khám của phiên (identity.Room).</param>
-public sealed record DoctorDayAvailability(
-    Guid DoctorId,
-    DateOnly ServiceDate,
-    AvailabilityStatus Status,
-    int AvailableSlots,
-    Guid? DoctorDayQuotaId,
-    int? Capacity,
-    Guid? AssignedRoomId,
-    DateTime? SessionStartTimeUtc,
-    DateTime? BookingCutoffTimeUtc);
+/// <param name="HasMore">Còn trang sau.</param>
+public sealed record DoctorSearchPage(DateOnly ServiceDate, int Page, int PageSize, bool HasMore,
+    IReadOnlyList<DoctorSearchItem> Items);
 
 // ---------- Check in ----------
 
