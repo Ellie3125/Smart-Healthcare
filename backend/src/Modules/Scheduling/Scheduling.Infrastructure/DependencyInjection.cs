@@ -1,9 +1,11 @@
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Scheduling.Application.BookingAttempts;
+using Scheduling.Application.Confirmations;
 using Scheduling.Application.DoctorDays;
 using Scheduling.Application.Holds;
 using Scheduling.Infrastructure.BookingAttempts;
+using Scheduling.Infrastructure.Confirmations;
 using Scheduling.Infrastructure.DoctorDays;
 using Scheduling.Infrastructure.Holds;
 using Scheduling.Infrastructure.Persistence;
@@ -21,5 +23,7 @@ public static class DependencyInjection
             // Hai service cần IUnitOfWork/IIdempotencyStore (Shared.Infrastructure) và IOperationTracker (Notifications.Infrastructure)
             // nên đăng ký cùng store, không ở AddSchedulingApplication (host test endpoint chỉ có Application).
             .AddScoped<HoldService>()
-            .AddScoped<BookingAttemptService>();
+            .AddScoped<BookingAttemptService>()
+            // PaymentVerifiedHandler (cần IBillingModule) đăng ký cùng dispatcher Outbox ở W3-00.
+            .AddScoped<IConfirmationStore, SqlConfirmationStore>();
 }

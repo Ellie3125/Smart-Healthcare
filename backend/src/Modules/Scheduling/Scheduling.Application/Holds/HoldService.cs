@@ -23,7 +23,7 @@ public sealed class HoldService(IHoldStore store, IUnitOfWork uow, IIdempotencyS
     private async Task<HoldOutcome> HoldOnceAsync(HoldRequest r, CancellationToken ct)
     {
         var scope = Idempotent.Scope(r.AppUserId);
-        var hash = Idempotent.Hash(r.BookingAttemptId, r.PatientId, r.DoctorId, r.ServiceDate.ToString("yyyy-MM-dd"), r.Channel);
+        var hash = Idempotent.Hash(r.BookingAttemptId, r.PatientId, r.DoctorId, r.DoctorRankId, r.ServiceDate.ToString("yyyy-MM-dd"), r.Channel);
         var operationId = Guid.CreateVersion7();
         switch (await idempotency.BeginAsync(scope, OperationType, r.IdempotencyKey, hash, Idempotent.Retention, operationId, ct))
         {
@@ -70,7 +70,7 @@ public sealed class HoldService(IHoldStore store, IUnitOfWork uow, IIdempotencyS
 
     private static bool IsValid(HoldRequest r) =>
         r.BookingAttemptId != Guid.Empty && r.PatientId != Guid.Empty && r.AppUserId != Guid.Empty
-        && r.DoctorId != Guid.Empty && r.ServiceDate > DateOnly.MinValue && Enum.IsDefined(r.Channel)
+        && r.DoctorId != Guid.Empty && r.DoctorRankId != Guid.Empty && r.ServiceDate > DateOnly.MinValue && Enum.IsDefined(r.Channel)
         && Idempotent.IsValidKey(r.IdempotencyKey);
 }
 
@@ -96,8 +96,9 @@ public enum HoldResult
     IdempotencyConflict,
 }
 
-public sealed record HoldRequest(Guid BookingAttemptId, Guid PatientId, Guid AppUserId, Guid DoctorId, DateOnly ServiceDate,
-    BookingChannel Channel, string IdempotencyKey);
+/// <param name="DoctorRankId">Hạng bác sĩ lấy từ danh mục phía server (không tin client); dùng tính phí khám áp dụng khi xác nhận (W2-06).</param>
+public sealed record HoldRequest(Guid BookingAttemptId, Guid PatientId, Guid AppUserId, Guid DoctorId, Guid DoctorRankId,
+    DateOnly ServiceDate, BookingChannel Channel, string IdempotencyKey);
 
 public sealed record HoldOutcome(HoldResult Result, Guid? ReservationId = null, DateTime? ExpiresAtUtc = null, Guid? OperationId = null);
 

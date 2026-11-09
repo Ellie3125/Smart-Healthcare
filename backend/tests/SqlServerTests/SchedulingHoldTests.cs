@@ -6,6 +6,7 @@ using Notifications.Infrastructure;
 using Notifications.Infrastructure.Persistence;
 using Scheduling.Application;
 using Scheduling.Application.BookingAttempts;
+using Scheduling.Application.Confirmations;
 using Scheduling.Application.DoctorDays;
 using Scheduling.Application.Holds;
 using Scheduling.Domain.Entities;
@@ -20,7 +21,7 @@ namespace SqlServerTests;
 
 // W2-02: commit thật vào SmartHealthcare_Test rồi tự dọn; chạy chung collection không song song với các test commit khác.
 [Collection(nameof(SharedInfrastructureSerialCollection))]
-public sealed class SchedulingHoldTests
+public sealed partial class SchedulingHoldTests
 {
     private static readonly DateOnly ServiceDate = new(2099, 1, 15);
     private static readonly TimeSpan BlockedWindow = TimeSpan.FromSeconds(1);
@@ -405,13 +406,14 @@ public sealed class SchedulingHoldTests
             .AddUnitOfWorkParticipant<SchedulingDbContext>()
             .AddUnitOfWorkParticipant<WorkflowDbContext>()
             .AddSchedulingApplication()
+            .AddSingleton<Billing.Contracts.IBillingModule>(new FixedFeeBilling())
             .BuildServiceProvider(validateScopes: true);
     }
 
     private static IUnitOfWork Uow(AsyncServiceScope scope) => scope.ServiceProvider.GetRequiredService<IUnitOfWork>();
 
     private static HoldRequest Request(DoctorDayQuota day, Guid attempt, Guid patient) =>
-        new(attempt, patient, Guid.NewGuid(), day.DoctorId, ServiceDate, BookingChannel.Web, Guid.NewGuid().ToString("N"));
+        new(attempt, patient, Guid.NewGuid(), day.DoctorId, Guid.NewGuid(), ServiceDate, BookingChannel.Web, Guid.NewGuid().ToString("N"));
 
     private static Task<HoldOutcome> HoldAsync(ServiceProvider services, DoctorDayQuota day, Guid attempt, Guid patient) =>
         HoldAsync(services, Request(day, attempt, patient));
@@ -505,7 +507,10 @@ public sealed class SchedulingHoldTests
             DELETE FROM shared.ApiIdempotencyRecord WHERE OperationId IN (SELECT Id FROM @ops)
               OR CallerScope IN (SELECT 'AppUser:' + LOWER(CONVERT(nvarchar(36), AppUserId)) FROM @attempts);
             DELETE FROM workflow.Operation WHERE Id IN (SELECT Id FROM @ops);
+            DELETE FROM shared.OutboxMessage WHERE AggregateId IN (SELECT Id FROM scheduling.Appointment WHERE SessionQuotaId IN ({ids}));
+            DELETE FROM shared.ProcessedEvent WHERE HandlerName = '{PaymentVerifiedHandler.HandlerName}';
             DELETE FROM scheduling.ActiveBookingClaim WHERE SessionQuotaId IN ({ids});
+            DELETE FROM scheduling.Appointment WHERE SessionQuotaId IN ({ids});
             DELETE FROM scheduling.Reservation WHERE SessionQuotaId IN ({ids}) OR BookingAttemptId IN (SELECT Id FROM @attempts);
             DELETE FROM scheduling.BookingAttempt WHERE Id IN (SELECT Id FROM @attempts);
             DELETE FROM scheduling.DoctorDayQuota WHERE Id IN ({ids});
