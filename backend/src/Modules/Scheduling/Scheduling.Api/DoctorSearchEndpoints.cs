@@ -1,3 +1,4 @@
+using System.Globalization;
 using IdentityPatients.Contracts;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Http;
@@ -17,25 +18,30 @@ internal static class DoctorSearchEndpoints
             .Produces<DoctorSearchPage>()
             .ProducesProblem(StatusCodes.Status400BadRequest)
             .Produces(StatusCodes.Status401Unauthorized)
-            .Produces(StatusCodes.Status403Forbidden)
-            .ProducesProblem(StatusCodes.Status503ServiceUnavailable);
+            .Produces(StatusCodes.Status403Forbidden);
     }
 
-    private static async Task<IResult> SearchAsync([AsParameters] DoctorSearchQuery query,
-        [FromServices] DoctorSearchService service, CancellationToken ct)
+    private static async Task<IResult> SearchAsync(string? serviceDate, string? doctorRankId, string? specialtyId,
+        [FromServices] DoctorSearchService service, CancellationToken ct, string page = "1", string pageSize = "20")
     {
-        if (query.ServiceDate == DateOnly.MinValue || query.DoctorRankId == Guid.Empty || query.SpecialtyId == Guid.Empty
-            || query.Page is < 1 or > DoctorSearchQuery.MaxPage || query.PageSize is < 1 or > DoctorSearchQuery.MaxPageSize)
+        var rank = Guid.Empty;
+        var specialty = Guid.Empty;
+        if (!DateOnly.TryParseExact(serviceDate, "yyyy-MM-dd", CultureInfo.InvariantCulture, DateTimeStyles.None, out var date)
+            || date == DateOnly.MinValue
+            || (doctorRankId is not null && (!Guid.TryParse(doctorRankId, out rank) || rank == Guid.Empty))
+            || (specialtyId is not null && (!Guid.TryParse(specialtyId, out specialty) || specialty == Guid.Empty))
+            || !int.TryParse(page, CultureInfo.InvariantCulture, out var pageNumber)
+            || pageNumber is < 1 or > DoctorSearchQuery.MaxPage
+            || !int.TryParse(pageSize, CultureInfo.InvariantCulture, out var size)
+            || size is < 1 or > DoctorSearchQuery.MaxPageSize)
         {
             return TypedResults.Problem(statusCode: StatusCodes.Status400BadRequest,
-                title: "Ngày, bộ lọc hoặc phân trang không hợp lệ.");
+                title: "Ngày, bộ lọc hoặc phân trang không hợp lệ.",
+                extensions: new Dictionary<string, object?> { ["code"] = "InvalidInput" });
         }
 
-        var page = await service.SearchAsync(query, ct);
-        return page is not null
-            ? TypedResults.Ok(page)
-            : TypedResults.Problem(statusCode: StatusCodes.Status503ServiceUnavailable,
-                title: "Chưa thể báo giá phí khám theo lô.",
-                extensions: new Dictionary<string, object?> { ["code"] = "ExamFeeBatchUnavailable" });
+        var query = new DoctorSearchQuery(date, doctorRankId is null ? null : rank, specialtyId is null ? null : specialty,
+            pageNumber, size);
+        return TypedResults.Ok(await service.SearchAsync(query, ct));
     }
 }

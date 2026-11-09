@@ -17,6 +17,7 @@ using Scheduling.Api;
 using Scheduling.Application;
 using Scheduling.Application.DoctorDays;
 using Scheduling.Application.DoctorSearch;
+using Shared.Abstractions;
 
 namespace Scheduling.Tests;
 
@@ -37,7 +38,7 @@ internal static class SchedulingEndpointTestSetup
         builder.Services.AddSingleton<IDoctorDayStore, DoctorDayEndpointTests.Store>();
         builder.Services.AddSingleton<IDoctorSearchQuotaReader>(new DoctorSearchTests.Quotas([]));
         builder.Services.AddSingleton<IBillingModule, DoctorSearchTests.SingleQuoteBilling>();
-        builder.Services.AddSingleton(TimeProvider.System);
+        builder.Services.AddSingleton<IDbClock>(new DoctorSearchTests.FakeDbClock(DoctorSearchTests.CutoffUtc.AddSeconds(-1)));
         return builder;
     }
 

@@ -8,13 +8,13 @@ namespace Scheduling.Infrastructure.DoctorSearch;
 
 internal sealed class SqlDoctorSearchQuotaReader(SchedulingDbContext db) : IDoctorSearchQuotaReader
 {
-    public async Task<IReadOnlyList<DoctorSearchQuota>> ReadAsync(DateOnly serviceDate, Guid[] doctorIds, int offset,
-        int limit, CancellationToken ct) =>
+    public async Task<IReadOnlyList<DoctorSearchQuota>> ReadAsync(DateOnly serviceDate, Guid[] doctorIds, DateTime nowUtc,
+        int offset, int limit, CancellationToken ct) =>
         await db.Set<DoctorDayQuota>()
             .AsNoTracking()
             .Where(x => x.ServiceDate == serviceDate && doctorIds.Contains(x.DoctorId) && x.IsOpen
                 && (x.SessionStatus == SessionStatus.Scheduled || x.SessionStatus == SessionStatus.InProgress)
-                && x.BookingCutoffTimeUtc > DateTime.UtcNow)
+                && x.BookingCutoffTimeUtc > nowUtc)
             .OrderBy(x => x.DoctorId)
             .Skip(offset)
             .Take(limit)

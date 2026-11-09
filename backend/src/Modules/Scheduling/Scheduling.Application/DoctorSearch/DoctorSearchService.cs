@@ -1,11 +1,12 @@
 using Billing.Contracts;
+using Shared.Abstractions;
 
 namespace Scheduling.Application.DoctorSearch;
 
 public sealed class DoctorSearchService(IDoctorSearchDirectory directory, IDoctorSearchQuotaReader quotas,
-    IBillingModule billing, TimeProvider clock)
+    IBillingModule billing, IDbClock dbClock)
 {
-    public async Task<DoctorSearchPage?> SearchAsync(DoctorSearchQuery query, CancellationToken ct)
+    public async Task<DoctorSearchPage> SearchAsync(DoctorSearchQuery query, CancellationToken ct)
     {
         var doctors = (await directory.GetActiveDoctorsAsync(ct))
             .Where(x => (query.DoctorRankId is null || x.DoctorRankId == query.DoctorRankId)
@@ -18,31 +19,15 @@ public sealed class DoctorSearchService(IDoctorSearchDirectory directory, IDocto
         }
 
         var offset = (query.Page - 1) * query.PageSize;
-        var rows = await quotas.ReadAsync(query.ServiceDate, doctors.Keys.ToArray(), offset, query.PageSize + 1, ct);
-        if (rows.Count == 0)
+        var nowUtc = await dbClock.GetUtcNowAsync(ct);
+        var rows = await quotas.ReadAsync(query.ServiceDate, doctors.Keys.ToArray(), nowUtc, offset, query.PageSize + 1, ct);
+        var items = new List<DoctorSearchItem>(Math.Min(rows.Count, query.PageSize));
+
+        // shortcut: N lời gọi báo giá mỗi trang (≤ 50), đổi sang batch khi Billing có QuoteExamFeesAsync
+        foreach (var row in rows.Take(query.PageSize))
         {
-            return EmptyPage(query);
-        }
-
-        if (billing is not IDoctorSearchBilling batchBilling)
-        {
-            return null;
-        }
-
-        var pageRows = rows.Take(query.PageSize).ToArray();
-        var atUtc = clock.GetUtcNow().UtcDateTime;
-        var feeQueries = pageRows.Select(row => new QuoteExamFee(row.DoctorId, doctors[row.DoctorId].DoctorRankId, atUtc)).ToArray();
-        var fees = await batchBilling.QuoteExamFeesAsync(feeQueries, ct);
-        var items = new List<DoctorSearchItem>(pageRows.Length);
-
-        foreach (var row in pageRows)
-        {
-            if (!fees.TryGetValue(row.DoctorId, out var fee))
-            {
-                return null;
-            }
-
             var doctor = doctors[row.DoctorId];
+            var fee = await billing.QuoteExamFeeAsync(new QuoteExamFee(doctor.DoctorId, doctor.DoctorRankId, nowUtc), ct);
             var available = (int)Math.Max(0L, (long)row.Capacity - row.HeldCount - row.AdmittedCount - row.LockedCancelledCount);
             items.Add(new DoctorSearchItem(doctor.DoctorId, doctor.FullName, doctor.DoctorRankId, doctor.SpecialtyId,
                 available, fee.UnitPrice, fee.Currency));
@@ -66,11 +51,6 @@ public interface IDoctorSearchDirectory
 
 public interface IDoctorSearchQuotaReader
 {
-    Task<IReadOnlyList<DoctorSearchQuota>> ReadAsync(DateOnly serviceDate, Guid[] doctorIds, int offset, int limit, CancellationToken ct);
-}
-
-// Temporary fake Billing capability until Billing.Contracts supports batch exam quotes.
-public interface IDoctorSearchBilling : IBillingModule
-{
-    Task<IReadOnlyDictionary<Guid, FeeQuote>> QuoteExamFeesAsync(IReadOnlyList<QuoteExamFee> queries, CancellationToken ct);
+    Task<IReadOnlyList<DoctorSearchQuota>> ReadAsync(DateOnly serviceDate, Guid[] doctorIds, DateTime nowUtc,
+        int offset, int limit, CancellationToken ct);
 }
