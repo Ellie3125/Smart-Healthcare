@@ -437,7 +437,7 @@ public sealed partial class SchedulingHoldTests
     }
 
     private static async Task<DoctorDayQuota> SeedDayAsync(ServiceProvider services, int capacity = 30, bool isOpen = true,
-        TimeSpan? cutoffFromNow = null)
+        TimeSpan? cutoffFromNow = null, TimeSpan? rescheduleCutoffFromNow = null)
     {
         await using var scope = services.CreateAsyncScope();
         var now = await scope.ServiceProvider.GetRequiredService<IDbClock>().GetUtcNowAsync(Ct);
@@ -450,7 +450,7 @@ public sealed partial class SchedulingHoldTests
             Capacity = capacity,
             SessionStartTimeUtc = now.AddHours(2),
             BookingCutoffTimeUtc = now + (cutoffFromNow ?? TimeSpan.FromHours(1)),
-            RescheduleCutoffTimeUtc = now,
+            RescheduleCutoffTimeUtc = now + (rescheduleCutoffFromNow ?? TimeSpan.FromMinutes(30)),
             SessionStatus = SessionStatus.Scheduled,
             IsOpen = isOpen,
         };
@@ -503,13 +503,16 @@ public sealed partial class SchedulingHoldTests
             DECLARE @attempts TABLE (Id uniqueidentifier, AppUserId uniqueidentifier);
             INSERT INTO @attempts SELECT Id, AppUserId FROM scheduling.BookingAttempt WHERE SelectedServiceDate = '{ServiceDate:yyyy-MM-dd}';
             DECLARE @ops TABLE (Id uniqueidentifier);
-            INSERT INTO @ops SELECT Id FROM workflow.Operation WHERE BookingAttemptId IN (SELECT Id FROM @attempts);
+            INSERT INTO @ops SELECT Id FROM workflow.Operation WHERE BookingAttemptId IN (SELECT Id FROM @attempts)
+              OR TargetEntityId IN (SELECT Id FROM scheduling.Appointment WHERE SessionQuotaId IN ({ids}));
             DELETE FROM shared.ApiIdempotencyRecord WHERE OperationId IN (SELECT Id FROM @ops)
               OR CallerScope IN (SELECT 'AppUser:' + LOWER(CONVERT(nvarchar(36), AppUserId)) FROM @attempts);
             DELETE FROM workflow.Operation WHERE Id IN (SELECT Id FROM @ops);
             DELETE FROM shared.OutboxMessage WHERE AggregateId IN (SELECT Id FROM scheduling.Appointment WHERE SessionQuotaId IN ({ids}));
             DELETE FROM shared.ProcessedEvent WHERE HandlerName = '{PaymentVerifiedHandler.HandlerName}';
             DELETE FROM scheduling.ActiveBookingClaim WHERE SessionQuotaId IN ({ids});
+            DELETE FROM shared.AuditLog WHERE RecordId IN (SELECT Id FROM scheduling.Appointment WHERE SessionQuotaId IN ({ids}));
+            UPDATE scheduling.Appointment SET RescheduledFromAppointmentId = NULL WHERE SessionQuotaId IN ({ids});
             DELETE FROM scheduling.Appointment WHERE SessionQuotaId IN ({ids});
             DELETE FROM scheduling.Reservation WHERE SessionQuotaId IN ({ids}) OR BookingAttemptId IN (SELECT Id FROM @attempts);
             DELETE FROM scheduling.BookingAttempt WHERE Id IN (SELECT Id FROM @attempts);

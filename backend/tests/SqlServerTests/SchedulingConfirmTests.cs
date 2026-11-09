@@ -15,6 +15,7 @@ namespace SqlServerTests;
 public sealed partial class SchedulingHoldTests
 {
     private const decimal ExamFee = 150_000m;
+    private static readonly Guid ExpensiveRank = Guid.NewGuid(); // FixedFeeBilling báo 300000 cho hạng này
 
     [Fact]
     public async Task Payment_confirms_the_hold_once_and_publishes_appointment_confirmed()
@@ -236,7 +237,8 @@ public sealed partial class SchedulingHoldTests
     private sealed class FixedFeeBilling : IBillingModule
     {
         public Task<FeeQuote> QuoteExamFeeAsync(QuoteExamFee query, CancellationToken ct) =>
-            Task.FromResult(new FeeQuote(Guid.NewGuid(), "TEST", ChargeType.ConsultationFee, PriceBasis.DoctorRank, null, ExamFee, "VND"));
+            Task.FromResult(new FeeQuote(Guid.NewGuid(), "TEST", ChargeType.ConsultationFee, PriceBasis.DoctorRank, null,
+                query.DoctorRankId == ExpensiveRank ? 2 * ExamFee : ExamFee, "VND"));
 
         public Task<IReadOnlyList<FeeQuote>> QuoteClsFeesAsync(QuoteClsFees query, CancellationToken ct) => throw new NotSupportedException();
         public Task<ChargeDto> CreateExamChargeAsync(CreateExamCharge command, CancellationToken ct) => throw new NotSupportedException();

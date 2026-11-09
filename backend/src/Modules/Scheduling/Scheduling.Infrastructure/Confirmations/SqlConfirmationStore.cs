@@ -63,7 +63,7 @@ internal sealed class SqlConfirmationStore(SchedulingDbContext db, IDbClock dbCl
             ReservationId = reservation.Id,
             SessionQuotaId = quota.Id,
             PatientId = reservation.PatientId,
-            AppointmentNumber = AppointmentNumber(day.ServiceDate, appointmentId),
+            AppointmentNumber = AppointmentNumbers.New(day.ServiceDate, appointmentId),
             AppliedConsultationFee = appliedFee,
             Status = AppointmentStatus.Scheduled,
             ConfirmedAtUtc = now,
@@ -94,10 +94,6 @@ internal sealed class SqlConfirmationStore(SchedulingDbContext db, IDbClock dbCl
             .ExecuteUpdateAsync(s => s.SetProperty(x => x.Status, BookingAttemptStatus.PaidUnallocated)
                 .SetProperty(x => x.UpdatedAtUtc, now), ct);
     }
-
-    // Mã lịch hẹn, không phải số thứ tự khám (Phạm vi §4.3). 8 ký tự hex cuối của Guid v7 là phần ngẫu nhiên; unique index chặn trùng.
-    private static string AppointmentNumber(DateOnly serviceDate, Guid appointmentId) =>
-        $"LH{serviceDate:yyMMdd}-{appointmentId.ToString("N")[^8..].ToUpperInvariant()}";
 
     private void RequireTransaction()
     {
