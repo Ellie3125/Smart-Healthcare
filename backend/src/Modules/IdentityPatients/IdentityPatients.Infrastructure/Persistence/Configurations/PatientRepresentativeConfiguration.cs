@@ -14,9 +14,10 @@ internal sealed class PatientRepresentativeConfiguration : IEntityTypeConfigurat
         builder.Property(x => x.Relationship).HasConversion<string>().HasMaxLength(32);
         builder.Property(x => x.VerificationStatus).HasConversion<string>().HasMaxLength(32);
 
-        builder.HasOne<AppUser>().WithMany().HasForeignKey(x => x.AppUserId).OnDelete(DeleteBehavior.Restrict);
+        builder.HasOne<ApplicationUser>().WithMany().HasForeignKey(x => x.AppUserId).OnDelete(DeleteBehavior.Restrict);
         builder.HasOne<Patient>().WithMany().HasForeignKey(x => x.PatientId).OnDelete(DeleteBehavior.Restrict);
 
         builder.HasIndex(x => new { x.AppUserId, x.PatientId }).IsUnique();
+        builder.HasIndex(x => x.AppUserId).IsUnique().HasFilter("[Relationship] = 'Self' AND [IsActive] = 1");
     }
 }
