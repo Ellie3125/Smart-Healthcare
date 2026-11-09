@@ -12,6 +12,7 @@
 - **Suất trống của ngày D** = `max(0, Capacity − AdmittedCount − HeldCount − LockedCancelledCount)`, Capacity mặc định 30 (Phạm vi §4.3). Không bao giờ trả số âm.
 - Ngày **không nhận giữ chỗ mới** khi: không có phiên; `IsOpen = false`; `SessionStatus` khác `Scheduled`/`InProgress`; giờ DB (`IDbClock`, `SYSUTCDATETIME()`) ≥ `BookingCutoffTimeUtc` (09:30 ngày D giờ Việt Nam); hoặc suất trống = 0. Tìm bác sĩ (§2.1) **không trả** các phiên thuộc bốn điều kiện đầu; phiên hết suất vẫn trả với `availableSlots = 0`.
 - Ngày mai xét cutoff của ngày mai: 10:00 hôm nay vẫn đặt được ngày mai (Phạm vi §4.2).
+- Khoảng ngày được đặt (Q5, đề xuất, chờ trưởng nhóm duyệt): không có cấu hình số ngày. Chỉ đặt được ngày admin đã mở (`IsOpen = true`) và `serviceDate` ≥ hôm nay theo giờ DB quy đổi sang giờ Việt Nam; admin kiểm soát giới hạn bằng việc mở ngày.
 - Tra suất trống chỉ là thông tin tham khảo. Giữ chỗ (W2-02) khóa `DoctorDayQuota` `WITH (UPDLOCK, HOLDLOCK)` **trước** khi đọc `IsOpen`, cutoff và ba bộ đếm, rồi mới đọc giờ DB và kiểm lại.
 
 ## 2. Contract trong tiến trình: `ISchedulingModule`
@@ -66,8 +67,9 @@ Payload:
   - `CancelledBy`: `Patient` | `Receptionist` | `Hospital`.
   - `Refund`: `Full` khi hủy có hiệu lực trước 05:00 ngày D (giờ DB), hoặc `CancelledBy = Hospital` ở mọi thời điểm; `None` khi bệnh nhân/tiếp tân hủy từ 05:00 (Phạm vi §6.2, §6.3). Scheduling quyết định; Billing không tự tính lại mốc.
   - Billing tìm khoản phí khám đã thu theo `BookingAttemptId`; chưa thu thì không tạo hoàn. `CancelledAtUtc` và `RescheduleCutoffTimeUtc` để đối soát.
-  - `SlotReleased`: true khi trả suất (trước 05:00), false khi chuyển sang `LockedCancelledCount`.
-  - Đổi lịch **không** phát sự kiện này: lịch cũ chuyển `Rescheduled`, phí chuyển sang lịch mới cùng mức phí.
+  - `SlotReleased`: true khi trả suất (`AdmittedCount − 1`), false khi chuyển sang `LockedCancelledCount`. Bệnh nhân/tiếp tân hủy: true trước 05:00, false từ 05:00.
+  - Bệnh viện hủy (Q3, đề xuất, chờ trưởng nhóm duyệt): ở **bất kỳ giờ nào** cũng `SlotReleased = true` (`AdmittedCount − 1`, không tăng `LockedCancelledCount`) và `Refund = Full`; bệnh nhân không có lỗi nên không bị khóa suất.
+  - Đổi lịch **không** phát sự kiện này: lịch cũ chuyển `Rescheduled`, phí chuyển sang lịch mới cùng mức phí. Q4 (đề xuất, chờ trưởng nhóm duyệt): MVP không có sự kiện riêng cho đổi lịch; Notifications nhận `AppointmentConfirmed` có `RescheduledFromAppointmentId`.
 - `TicketCheckedIn(EventId, AppointmentId, PatientId, DoctorId, AssignedRoomId, ServiceDate, CheckedInAtUtc, QueueTicketId?, OccurredAtUtc, OperationId?)`. Clinical mở Encounter theo `AppointmentId` (unique trong `clinical.Encounter`) và lưu `AssignedRoomId` làm phòng ban đầu.
 
 ## 4. HTTP đã có
@@ -127,36 +129,39 @@ Theo code PR #44 (`feature/w2-05-doctor-search`, 9e124cf, phần 1, chưa merge)
 
 ## 5. HTTP dự kiến của W2 — chưa chốt
 
-Chỉ route và mục đích, để Antigravity (W2-09) mock trước. Body, mã lỗi và quyền chốt trong bản contract sau. Kênh **Patient** trừ khi ghi khác. Mọi lệnh thay đổi nhận `Idempotency-Key`.
+Chỉ route và mục đích, để Antigravity (W2-09) mock trước. Body, mã lỗi và quyền chốt trong bản contract sau. Route có tiền tố kênh `/patient/`, `/staff/`, `/admin/` (Q7, đã chốt 09/11/2026); Backend kiểm vai trò theo kênh. Mọi lệnh thay đổi nhận `Idempotency-Key`. Danh sách trả `items, page, pageSize, hasMore` (Q6, đã chốt).
 
 | Method + route | Mục đích | Task |
 |---|---|---|
-| `POST /api/scheduling/booking-attempts` | Tạo tiến trình đặt lịch (BookingAttempt) cho một hồ sơ bệnh nhân được đại diện | W2-03 |
-| `GET /api/scheduling/booking-attempts/{bookingAttemptId}` | Khôi phục tiến trình: trạng thái, bước đã xong, `expiresAtUtc`, `allowedActions` (Giải pháp §2.3) | W2-04 |
-| `POST /api/scheduling/booking-attempts/{bookingAttemptId}/hold` | Giữ chỗ bác sĩ + ngày (5 phút) | W2-02 |
-| `POST /api/scheduling/booking-attempts/{bookingAttemptId}/payment` | Tạo yêu cầu thanh toán phí khám (gọi `IBillingModule.CreatePaymentAsync`), trả liên kết VNPAY | W2-02/W2-06 |
-| `GET /api/scheduling/operations/{operationId}` | Tra lệnh dài (202 + `operationId`) | W2-03 |
-| `GET /api/scheduling/appointments` | Lịch hẹn của các hồ sơ người dùng được đại diện | W2-07 |
-| `GET /api/scheduling/appointments/{appointmentId}` | Chi tiết lịch hẹn, mã lịch hẹn, số thứ tự (sau check in) | W2-07 |
-| `POST /api/scheduling/appointments/{appointmentId}/reschedule` | Đổi lịch trước 05:00 sang bác sĩ cùng mức phí | W2-07 |
-| `GET /api/scheduling/appointments/{appointmentId}/cancellation-preview` | Số tiền được hoàn / không hoàn trước khi xác nhận hủy | W2-07 |
-| `POST /api/scheduling/appointments/{appointmentId}/cancel` | Hủy lịch (bệnh nhân: chỉ Scheduled) | W2-07 |
-| `POST /api/scheduling/appointments/{appointmentId}/check-in` | Tiếp tân check in — kênh **Staff** | W3-02 |
+| `POST /api/scheduling/patient/booking-attempts` | Tạo tiến trình đặt lịch (BookingAttempt) cho một hồ sơ bệnh nhân được đại diện | W2-03 |
+| `GET /api/scheduling/patient/booking-attempts/{bookingAttemptId}` | Khôi phục tiến trình: trạng thái, bước đã xong, `expiresAtUtc`, `allowedActions` (Giải pháp §2.3) | W2-04 |
+| `POST /api/scheduling/patient/booking-attempts/{bookingAttemptId}/hold` | Giữ chỗ bác sĩ + ngày (5 phút) | W2-02 |
+| `POST /api/scheduling/patient/booking-attempts/{bookingAttemptId}/payment` | Tạo yêu cầu thanh toán phí khám (gọi `IBillingModule.CreatePaymentAsync`), trả liên kết VNPAY | W2-02/W2-06 |
+| `GET /api/scheduling/patient/operations/{operationId}` | Tra lệnh dài (202 + `operationId`) | W2-03 |
+| `GET /api/scheduling/patient/appointments` | Lịch hẹn của các hồ sơ người dùng được đại diện | W2-07 |
+| `GET /api/scheduling/patient/appointments/{appointmentId}` | Chi tiết lịch hẹn, mã lịch hẹn, số thứ tự (sau check in) | W2-07 |
+| `POST /api/scheduling/patient/appointments/{appointmentId}/reschedule` | Đổi lịch trước 05:00 sang bác sĩ cùng mức phí | W2-07 |
+| `GET /api/scheduling/patient/appointments/{appointmentId}/cancellation-preview` | Số tiền được hoàn / không hoàn trước khi xác nhận hủy | W2-07 |
+| `POST /api/scheduling/patient/appointments/{appointmentId}/cancel` | Bệnh nhân hủy lịch (chỉ Scheduled) | W2-07 |
+| `GET /api/scheduling/staff/doctors` | Tiếp tân tìm bác sĩ, suất trống, phí; cùng `DoctorSearchService` và DTO với route patient, policy nhân viên quầy (vai trò `Receptionist`) (Q2, đề xuất, chờ trưởng nhóm duyệt) | W3-01 |
+| `POST /api/scheduling/staff/appointments/{appointmentId}/check-in` | Tiếp tân check in | W3-02 |
+| `POST /api/scheduling/staff/appointments/{appointmentId}/cancel` | Tiếp tân hủy (Scheduled; CheckedIn bắt buộc lý do) | W2-07 |
 
 ## 6. Câu hỏi mở
 
 | # | Câu hỏi | Ảnh hưởng tới contract | Trạng thái |
 |---|---|---|---|
-| Q1 | Vé khám đầu có trước hay sau Encounter? ERD v2.4 có `QueueTicket.EncounterId` bắt buộc, nhưng Encounter do Clinical mở sau `TicketCheckedIn`. | Nếu vé có trước: `EncounterId` phải nullable (migration) hoặc Scheduling cấp EncounterId trước. Nếu vé sau: `CheckInResult` và `TicketCheckedIn` không có `QueueTicketId`, Scheduling cấp vé khi nhận `EncounterOpened`; aggregate của `TicketCheckedIn` (đang ánh xạ QueueTicket) phải đổi sang Appointment. Contract v0.1 để các trường vé nullable. | **Pending** (PROGRESS mục 4, cần trưởng nhóm chốt trước W3-02) |
-| Q2 | API tìm bác sĩ có bản Staff cho tiếp tân không, hay tiếp tân dùng chung endpoint Patient? | Thêm route Staff hoặc mở endpoint cho hai kênh (API-05 yêu cầu khai kênh). | Mở |
-| Q3 | Bệnh viện hủy sau 05:00 (bác sĩ nghỉ): trả suất hay khóa suất? Hiện chỉ quy định hoàn phí. | Giá trị `SlotReleased` của `AppointmentCancelled` khi `CancelledBy = Hospital`. | Mở |
-| Q4 | Có phát sự kiện riêng khi đổi lịch (cho Notifications) ngoài `AppointmentConfirmed` của lịch mới không? | Hiện chỉ phát `AppointmentConfirmed` có `RescheduledFromAppointmentId`. | Mở |
-| Q5 | Giới hạn số ngày tới được mở lịch (khoảng ngày được mở, Phạm vi §4.2) là bao nhiêu? | Validation `serviceDate` ở tìm bác sĩ và giữ chỗ. | Mở |
-| Q6 | Phân trang: PR #44 dùng `hasMore`, docs/conventions.md v0.1 (PR #43) ghi `totalCount`. Chọn cách nào làm chuẩn? | Response tìm bác sĩ và mọi danh sách sau này; sửa một trong hai PR. | Mở |
-| Q7 | Route theo kênh: PR #44 đặt `/api/scheduling/patient/doctors`. Có lấy tiền tố `/patient/` và `/staff/` làm quy ước kênh không? | Các route §5 (hiện chưa có tiền tố kênh) và docs/conventions.md §3. | Mở |
+| Q1 | Vé khám đầu có trước hay sau Encounter? ERD v2.4 có `QueueTicket.EncounterId` bắt buộc, nhưng Encounter do Clinical mở sau `TicketCheckedIn`. | **Đề xuất (chờ trưởng nhóm chốt):** Scheduling cấp `EncounterId` (GUID tuần tự) ngay lúc check in, tạo `QueueTicket` khám đầu với `EncounterId` đó trong cùng transaction; `TicketCheckedIn` mang `EncounterId`; Clinical nhận sự kiện rồi tạo Encounter với đúng Id đó (idempotent qua ProcessedEvent). Giữ ERD (EncounterId bắt buộc, ID chéo module không FK), không gọi vòng Scheduling↔Clinical, số thứ tự cấp ngay khi check in (Phạm vi §5.1). Nếu chốt: v0.2 thêm `EncounterId` vào `CheckInResult`, `TicketCheckedIn` và bỏ nullable của các trường vé; AggregateType QueueTicket giữ nguyên. | **Pending** (PROGRESS mục 4, chốt trước W3-02) |
+| Q2 | API tìm bác sĩ có bản Staff cho tiếp tân không? | Đề xuất: route riêng `GET /api/scheduling/staff/doctors`, cùng `DoctorSearchService`, policy nhân viên quầy (§5). | Đề xuất, chờ trưởng nhóm duyệt |
+| Q3 | Bệnh viện hủy sau 05:00 (bác sĩ nghỉ): trả suất hay khóa suất? | Đề xuất: mọi giờ đều trả suất (`SlotReleased = true`, `AdmittedCount − 1`, không tăng `LockedCancelledCount`), `Refund = Full` (§3). | Đề xuất, chờ trưởng nhóm duyệt |
+| Q4 | Có sự kiện riêng khi đổi lịch không? | Đề xuất: không trong MVP; Notifications dùng `AppointmentConfirmed` có `RescheduledFromAppointmentId` (§3). | Đề xuất, chờ trưởng nhóm duyệt |
+| Q5 | Giới hạn số ngày tới được mở lịch? | Đề xuất: không có cấu hình số ngày; chỉ ngày `IsOpen` và `serviceDate` ≥ hôm nay theo giờ DB (ICT) (§1). | Đề xuất, chờ trưởng nhóm duyệt |
+| Q6 | Phân trang `hasMore` hay `totalCount`? | `items, page, pageSize, hasMore`, không `totalCount`; docs/conventions.md §3 (PR #43) đã sửa theo. | **Đã chốt 09/11/2026** |
+| Q7 | Tiền tố kênh trong route? | `/api/<module>/patient/...`, `/staff/...`, `/admin/...`; Backend kiểm vai trò theo kênh; §5 đã đổi theo. | **Đã chốt 09/11/2026** |
 
 ## 7. Lịch sử
 
 | Version | Ngày | Thay đổi |
 |---|---|---|
 | v0.1 | 09/11/2026 | Bản đầu (W1-04): `ISchedulingModule` (tìm bác sĩ theo DTO của PR #44, check in, vé CLS + vé quay lại), 3 sự kiện, HTTP W2-01, W2-05 theo PR #44, danh sách endpoint W2 dự kiến |
+| v0.1 (sửa) | 09/11/2026 | Q6 (hasMore), Q7 (tiền tố kênh) đã chốt; route §5 thêm tiền tố kênh và route staff; đề xuất Q1–Q5 chờ duyệt; Q3 ghi vào `AppointmentCancelled` |

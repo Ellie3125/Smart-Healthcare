@@ -56,7 +56,8 @@ public enum ConsultationRefund
 /// <param name="BookingAttemptId">Billing tìm khoản phí khám đã thu theo BookingAttemptId (PaymentVerified.BookingAttemptId).</param>
 /// <param name="CancelledAtUtc">Giờ DB lúc hủy có hiệu lực; căn cứ mốc 05:00.</param>
 /// <param name="RescheduleCutoffTimeUtc">05:00 ngày D (UTC) của phiên, để Billing và đối soát kiểm lại.</param>
-/// <param name="SlotReleased">true nếu trả suất (trước 05:00), false nếu khóa suất (LockedCancelled).</param>
+/// <param name="SlotReleased">true nếu trả suất (AdmittedCount − 1), false nếu khóa suất (LockedCancelledCount). Bệnh nhân/tiếp tân hủy: true trước 05:00;
+/// bệnh viện hủy: true ở mọi giờ (đề xuất Q3, chờ trưởng nhóm duyệt).</param>
 public sealed record AppointmentCancelled(
     Guid EventId,
     Guid AppointmentId,

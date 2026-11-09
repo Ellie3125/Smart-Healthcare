@@ -5,7 +5,7 @@ using Xunit;
 
 namespace ArchitectureTests;
 
-// docs/conventions.md §5: tên lớp sự kiện trùng EventType để IIntegrationEventPublisher ánh xạ được (W1-06);
+// docs/conventions.md §6: tên lớp sự kiện trùng EventType để IIntegrationEventPublisher ánh xạ được (W1-06);
 // mỗi sự kiện có CurrentVersion và Version trả đúng hằng đó (MSG-03).
 public class IntegrationEventContractTests
 {
