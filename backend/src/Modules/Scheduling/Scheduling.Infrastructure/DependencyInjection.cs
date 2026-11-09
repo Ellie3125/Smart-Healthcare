@@ -1,7 +1,9 @@
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
+using Scheduling.Application.BookingAttempts;
 using Scheduling.Application.DoctorDays;
 using Scheduling.Application.Holds;
+using Scheduling.Infrastructure.BookingAttempts;
 using Scheduling.Infrastructure.DoctorDays;
 using Scheduling.Infrastructure.Holds;
 using Scheduling.Infrastructure.Persistence;
@@ -15,6 +17,9 @@ public static class DependencyInjection
             sql => sql.MigrationsHistoryTable("__EFMigrationsHistory", SchedulingDbContext.Schema)))
             .AddScoped<IDoctorDayStore, SqlDoctorDayStore>()
             .AddScoped<IHoldStore, SqlHoldStore>()
-            // HoldService cần IUnitOfWork của Shared.Infrastructure nên đăng ký cùng store, không ở AddSchedulingApplication.
-            .AddScoped<HoldService>();
+            .AddScoped<IBookingAttemptStore, SqlBookingAttemptStore>()
+            // Hai service cần IUnitOfWork/IIdempotencyStore (Shared.Infrastructure) và IOperationTracker (Notifications.Infrastructure)
+            // nên đăng ký cùng store, không ở AddSchedulingApplication (host test endpoint chỉ có Application).
+            .AddScoped<HoldService>()
+            .AddScoped<BookingAttemptService>();
 }

@@ -1,7 +1,11 @@
 using Microsoft.Data.SqlClient;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
+using Notifications.Contracts;
+using Notifications.Infrastructure;
+using Notifications.Infrastructure.Persistence;
 using Scheduling.Application;
+using Scheduling.Application.BookingAttempts;
 using Scheduling.Application.DoctorDays;
 using Scheduling.Application.Holds;
 using Scheduling.Domain.Entities;
@@ -241,7 +245,155 @@ public sealed class SchedulingHoldTests
         }
     }
 
+    // ---------- W2-03: idempotency + Operation ----------
+
+    [Fact]
+    public async Task Create_attempt_replays_the_same_id_and_rejects_a_different_body()
+    {
+        await using var services = BuildServices();
+        var (user, patient, key) = (Guid.NewGuid(), Guid.NewGuid(), Guid.NewGuid().ToString("N"));
+        try
+        {
+            var first = await CreateAttemptAsync(services, new(user, patient, ServiceDate, key));
+            await using var restarted = BuildServices(); // process mới
+            var again = await CreateAttemptAsync(restarted, new(user, patient, ServiceDate, key));
+            var otherBody = await CreateAttemptAsync(services, new(user, Guid.NewGuid(), ServiceDate, key));
+
+            Assert.Equal(CreateAttemptResult.Created, first.Result);
+            Assert.Equal(first, again);
+            Assert.Equal(CreateAttemptResult.IdempotencyConflict, otherBody.Result);
+            Assert.Equal(1, await CountAsync($"SELECT COUNT(*) FROM scheduling.BookingAttempt WHERE AppUserId = '{user}'"));
+        }
+        finally
+        {
+            await CleanupAsync();
+        }
+    }
+
+    [Fact]
+    public async Task Hold_resent_after_commit_returns_the_same_operation_and_holds_once()
+    {
+        await using var services = BuildServices();
+        var day = await SeedDayAsync(services);
+        try
+        {
+            var patient = Guid.NewGuid();
+            var request = Request(day, await SeedAttemptAsync(services, patient), patient);
+
+            var first = await HoldAsync(services, request);
+            // Mất phản hồi sau commit: client gửi lại cùng khóa tới process khác (BE2, hoặc BE1 đã khởi động lại).
+            await using var restarted = BuildServices();
+            var resent = await HoldAsync(restarted, request);
+            var conflict = await HoldAsync(restarted, request with { DoctorId = Guid.NewGuid() });
+
+            Assert.Equal(HoldResult.Held, first.Result);
+            Assert.NotNull(first.OperationId);
+            Assert.Equal(first, resent);
+            Assert.Equal(HoldResult.IdempotencyConflict, conflict.Result);
+            Assert.Equal(1, (await ReadQuotaAsync(services, day)).HeldCount);
+            var operation = await GetOperationAsync(restarted, first.OperationId!.Value);
+            Assert.NotNull(operation);
+            Assert.Equal((OperationType.HoldSlot, OperationStatus.Succeeded, request.BookingAttemptId, request.AppUserId),
+                (operation.OperationType, operation.Status, operation.BookingAttemptId, operation.InitiatedByUserId));
+            Assert.NotNull(operation.CompletedAtUtc);
+            Assert.Equal(1, await CountAsync($"SELECT COUNT(*) FROM workflow.Operation WHERE BookingAttemptId = '{request.BookingAttemptId}'"));
+        }
+        finally
+        {
+            await CleanupAsync(day);
+        }
+    }
+
+    [Fact]
+    public async Task Concurrent_duplicates_with_the_same_key_hold_once()
+    {
+        await using var services = BuildServices();
+        var day = await SeedDayAsync(services);
+        try
+        {
+            var patient = Guid.NewGuid();
+            var request = Request(day, await SeedAttemptAsync(services, patient), patient);
+
+            var results = await Task.WhenAll(Enumerable.Range(0, 5).Select(_ => Task.Run(() => HoldAsync(services, request), Ct)));
+
+            Assert.All(results, x => Assert.Equal(results[0], x));
+            Assert.Equal(HoldResult.Held, results[0].Result);
+            Assert.Equal(1, (await ReadQuotaAsync(services, day)).HeldCount);
+            Assert.Equal(1, await CountAsync($"SELECT COUNT(*) FROM workflow.Operation WHERE BookingAttemptId = '{request.BookingAttemptId}'"));
+        }
+        finally
+        {
+            await CleanupAsync(day);
+        }
+    }
+
+    [Fact]
+    public async Task Failure_before_commit_leaves_nothing_and_the_resend_runs_fresh()
+    {
+        await using var services = BuildServices();
+        var day = await SeedDayAsync(services);
+        try
+        {
+            var patient = Guid.NewGuid();
+            var request = Request(day, await SeedAttemptAsync(services, patient), patient);
+            HoldOutcome? lost = null;
+
+            await using (var scope = services.CreateAsyncScope())
+            {
+                // Lệnh chạy lồng trong transaction ngoài rồi tiến trình chết trước commit.
+                await Assert.ThrowsAsync<RollbackSignal>(() => Uow(scope).ExecuteAsync(async t =>
+                {
+                    lost = await scope.ServiceProvider.GetRequiredService<HoldService>().HoldAsync(request, t);
+                    throw new RollbackSignal();
+                }, Ct));
+            }
+
+            Assert.Equal(HoldResult.Held, lost!.Result);
+            Assert.Equal(0, (await ReadQuotaAsync(services, day)).HeldCount);
+            Assert.Null(await GetOperationAsync(services, lost.OperationId!.Value));
+            Assert.Equal(0, await CountAsync($"SELECT COUNT(*) FROM shared.ApiIdempotencyRecord WHERE OperationId = '{lost.OperationId}'"));
+
+            var resent = await HoldAsync(services, request);
+            Assert.Equal(HoldResult.Held, resent.Result);
+            Assert.NotEqual(lost.OperationId, resent.OperationId);
+            Assert.Equal(1, (await ReadQuotaAsync(services, day)).HeldCount);
+        }
+        finally
+        {
+            await CleanupAsync(day);
+        }
+    }
+
+    [Fact]
+    public async Task Rejected_hold_is_recorded_and_replayed_even_after_the_day_reopens()
+    {
+        await using var services = BuildServices();
+        var day = await SeedDayAsync(services, isOpen: false);
+        try
+        {
+            var patient = Guid.NewGuid();
+            var request = Request(day, await SeedAttemptAsync(services, patient), patient);
+
+            var first = await HoldAsync(services, request);
+            await ExecAsync($"UPDATE scheduling.DoctorDayQuota SET IsOpen = 1 WHERE Id = '{day.Id}'");
+            var resent = await HoldAsync(services, request);
+            var newKey = await HoldAsync(services, request with { IdempotencyKey = Guid.NewGuid().ToString("N") });
+
+            Assert.Equal(HoldResult.DayClosed, first.Result);
+            Assert.Equal(first, resent);
+            var operation = await GetOperationAsync(services, first.OperationId!.Value);
+            Assert.Equal((OperationStatus.NeedsAction, "DayClosed"), (operation!.Status, operation.FailureReason));
+            Assert.Equal(HoldResult.Held, newKey.Result); // chọn lại là thao tác mới với khóa mới
+        }
+        finally
+        {
+            await CleanupAsync(day);
+        }
+    }
+
     // ---------- helpers ----------
+
+    private sealed class RollbackSignal : Exception;
 
     private static ServiceProvider BuildServices()
     {
@@ -249,7 +401,9 @@ public sealed class SchedulingHoldTests
         return new ServiceCollection()
             .AddSharedInfrastructure(cs)
             .AddSchedulingInfrastructure(cs)
+            .AddNotificationsInfrastructure(cs)
             .AddUnitOfWorkParticipant<SchedulingDbContext>()
+            .AddUnitOfWorkParticipant<WorkflowDbContext>()
             .AddSchedulingApplication()
             .BuildServiceProvider(validateScopes: true);
     }
@@ -257,12 +411,27 @@ public sealed class SchedulingHoldTests
     private static IUnitOfWork Uow(AsyncServiceScope scope) => scope.ServiceProvider.GetRequiredService<IUnitOfWork>();
 
     private static HoldRequest Request(DoctorDayQuota day, Guid attempt, Guid patient) =>
-        new(attempt, patient, Guid.NewGuid(), day.DoctorId, ServiceDate, BookingChannel.Web);
+        new(attempt, patient, Guid.NewGuid(), day.DoctorId, ServiceDate, BookingChannel.Web, Guid.NewGuid().ToString("N"));
 
-    private static async Task<HoldOutcome> HoldAsync(ServiceProvider services, DoctorDayQuota day, Guid attempt, Guid patient)
+    private static Task<HoldOutcome> HoldAsync(ServiceProvider services, DoctorDayQuota day, Guid attempt, Guid patient) =>
+        HoldAsync(services, Request(day, attempt, patient));
+
+    private static async Task<HoldOutcome> HoldAsync(ServiceProvider services, HoldRequest request)
     {
         await using var scope = services.CreateAsyncScope();
-        return await scope.ServiceProvider.GetRequiredService<HoldService>().HoldAsync(Request(day, attempt, patient), Ct);
+        return await scope.ServiceProvider.GetRequiredService<HoldService>().HoldAsync(request, Ct);
+    }
+
+    private static async Task<CreateAttemptOutcome> CreateAttemptAsync(ServiceProvider services, CreateAttemptRequest request)
+    {
+        await using var scope = services.CreateAsyncScope();
+        return await scope.ServiceProvider.GetRequiredService<BookingAttemptService>().CreateAsync(request, Ct);
+    }
+
+    private static async Task<OperationView?> GetOperationAsync(ServiceProvider services, Guid operationId)
+    {
+        await using var scope = services.CreateAsyncScope();
+        return await scope.ServiceProvider.GetRequiredService<IOperationTracker>().GetAsync(operationId, Ct);
     }
 
     private static async Task<DoctorDayQuota> SeedDayAsync(ServiceProvider services, int capacity = 30, bool isOpen = true,
@@ -324,16 +493,21 @@ public sealed class SchedulingHoldTests
         return (int)(await command.ExecuteScalarAsync(Ct))!;
     }
 
+    // Mọi dữ liệu test dùng ServiceDate 2099-01-15: dọn theo ngày đó, kèm Operation và bản ghi idempotency liên quan.
     private static Task CleanupAsync(params DoctorDayQuota[] days)
     {
-        var ids = string.Join(", ", days.Select(d => $"'{d.Id}'"));
+        var ids = days.Length == 0 ? "NULL" : string.Join(", ", days.Select(d => $"'{d.Id}'"));
         return ExecAsync($"""
-            DECLARE @attempts TABLE (Id uniqueidentifier);
-            INSERT INTO @attempts SELECT BookingAttemptId FROM scheduling.Reservation WHERE SessionQuotaId IN ({ids});
+            DECLARE @attempts TABLE (Id uniqueidentifier, AppUserId uniqueidentifier);
+            INSERT INTO @attempts SELECT Id, AppUserId FROM scheduling.BookingAttempt WHERE SelectedServiceDate = '{ServiceDate:yyyy-MM-dd}';
+            DECLARE @ops TABLE (Id uniqueidentifier);
+            INSERT INTO @ops SELECT Id FROM workflow.Operation WHERE BookingAttemptId IN (SELECT Id FROM @attempts);
+            DELETE FROM shared.ApiIdempotencyRecord WHERE OperationId IN (SELECT Id FROM @ops)
+              OR CallerScope IN (SELECT 'AppUser:' + LOWER(CONVERT(nvarchar(36), AppUserId)) FROM @attempts);
+            DELETE FROM workflow.Operation WHERE Id IN (SELECT Id FROM @ops);
             DELETE FROM scheduling.ActiveBookingClaim WHERE SessionQuotaId IN ({ids});
-            DELETE FROM scheduling.Reservation WHERE SessionQuotaId IN ({ids});
-            DELETE FROM scheduling.BookingAttempt WHERE Id IN (SELECT Id FROM @attempts)
-              OR (SelectedServiceDate = '{ServiceDate:yyyy-MM-dd}' AND NOT EXISTS (SELECT 1 FROM scheduling.Reservation r WHERE r.BookingAttemptId = scheduling.BookingAttempt.Id));
+            DELETE FROM scheduling.Reservation WHERE SessionQuotaId IN ({ids}) OR BookingAttemptId IN (SELECT Id FROM @attempts);
+            DELETE FROM scheduling.BookingAttempt WHERE Id IN (SELECT Id FROM @attempts);
             DELETE FROM scheduling.DoctorDayQuota WHERE Id IN ({ids});
             """);
     }
