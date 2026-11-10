@@ -61,7 +61,8 @@ builder.Services
     .AddSharedInfrastructure(connectionString)
     // DbContext tham gia IUnitOfWork (W1-06). Module khác tự thêm khi cần ghi cùng transaction.
     .AddUnitOfWorkParticipant<SchedulingDbContext>()
-    .AddUnitOfWorkParticipant<WorkflowDbContext>();
+    .AddUnitOfWorkParticipant<WorkflowDbContext>()
+    .AddUnitOfWorkParticipant<IdentityPatients.Infrastructure.Persistence.IdentityPatientsDbContext>();
 
 builder.Services
     .AddIdentityPatientsApplication().AddIdentityPatientsApi()

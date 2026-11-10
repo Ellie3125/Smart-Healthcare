@@ -27,6 +27,7 @@ public abstract class ApiControllerBase : ControllerBase
                 Title = result.ErrorTitle,
                 Detail = result.ErrorDetail
             };
+            problem.Extensions["code"] = result.ErrorCode;
 
             if (result.Extensions != null)
             {
@@ -57,6 +58,7 @@ public abstract class ApiControllerBase : ControllerBase
                 Title = result.ErrorTitle,
                 Detail = result.ErrorDetail
             };
+            problem.Extensions["code"] = result.ErrorCode;
 
             if (result.Extensions != null)
             {

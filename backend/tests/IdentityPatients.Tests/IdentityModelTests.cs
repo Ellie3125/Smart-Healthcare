@@ -30,13 +30,25 @@ public sealed class IdentityModelTests
         Assert.NotNull(user);
         Assert.Equal("AppUser", user.GetTableName());
         Assert.Equal("identity", user.GetSchema());
-        foreach (var column in new[] { "UserName", "Email", "PhoneNumber", "PasswordHash", "EmailConfirmed", "PhoneNumberConfirmed", "IsActive", "CreatedAtUtc", "Role" })
-        {
-            Assert.NotNull(user.FindProperty(column));
-        }
+        // Đúng 9 cột của ERD v2.4 gốc: không có cột vai trò, DoctorId, RoomId, RowVersion hay cột khóa tài khoản (D1).
+        Assert.Equal(
+            new[] { "CreatedAtUtc", "Email", "EmailConfirmed", "Id", "IsActive", "PasswordHash", "PhoneNumber", "PhoneNumberConfirmed", "UserName" },
+            user.GetProperties().Select(p => p.Name).Order().ToArray());
+        Assert.Equal(128, user.FindProperty(nameof(AppUser.PasswordHash))!.GetMaxLength());
+    }
 
-        Assert.Null(user.FindProperty("AccessFailedCount"));
-        Assert.Null(user.FindProperty("LockoutEnd"));
+    [Fact]
+    public void Model_HasNoColumnOrUniqueIndexOutsideErd()
+    {
+        using var context = CreateContext();
+        var model = context.Model;
+
+        Assert.Null(model.FindEntityType(typeof(Doctor))!.FindProperty("DefaultRoomId"));
+        Assert.Null(model.FindEntityType(typeof(Patient))!.FindProperty("OwnerUserId"));
+        // Bốn ràng buộc này do service kiểm trong IUnitOfWork, không phải unique trong DB.
+        Assert.DoesNotContain(model.FindEntityType(typeof(PatientRepresentative))!.GetIndexes(), i => i.IsUnique && i.Properties.Count == 1);
+        Assert.DoesNotContain(model.FindEntityType(typeof(RoomDeviceSession))!.GetIndexes(), i => i.IsUnique && i.Properties[0].Name == "RoomAccountId");
+        Assert.DoesNotContain(model.FindEntityType(typeof(StaffShiftAssignment))!.GetIndexes(), i => i.IsUnique);
     }
 
     [Fact]

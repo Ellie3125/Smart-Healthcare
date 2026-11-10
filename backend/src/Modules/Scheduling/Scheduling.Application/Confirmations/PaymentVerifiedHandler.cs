@@ -6,7 +6,7 @@ using Shared.Abstractions;
 namespace Scheduling.Application.Confirmations;
 
 /// <summary>
-/// PaymentVerified (phí khám ban đầu) → xác nhận lịch (Giải pháp v2.13 §5.1, §5.2). Một transaction: đánh dấu ProcessedEvent,
+/// PaymentVerified (phí khám ban đầu) → xác nhận lịch (Giải pháp v2.14 §5.1, §5.2). Một transaction: đánh dấu ProcessedEvent,
 /// khóa quota rồi reservation, tạo Appointment hoặc ghi PaidUnallocated, phát AppointmentConfirmed qua Outbox.
 /// Dispatcher Outbox gọi handler (W3-00); lỗi ném ra thì transaction rollback và sự kiện được giao lại.
 /// </summary>

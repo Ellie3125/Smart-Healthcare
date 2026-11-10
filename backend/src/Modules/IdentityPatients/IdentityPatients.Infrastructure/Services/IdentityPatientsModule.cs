@@ -21,7 +21,7 @@ public sealed class IdentityPatientsModule(IdentityPatientsDbContext dbContext) 
         }
 
         // Nhân viên và RoomAccount không đi qua đường này để đọc dữ liệu bệnh nhân (FR04/SEC-01)
-        if (user.Role != Roles.Patient)
+        if ((await AccountRoles.ResolveAsync(_dbContext, userId, ct))?.Role != Roles.Patient)
         {
             return false;
         }
@@ -57,7 +57,6 @@ public sealed class IdentityPatientsModule(IdentityPatientsDbContext dbContext) 
                         spec.SpecialtyCode,
                         r.Id,
                         r.RankName,
-                        d.DefaultRoomId,
                         d.IsActive && s.IsActive
                     );
 
@@ -95,7 +94,6 @@ public sealed class IdentityPatientsModule(IdentityPatientsDbContext dbContext) 
                 x.Specialty.SpecialtyCode,
                 x.Rank.Id,
                 x.Rank.RankName,
-                x.Doctor.DefaultRoomId,
                 x.Doctor.IsActive && x.Staff.IsActive
             ))
             .ToListAsync(ct);

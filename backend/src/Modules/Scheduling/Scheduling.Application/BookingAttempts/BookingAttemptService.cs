@@ -5,7 +5,7 @@ using Shared.Abstractions;
 namespace Scheduling.Application.BookingAttempts;
 
 /// <summary>
-/// Tạo BookingAttempt (Giải pháp v2.13 §2.1): Backend cấp BookingAttemptId ổn định; gửi lặp cùng Idempotency-Key trả cùng Id.
+/// Tạo BookingAttempt (Giải pháp v2.14 §2.1): Backend cấp BookingAttemptId ổn định; gửi lặp cùng Idempotency-Key trả cùng Id.
 /// Bên gọi (endpoint) phải kiểm AppUser được đại diện PatientId trước khi gọi.
 /// </summary>
 public sealed class BookingAttemptService(IBookingAttemptStore store, IUnitOfWork uow, IIdempotencyStore idempotency, IDbClock dbClock)

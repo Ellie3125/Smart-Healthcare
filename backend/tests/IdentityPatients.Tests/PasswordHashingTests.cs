@@ -46,4 +46,11 @@ public sealed class PasswordHashingTests
         Assert.Equal(16, Convert.FromBase64String(parts[1]).Length);
         Assert.Equal(32, Convert.FromBase64String(parts[2]).Length);
     }
+
+    // AppUser.PasswordHash là nvarchar(128) theo ERD v2.4 (quy ước hash 128).
+    [Fact]
+    public void Hash_FitsErdColumnLength()
+    {
+        Assert.True(PasswordHashing.Hash(new string('x', 200)).Length <= 128);
+    }
 }

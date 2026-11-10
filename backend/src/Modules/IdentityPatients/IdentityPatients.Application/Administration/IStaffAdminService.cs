@@ -18,9 +18,9 @@ public sealed record CreateStaffRequest(string UserName, string Email, string Ph
 public sealed record UpdateStaffRequest(string FullName, bool IsActive);
 public sealed record StaffAdminDto(Guid Id, Guid AppUserId, string StaffCode, string FullName, string StaffType, string UserName, string Email, string? PhoneNumber, bool IsActive, DateTime CreatedAtUtc);
 
-public sealed record CreateDoctorRequest(Guid StaffId, Guid SpecialtyId, Guid DoctorRankId, Guid? DefaultRoomId, string? Biography);
-public sealed record UpdateDoctorRequest(Guid SpecialtyId, Guid DoctorRankId, Guid? DefaultRoomId, string? Biography, bool IsActive);
-public sealed record DoctorAdminDto(Guid Id, Guid StaffId, string FullName, string StaffCode, Guid SpecialtyId, string SpecialtyName, Guid DoctorRankId, string RankName, Guid? DefaultRoomId, string? Biography, bool IsActive);
+public sealed record CreateDoctorRequest(Guid StaffId, Guid SpecialtyId, Guid DoctorRankId, string? Biography);
+public sealed record UpdateDoctorRequest(Guid SpecialtyId, Guid DoctorRankId, string? Biography, bool IsActive);
+public sealed record DoctorAdminDto(Guid Id, Guid StaffId, string FullName, string StaffCode, Guid SpecialtyId, string SpecialtyName, Guid DoctorRankId, string RankName, string? Biography, bool IsActive);
 
 public sealed record CreateShiftAssignmentRequest(Guid StaffId, Guid RoomId, DateOnly ShiftDate, string ShiftName, DateTime StartsAtUtc, DateTime EndsAtUtc, bool IsShiftLeader);
 public sealed record ShiftAssignmentDto(Guid Id, Guid StaffId, string StaffName, string StaffCode, Guid RoomId, string RoomNumber, string RoomName, DateOnly ShiftDate, string ShiftName, DateTime StartsAtUtc, DateTime EndsAtUtc, bool IsShiftLeader);
@@ -44,9 +44,9 @@ public interface IStaffAdminService
 
     // Staff
     Task<ServiceResult<IReadOnlyList<StaffAdminDto>>> GetStaffListAsync(string? staffType = null, bool? isActive = null, CancellationToken ct = default);
-    Task<ServiceResult<StaffAdminDto>> CreateStaffAsync(CreateStaffRequest request, CancellationToken ct = default);
-    Task<ServiceResult<StaffAdminDto>> UpdateStaffAsync(Guid id, UpdateStaffRequest request, CancellationToken ct = default);
-    Task<ServiceResult<StaffAdminDto>> ToggleStaffActiveAsync(Guid id, bool isActive, CancellationToken ct = default);
+    Task<ServiceResult<StaffAdminDto>> CreateStaffAsync(Guid actorUserId, CreateStaffRequest request, CancellationToken ct = default);
+    Task<ServiceResult<StaffAdminDto>> UpdateStaffAsync(Guid actorUserId, Guid id, UpdateStaffRequest request, CancellationToken ct = default);
+    Task<ServiceResult<StaffAdminDto>> ToggleStaffActiveAsync(Guid actorUserId, Guid id, bool isActive, CancellationToken ct = default);
 
     // Doctor
     Task<ServiceResult<IReadOnlyList<DoctorAdminDto>>> GetDoctorsAsync(Guid? specialtyId = null, Guid? rankId = null, bool? isActive = null, CancellationToken ct = default);

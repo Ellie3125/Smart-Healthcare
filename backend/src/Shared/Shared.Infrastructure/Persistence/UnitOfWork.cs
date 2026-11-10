@@ -13,7 +13,7 @@ public sealed class UnitOfWorkParticipant(DbContext context)
 
 /// <summary>
 /// Mở một DbTransaction qua SharedDbContext, cho mọi participant dùng chung DbConnection/DbTransaction đó rồi commit một lần
-/// (Giải pháp v2.13 §8.2). Deadlock 1205: chạy lại toàn bộ <c>work</c>, tối đa 3 lần thử lại, backoff + jitter (§3.1);
+/// (Giải pháp v2.14 §8.2). Deadlock 1205: chạy lại toàn bộ <c>work</c>, tối đa 3 lần thử lại, backoff + jitter (§3.1);
 /// lỗi khác không retry (§3.3).
 /// </summary>
 internal sealed class UnitOfWork(SharedDbContext shared, OutboxWriter outbox, IEnumerable<UnitOfWorkParticipant> participants) : IUnitOfWork

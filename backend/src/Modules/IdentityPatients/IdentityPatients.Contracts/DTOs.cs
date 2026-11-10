@@ -7,7 +7,6 @@ public sealed record DoctorDto(
     string SpecialtyCode,
     Guid RankId,
     string RankName,
-    Guid? DefaultRoomId,
     bool IsActive);
 
 public sealed record SpecialtyDto(

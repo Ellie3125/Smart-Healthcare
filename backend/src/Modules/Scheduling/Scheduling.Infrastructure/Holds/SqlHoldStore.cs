@@ -8,7 +8,7 @@ using Shared.Abstractions;
 namespace Scheduling.Infrastructure.Holds;
 
 /// <summary>
-/// Giữ chỗ theo Giải pháp v2.13 §1.2. Thứ tự khóa: DoctorDayQuota → Reservation → BookingAttempt.
+/// Giữ chỗ theo Giải pháp v2.14 §1.2. Thứ tự khóa: DoctorDayQuota → Reservation → BookingAttempt.
 /// Mọi điều kiện được kiểm dưới khóa quota trước khi ghi, nên lệnh bị từ chối không để lại thay đổi nào.
 /// </summary>
 internal sealed class SqlHoldStore(SchedulingDbContext db, IDbClock dbClock) : IHoldStore

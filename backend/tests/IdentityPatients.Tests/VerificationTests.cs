@@ -17,9 +17,9 @@ public sealed class VerificationTests
     [Fact]
     public async Task Verify_FromPending_SucceedsAndWritesAuditLog()
     {
-        await using var db = await TestDatabase.OpenAsync();
-        var dbContext = db.Context();
-        var sharedDbContext = db.CreateContext<SharedDbContext>(options => new(options));
+        await using var host = await IdentityTestHost.OpenAsync();
+        var dbContext = host.Context;
+        var sharedDbContext = host.Get<SharedDbContext>();
         var staffUserId = Guid.NewGuid();
         var patientId = Guid.NewGuid();
 
@@ -49,7 +49,7 @@ public sealed class VerificationTests
         dbContext.PatientRepresentatives.Add(rep);
         await dbContext.SaveChangesAsync(TestContext.Current.CancellationToken);
 
-        var service = new VerificationService(dbContext, sharedDbContext);
+        var service = host.Get<IVerificationService>();
         var result = await service.VerifyAsync(staffUserId, rep.Id, TestContext.Current.CancellationToken);
 
         Assert.True(result.IsSuccess);
@@ -70,9 +70,9 @@ public sealed class VerificationTests
     [Fact]
     public async Task Reject_FromPending_WithReason_SucceedsAndRevokesActive()
     {
-        await using var db = await TestDatabase.OpenAsync();
-        var dbContext = db.Context();
-        var sharedDbContext = db.CreateContext<SharedDbContext>(options => new(options));
+        await using var host = await IdentityTestHost.OpenAsync();
+        var dbContext = host.Context;
+        var sharedDbContext = host.Get<SharedDbContext>();
         var staffUserId = Guid.NewGuid();
         var patientId = dbContext.AddPatient().Id;
 
@@ -89,7 +89,7 @@ public sealed class VerificationTests
         dbContext.PatientRepresentatives.Add(rep);
         await dbContext.SaveChangesAsync(TestContext.Current.CancellationToken);
 
-        var service = new VerificationService(dbContext, sharedDbContext);
+        var service = host.Get<IVerificationService>();
         var result = await service.RejectAsync(staffUserId, rep.Id, new RejectVerificationRequest("Giấy tờ khai sinh không hợp lệ"), TestContext.Current.CancellationToken);
 
         Assert.True(result.IsSuccess);
@@ -110,9 +110,9 @@ public sealed class VerificationTests
     [Fact]
     public async Task Revoke_FromVerified_Succeeds()
     {
-        await using var db = await TestDatabase.OpenAsync();
-        var dbContext = db.Context();
-        var sharedDbContext = db.CreateContext<SharedDbContext>(options => new(options));
+        await using var host = await IdentityTestHost.OpenAsync();
+        var dbContext = host.Context;
+        var sharedDbContext = host.Get<SharedDbContext>();
         var staffUserId = Guid.NewGuid();
         var patientId = dbContext.AddPatient().Id;
 
@@ -129,7 +129,7 @@ public sealed class VerificationTests
         dbContext.PatientRepresentatives.Add(rep);
         await dbContext.SaveChangesAsync(TestContext.Current.CancellationToken);
 
-        var service = new VerificationService(dbContext, sharedDbContext);
+        var service = host.Get<IVerificationService>();
         var result = await service.RevokeAsync(staffUserId, rep.Id, new RevokeVerificationRequest("Thu hồi theo yêu cầu của bệnh nhân"), TestContext.Current.CancellationToken);
 
         Assert.True(result.IsSuccess);
@@ -144,9 +144,9 @@ public sealed class VerificationTests
     [Fact]
     public async Task InvalidTransition_FromVerifiedToVerify_Returns409ConflictWithAllowedTransitions()
     {
-        await using var db = await TestDatabase.OpenAsync();
-        var dbContext = db.Context();
-        var sharedDbContext = db.CreateContext<SharedDbContext>(options => new(options));
+        await using var host = await IdentityTestHost.OpenAsync();
+        var dbContext = host.Context;
+        var sharedDbContext = host.Get<SharedDbContext>();
         var staffUserId = Guid.NewGuid();
         var rep = new PatientRepresentative
         {
@@ -161,7 +161,7 @@ public sealed class VerificationTests
         dbContext.PatientRepresentatives.Add(rep);
         await dbContext.SaveChangesAsync(TestContext.Current.CancellationToken);
 
-        var service = new VerificationService(dbContext, sharedDbContext);
+        var service = host.Get<IVerificationService>();
         var result = await service.VerifyAsync(staffUserId, rep.Id, TestContext.Current.CancellationToken);
 
         Assert.False(result.IsSuccess);
@@ -174,9 +174,9 @@ public sealed class VerificationTests
     [Fact]
     public async Task RejectOrRevoke_WithoutReason_Returns400BadRequest()
     {
-        await using var db = await TestDatabase.OpenAsync();
-        var dbContext = db.Context();
-        var sharedDbContext = db.CreateContext<SharedDbContext>(options => new(options));
+        await using var host = await IdentityTestHost.OpenAsync();
+        var dbContext = host.Context;
+        var sharedDbContext = host.Get<SharedDbContext>();
         var staffUserId = Guid.NewGuid();
         var rep = new PatientRepresentative
         {
@@ -190,7 +190,7 @@ public sealed class VerificationTests
         dbContext.PatientRepresentatives.Add(rep);
         await dbContext.SaveChangesAsync(TestContext.Current.CancellationToken);
 
-        var service = new VerificationService(dbContext, sharedDbContext);
+        var service = host.Get<IVerificationService>();
         var resultReject = await service.RejectAsync(staffUserId, rep.Id, new RejectVerificationRequest("   "), TestContext.Current.CancellationToken);
         Assert.False(resultReject.IsSuccess);
         Assert.Equal(400, resultReject.StatusCode);
