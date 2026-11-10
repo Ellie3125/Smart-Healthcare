@@ -92,6 +92,25 @@ builder.Services.AddOpenApi(options => options.AddDocumentTransformer((document,
     {
         document.Tags.Add(new OpenApiTag { Name = tag });
     }
+
+    // Cấu hình nút Authorize JWT Bearer cho Swagger UI
+    var securityScheme = new OpenApiSecurityScheme
+    {
+        Name = "Authorization",
+        Description = "Nhập token JWT theo định dạng: Bearer {token}",
+        In = ParameterLocation.Header,
+        Type = SecuritySchemeType.Http,
+        Scheme = "Bearer",
+        BearerFormat = "JWT"
+    };
+
+    document.Components ??= new OpenApiComponents();
+    if (document.Components.SecuritySchemes == null)
+    {
+        document.Components.SecuritySchemes = new Dictionary<string, IOpenApiSecurityScheme>();
+    }
+    document.Components.SecuritySchemes["Bearer"] = securityScheme;
+
     return Task.CompletedTask;
 }));
 
@@ -117,7 +136,12 @@ app.UseStatusCodePages();
 if (app.Environment.IsDevelopment())
 {
     app.MapOpenApi();
-    app.UseSwaggerUI(options => options.SwaggerEndpoint("/openapi/v1.json", "Smart Healthcare v1"));
+    app.UseSwaggerUI(options =>
+    {
+        options.SwaggerEndpoint("/openapi/v1.json", "Smart Healthcare v1");
+        options.RoutePrefix = "swagger";
+    });
+    app.MapGet("/", () => Results.Redirect("/swagger"));
 }
 
 app.MapIdentityPatientsEndpoints();

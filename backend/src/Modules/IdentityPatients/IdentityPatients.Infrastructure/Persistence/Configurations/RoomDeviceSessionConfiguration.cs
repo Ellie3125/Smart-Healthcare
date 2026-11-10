@@ -18,5 +18,6 @@ internal sealed class RoomDeviceSessionConfiguration : IEntityTypeConfiguration<
         builder.HasOne<RoomAccount>().WithMany().HasForeignKey(x => x.RoomAccountId).OnDelete(DeleteBehavior.Restrict);
 
         builder.HasIndex(x => x.SessionToken).IsUnique();
+        builder.HasIndex(x => x.RoomAccountId).IsUnique().HasFilter("[IsActive] = 1");
     }
 }

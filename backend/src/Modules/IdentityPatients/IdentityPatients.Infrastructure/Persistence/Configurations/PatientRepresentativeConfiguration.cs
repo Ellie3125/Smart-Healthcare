@@ -18,5 +18,6 @@ internal sealed class PatientRepresentativeConfiguration : IEntityTypeConfigurat
         builder.HasOne<Patient>().WithMany().HasForeignKey(x => x.PatientId).OnDelete(DeleteBehavior.Restrict);
 
         builder.HasIndex(x => new { x.AppUserId, x.PatientId }).IsUnique();
+        builder.HasIndex(x => x.AppUserId).IsUnique().HasFilter("[Relationship] = 'Self' AND [IsActive] = 1");
     }
 }
