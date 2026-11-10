@@ -4,18 +4,15 @@ using IdentityPatients.Contracts;
 using IdentityPatients.Domain.Entities;
 using IdentityPatients.Domain.Enums;
 using IdentityPatients.Infrastructure.Persistence;
-using Microsoft.AspNetCore.Identity;
+using IdentityPatients.Infrastructure.Security;
 using Microsoft.Data.SqlClient;
 using Microsoft.EntityFrameworkCore;
 
 namespace IdentityPatients.Infrastructure.Services;
 
-public sealed class StaffAdminService(
-    IdentityPatientsDbContext dbContext,
-    UserManager<ApplicationUser> userManager) : IStaffAdminService
+public sealed class StaffAdminService(IdentityPatientsDbContext dbContext) : IStaffAdminService
 {
     private readonly IdentityPatientsDbContext _dbContext = dbContext;
-    private readonly UserManager<ApplicationUser> _userManager = userManager;
 
     // --- Specialties ---
 
@@ -261,7 +258,7 @@ public sealed class StaffAdminService(
     public async Task<ServiceResult<IReadOnlyList<StaffAdminDto>>> GetStaffListAsync(string? staffType = null, bool? isActive = null, CancellationToken ct = default)
     {
         var query = from s in _dbContext.Staffs.AsNoTracking()
-                    join u in _dbContext.Users.AsNoTracking() on s.AppUserId equals u.Id
+                    join u in _dbContext.AppUsers.AsNoTracking() on s.AppUserId equals u.Id
                     select new { Staff = s, User = u };
 
         if (!string.IsNullOrWhiteSpace(staffType) && Enum.TryParse<StaffType>(staffType, ignoreCase: true, out var parsedType))
@@ -309,18 +306,30 @@ public sealed class StaffAdminService(
             return ServiceResult<StaffAdminDto>.Failure(400, "Loại nhân sự không hợp lệ", "Loại nhân sự hợp lệ: Doctor, Nurse, Receptionist, Technician.");
         }
 
-        var targetRole = staffType switch
+        if (request.Password.Length < PasswordHashing.MinPasswordLength)
+        {
+            return ServiceResult<StaffAdminDto>.Failure(400, "Dữ liệu không hợp lệ", $"Mật khẩu phải có ít nhất {PasswordHashing.MinPasswordLength} ký tự.");
+        }
+
+        // Technician chưa có vai trò riêng; không gán tạm Doctor để tránh cấp quyền bác sĩ.
+        string? targetRole = staffType switch
         {
             StaffType.Doctor => Roles.Doctor,
             StaffType.Nurse => Roles.Nurse,
             StaffType.Receptionist => Roles.Receptionist,
-            _ => Roles.Doctor // Fallback nếu chưa có role riêng cho Technician
+            _ => null
         };
+        if (targetRole is null)
+        {
+            return ServiceResult<StaffAdminDto>.Failure(400, "Loại nhân sự chưa hỗ trợ", "Chưa có vai trò đăng nhập cho Technician; tài khoản phòng CLS dùng RoomAccount.");
+        }
 
-        var user = new ApplicationUser
+        var user = new AppUser
         {
             Id = Guid.NewGuid(),
             UserName = request.UserName.Trim(),
+            PasswordHash = PasswordHashing.Hash(request.Password),
+            Role = targetRole,
             Email = request.Email.Trim(),
             PhoneNumber = string.IsNullOrWhiteSpace(request.PhoneNumber) ? null : request.PhoneNumber.Trim(),
             EmailConfirmed = true,
@@ -329,22 +338,7 @@ public sealed class StaffAdminService(
             CreatedAtUtc = DateTime.UtcNow
         };
 
-        await using var tx = await _dbContext.Database.BeginTransactionAsync(ct);
-
-        var createResult = await _userManager.CreateAsync(user, request.Password);
-        if (!createResult.Succeeded)
-        {
-            await tx.RollbackAsync(ct);
-            var errors = string.Join("; ", createResult.Errors.Select(e => e.Description));
-            return ServiceResult<StaffAdminDto>.Failure(400, "Tạo tài khoản thất bại", errors);
-        }
-
-        var addRoleResult = await _userManager.AddToRoleAsync(user, targetRole);
-        if (!addRoleResult.Succeeded)
-        {
-            await tx.RollbackAsync(ct);
-            return ServiceResult<StaffAdminDto>.Failure(400, "Gán quyền thất bại", "Không thể gán vai trò nhân sự.");
-        }
+        _dbContext.AppUsers.Add(user);
 
         var staff = new Staff
         {
@@ -361,12 +355,19 @@ public sealed class StaffAdminService(
 
         try
         {
+            // AppUser và Staff lưu trong một SaveChanges nên cùng một transaction.
             await _dbContext.SaveChangesAsync(ct);
-            await tx.CommitAsync(ct);
         }
         catch (DbUpdateException ex)
         {
-            await tx.RollbackAsync(ct);
+            if (IsUniqueViolation(ex, "UserName"))
+            {
+                return ServiceResult<StaffAdminDto>.Failure(409, "Trùng tên đăng nhập", $"Tên đăng nhập '{request.UserName}' đã tồn tại.");
+            }
+            if (IsUniqueViolation(ex, "Email") || IsUniqueViolation(ex, "PhoneNumber"))
+            {
+                return ServiceResult<StaffAdminDto>.Failure(409, "Trùng liên hệ", "Email hoặc số điện thoại đã được dùng cho tài khoản khác.");
+            }
             if (IsUniqueViolation(ex, "StaffCode"))
             {
                 return ServiceResult<StaffAdminDto>.Failure(409, "Trùng mã nhân viên", $"Mã nhân viên '{request.StaffCode}' đã tồn tại.");
@@ -409,19 +410,10 @@ public sealed class StaffAdminService(
         staff.FullName = request.FullName.Trim();
         staff.IsActive = request.IsActive;
 
-        var user = await _userManager.FindByIdAsync(staff.AppUserId.ToString());
+        var user = await _dbContext.AppUsers.FindAsync([staff.AppUserId], ct);
         if (user != null)
         {
             user.IsActive = request.IsActive;
-            if (!request.IsActive)
-            {
-                await _userManager.SetLockoutEndDateAsync(user, DateTimeOffset.UtcNow.AddYears(100));
-            }
-            else
-            {
-                await _userManager.SetLockoutEndDateAsync(user, null);
-            }
-            await _userManager.UpdateAsync(user);
         }
 
         await _dbContext.SaveChangesAsync(ct);
@@ -449,22 +441,11 @@ public sealed class StaffAdminService(
             return ServiceResult<StaffAdminDto>.Failure(404, "Không tìm thấy", "Không tìm thấy nhân sự.");
         }
 
-        await using var tx = await _dbContext.Database.BeginTransactionAsync(ct);
-
         staff.IsActive = isActive;
-        var user = await _userManager.FindByIdAsync(staff.AppUserId.ToString());
+        var user = await _dbContext.AppUsers.FindAsync([staff.AppUserId], ct);
         if (user != null)
         {
             user.IsActive = isActive;
-            if (!isActive)
-            {
-                await _userManager.SetLockoutEndDateAsync(user, DateTimeOffset.UtcNow.AddYears(100));
-            }
-            else
-            {
-                await _userManager.SetLockoutEndDateAsync(user, null);
-            }
-            await _userManager.UpdateAsync(user);
         }
 
         if (staff.StaffType == StaffType.Doctor)
@@ -477,7 +458,6 @@ public sealed class StaffAdminService(
         }
 
         await _dbContext.SaveChangesAsync(ct);
-        await tx.CommitAsync(ct);
 
         var dto = new StaffAdminDto(
             staff.Id,

@@ -2,10 +2,12 @@
   <PropertyGroup>
     <OutputType>Exe</OutputType>
     <IsPackable>false</IsPackable>
+    <!-- Cùng UserSecretsId với SqlServerTests: dùng chung ConnectionStrings:SmartHealthcareTest (DB-08). -->
+    <UserSecretsId>fa8ad9f9-ff0e-488d-abc9-4d136b52af07</UserSecretsId>
   </PropertyGroup>
   <ItemGroup>
     <PackageReference Include="xunit.v3" />
-    <PackageReference Include="Microsoft.EntityFrameworkCore.InMemory" />
+    <PackageReference Include="Microsoft.Data.SqlClient" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\..\src\Modules\IdentityPatients\IdentityPatients.Contracts\IdentityPatients.Contracts.csproj" />
@@ -13,6 +15,10 @@
     <ProjectReference Include="..\..\src\Modules\IdentityPatients\IdentityPatients.Application\IdentityPatients.Application.csproj" />
     <ProjectReference Include="..\..\src\Modules\IdentityPatients\IdentityPatients.Infrastructure\IdentityPatients.Infrastructure.csproj" />
     <ProjectReference Include="..\..\src\Modules\IdentityPatients\IdentityPatients.Api\IdentityPatients.Api.csproj" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\..\src\Shared\Shared.Infrastructure\Shared.Infrastructure.csproj" />
+    <Compile Include="..\SqlServerTests\TestDatabase.cs" Link="TestDatabase.cs" />
   </ItemGroup>
   <ItemGroup>
     <FrameworkReference Include="Microsoft.AspNetCore.App" />

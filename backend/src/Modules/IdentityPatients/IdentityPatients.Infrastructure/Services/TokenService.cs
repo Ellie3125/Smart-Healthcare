@@ -13,7 +13,7 @@ public sealed class TokenService(IOptions<JwtOptions> jwtOptions) : ITokenServic
 {
     private readonly JwtOptions _options = jwtOptions.Value;
 
-    public string GenerateAccessToken(ApplicationUser user, string role, string channel, Guid? doctorId = null, Guid? roomId = null)
+    public string GenerateAccessToken(AppUser user, string role, string channel, Guid? doctorId = null, Guid? roomId = null)
     {
         if (string.IsNullOrWhiteSpace(_options.SigningKey) || _options.SigningKey.Length < 32)
         {

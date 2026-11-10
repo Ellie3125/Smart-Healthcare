@@ -109,7 +109,7 @@ public static class SeedConstants
     public static readonly Guid Patient03Id = Guid.Parse("77777777-7777-7777-7777-777777770003");
     public static readonly Guid Patient04Id = Guid.Parse("77777777-7777-7777-7777-777777770004");
 
-    // ApplicationUsers
+    // AppUsers
     public static readonly Guid UserPatient01Id = Guid.Parse("aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaa0001");
     public const string UserPatient01UserName = "patient01";
 

@@ -69,17 +69,15 @@ public sealed class PatientProfileService(
             CreatedAtUtc = now
         };
 
-        await using var tx = await _dbContext.Database.BeginTransactionAsync(ct);
+        // Một SaveChanges đã là một transaction; không tự mở transaction vì EnableRetryOnFailure cấm.
         try
         {
             _dbContext.Patients.Add(patient);
             _dbContext.PatientRepresentatives.Add(rep);
             await _dbContext.SaveChangesAsync(ct);
-            await tx.CommitAsync(ct);
         }
         catch (DbUpdateException ex)
         {
-            await tx.RollbackAsync(ct);
             if (IsUniqueViolation(ex, "NationalId"))
             {
                 return ServiceResult<PatientProfileDto>.Failure(

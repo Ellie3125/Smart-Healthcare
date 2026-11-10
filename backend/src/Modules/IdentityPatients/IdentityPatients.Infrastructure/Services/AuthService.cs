@@ -4,7 +4,7 @@ using IdentityPatients.Application.Auth;
 using IdentityPatients.Contracts;
 using IdentityPatients.Domain.Entities;
 using IdentityPatients.Infrastructure.Persistence;
-using Microsoft.AspNetCore.Identity;
+using IdentityPatients.Infrastructure.Security;
 using Microsoft.EntityFrameworkCore;
 using Shared.Infrastructure.Persistence;
 using Shared.Infrastructure.Persistence.Entities;
@@ -13,14 +13,10 @@ using Shared.Infrastructure.Persistence.Enums;
 namespace IdentityPatients.Infrastructure.Services;
 
 public sealed class AuthService(
-    UserManager<ApplicationUser> userManager,
-    SignInManager<ApplicationUser> signInManager,
     IdentityPatientsDbContext dbContext,
     ITokenService tokenService,
     SharedDbContext? sharedDbContext = null) : IAuthService
 {
-    private readonly UserManager<ApplicationUser> _userManager = userManager;
-    private readonly SignInManager<ApplicationUser> _signInManager = signInManager;
     private readonly IdentityPatientsDbContext _dbContext = dbContext;
     private readonly ITokenService _tokenService = tokenService;
     private readonly SharedDbContext? _sharedDbContext = sharedDbContext;
@@ -32,31 +28,18 @@ public sealed class AuthService(
             return AuthResult.Failure(401, "Đăng nhập thất bại", "Tên đăng nhập hoặc mật khẩu không chính xác.");
         }
 
-        var user = await _userManager.FindByNameAsync(request.UserName);
-        if (user is null || !user.IsActive)
+        var user = await FindActiveUserAsync(request, ct);
+        if (user is null)
         {
             return AuthResult.Failure(401, "Đăng nhập thất bại", "Tên đăng nhập hoặc mật khẩu không chính xác.");
         }
 
-        var signInResult = await _signInManager.CheckPasswordSignInAsync(user, request.Password, lockoutOnFailure: true);
-        if (signInResult.IsLockedOut)
-        {
-            return AuthResult.Failure(423, "Tài khoản bị tạm khóa", "Tài khoản đã bị tạm khóa do nhập sai mật khẩu quá nhiều lần. Vui lòng thử lại sau.");
-        }
-
-        if (!signInResult.Succeeded)
-        {
-            return AuthResult.Failure(401, "Đăng nhập thất bại", "Tên đăng nhập hoặc mật khẩu không chính xác.");
-        }
-
-        var roles = await _userManager.GetRolesAsync(user);
-
-        if (roles.Contains(Roles.Patient) && !roles.Any(r => Roles.Staff.Contains(r)))
+        if (user.Role == Roles.Patient)
         {
             return AuthResult.Failure(403, "Truy cập bị từ chối", "Tài khoản bệnh nhân không được phép đăng nhập kênh nhân viên.");
         }
 
-        var staffRole = roles.FirstOrDefault(r => Roles.Staff.Contains(r));
+        var staffRole = Roles.Staff.Contains(user.Role) ? user.Role : null;
         if (staffRole is null)
         {
             return AuthResult.Failure(403, "Truy cập bị từ chối", "Tài khoản không có quyền truy cập kênh nhân viên.");
@@ -95,25 +78,13 @@ public sealed class AuthService(
             return AuthResult.Failure(401, "Đăng nhập thất bại", "Tên đăng nhập hoặc mật khẩu không chính xác.");
         }
 
-        var user = await _userManager.FindByNameAsync(request.UserName);
-        if (user is null || !user.IsActive)
+        var user = await FindActiveUserAsync(request, ct);
+        if (user is null)
         {
             return AuthResult.Failure(401, "Đăng nhập thất bại", "Tên đăng nhập hoặc mật khẩu không chính xác.");
         }
 
-        var signInResult = await _signInManager.CheckPasswordSignInAsync(user, request.Password, lockoutOnFailure: true);
-        if (signInResult.IsLockedOut)
-        {
-            return AuthResult.Failure(423, "Tài khoản bị tạm khóa", "Tài khoản đã bị tạm khóa do nhập sai mật khẩu quá nhiều lần. Vui lòng thử lại sau.");
-        }
-
-        if (!signInResult.Succeeded)
-        {
-            return AuthResult.Failure(401, "Đăng nhập thất bại", "Tên đăng nhập hoặc mật khẩu không chính xác.");
-        }
-
-        var roles = await _userManager.GetRolesAsync(user);
-        if (!roles.Contains(Roles.Patient))
+        if (user.Role != Roles.Patient)
         {
             return AuthResult.Failure(403, "Truy cập bị từ chối", "Tài khoản nhân viên không được phép đăng nhập kênh bệnh nhân.");
         }
@@ -123,6 +94,17 @@ public sealed class AuthService(
 
         return AuthResult.Success(response);
     }
+
+    // Không khóa tài khoản theo số lần sai (ERD v2.4 không có cột, trưởng nhóm chốt 10/11/2026).
+    private async Task<AppUser?> FindActiveUserAsync(LoginRequest request, CancellationToken ct)
+    {
+        var user = await _dbContext.AppUsers.AsNoTracking().FirstOrDefaultAsync(u => u.UserName == request.UserName, ct);
+        // Luôn chạy PBKDF2 để thời gian phản hồi không lộ tên đăng nhập có tồn tại hay không.
+        var passwordOk = PasswordHashing.Verify(request.Password, user?.PasswordHash ?? DummyHash.Value);
+        return user is { IsActive: true } && passwordOk ? user : null;
+    }
+
+    private static readonly Lazy<string> DummyHash = new(() => PasswordHashing.Hash(Guid.NewGuid().ToString()));
 
     private async Task HandleRoomDeviceSessionAsync(Guid userId, Guid roomAccountId, LoginRequest request, CancellationToken ct)
     {

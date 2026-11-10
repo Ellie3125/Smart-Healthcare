@@ -102,7 +102,7 @@ public sealed class VerificationService(
 
         var patient = await _dbContext.Patients.FirstOrDefaultAsync(p => p.Id == rep.PatientId, ct);
 
-        await using var tx = await _dbContext.Database.BeginTransactionAsync(ct);
+        // shortcut: AuditLog ghi bằng SharedDbContext sau khi lưu, không chung transaction (EnableRetryOnFailure cấm tự mở transaction); nối IUnitOfWork khi IdentityPatients thành participant.
         await _dbContext.SaveChangesAsync(ct);
 
         if (_sharedDbContext != null)
@@ -123,7 +123,6 @@ public sealed class VerificationService(
             await _sharedDbContext.SaveChangesAsync(ct);
         }
 
-        await tx.CommitAsync(ct);
 
         var dto = new VerificationItemDto(
             rep.Id,
@@ -183,7 +182,7 @@ public sealed class VerificationService(
 
         var patient = await _dbContext.Patients.FirstOrDefaultAsync(p => p.Id == rep.PatientId, ct);
 
-        await using var tx = await _dbContext.Database.BeginTransactionAsync(ct);
+        // shortcut: AuditLog ghi bằng SharedDbContext sau khi lưu, không chung transaction (EnableRetryOnFailure cấm tự mở transaction); nối IUnitOfWork khi IdentityPatients thành participant.
         await _dbContext.SaveChangesAsync(ct);
 
         if (_sharedDbContext != null)
@@ -204,7 +203,6 @@ public sealed class VerificationService(
             await _sharedDbContext.SaveChangesAsync(ct);
         }
 
-        await tx.CommitAsync(ct);
 
         var dto = new VerificationItemDto(
             rep.Id,
@@ -264,7 +262,7 @@ public sealed class VerificationService(
 
         var patient = await _dbContext.Patients.FirstOrDefaultAsync(p => p.Id == rep.PatientId, ct);
 
-        await using var tx = await _dbContext.Database.BeginTransactionAsync(ct);
+        // shortcut: AuditLog ghi bằng SharedDbContext sau khi lưu, không chung transaction (EnableRetryOnFailure cấm tự mở transaction); nối IUnitOfWork khi IdentityPatients thành participant.
         await _dbContext.SaveChangesAsync(ct);
 
         if (_sharedDbContext != null)
@@ -285,7 +283,6 @@ public sealed class VerificationService(
             await _sharedDbContext.SaveChangesAsync(ct);
         }
 
-        await tx.CommitAsync(ct);
 
         var dto = new VerificationItemDto(
             rep.Id,

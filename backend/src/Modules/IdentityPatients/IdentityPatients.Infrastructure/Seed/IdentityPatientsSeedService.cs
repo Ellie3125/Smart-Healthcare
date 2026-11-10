@@ -3,7 +3,7 @@ using IdentityPatients.Contracts;
 using IdentityPatients.Domain.Entities;
 using IdentityPatients.Domain.Enums;
 using IdentityPatients.Infrastructure.Persistence;
-using Microsoft.AspNetCore.Identity;
+using IdentityPatients.Infrastructure.Security;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
@@ -11,14 +11,10 @@ using Microsoft.Extensions.Logging;
 namespace IdentityPatients.Infrastructure.Seed;
 
 public sealed class IdentityPatientsSeedService(
-    UserManager<ApplicationUser> userManager,
-    RoleManager<ApplicationRole> roleManager,
     IdentityPatientsDbContext dbContext,
     IConfiguration configuration,
     ILogger<IdentityPatientsSeedService> logger)
 {
-    private readonly UserManager<ApplicationUser> _userManager = userManager;
-    private readonly RoleManager<ApplicationRole> _roleManager = roleManager;
     private readonly IdentityPatientsDbContext _dbContext = dbContext;
     private readonly IConfiguration _configuration = configuration;
     private readonly ILogger<IdentityPatientsSeedService> _logger = logger;
@@ -33,19 +29,7 @@ public sealed class IdentityPatientsSeedService(
 
         _logger.LogInformation("Bắt đầu thực hiện Seed dữ liệu cho module IdentityPatients. Lưu ý: Đây là dữ liệu giả định demo, không phải số liệu bệnh viện thật. ServiceStation không thuộc module này.");
 
-        // 1. Roles
-        string[] allRoles = [Roles.Patient, Roles.Receptionist, Roles.Nurse, Roles.Doctor, Roles.RoomAccount, Roles.Admin];
-        foreach (var roleName in allRoles)
-        {
-            if (!await _roleManager.RoleExistsAsync(roleName))
-            {
-                var roleResult = await _roleManager.CreateAsync(new ApplicationRole(roleName));
-                if (!roleResult.Succeeded)
-                {
-                    _logger.LogWarning("Không thể tạo role {Role}: {Errors}", roleName, string.Join(", ", roleResult.Errors.Select(e => e.Description)));
-                }
-            }
-        }
+        // 1. Vai trò lưu ở AppUser.Role (không có bảng vai trò, ERD v2.4).
 
         // 2. Chuyên khoa (Specialties)
         var specialtiesToSeed = new (Guid Id, string Code, string Name, string Desc)[]
@@ -420,7 +404,7 @@ public sealed class IdentityPatientsSeedService(
         _logger.LogInformation("Hoàn tất Seed dữ liệu demo cho module IdentityPatients thành công.");
     }
 
-    private async Task<ApplicationUser> EnsureUserAsync(
+    private async Task<AppUser> EnsureUserAsync(
         Guid userId,
         string userName,
         string email,
@@ -428,34 +412,28 @@ public sealed class IdentityPatientsSeedService(
         string role,
         string password)
     {
-        var user = await _userManager.FindByNameAsync(userName);
+        var user = await _dbContext.AppUsers.FirstOrDefaultAsync(u => u.UserName == userName);
         if (user is null)
         {
-            user = new ApplicationUser
+            user = new AppUser
             {
                 Id = userId,
                 UserName = userName,
                 Email = email,
                 PhoneNumber = phoneNumber,
+                PasswordHash = PasswordHashing.Hash(password),
+                Role = role,
                 EmailConfirmed = true,
                 PhoneNumberConfirmed = !string.IsNullOrWhiteSpace(phoneNumber),
                 IsActive = true,
                 CreatedAtUtc = DateTime.UtcNow
             };
-            var result = await _userManager.CreateAsync(user, password);
-            if (!result.Succeeded)
-            {
-                throw new InvalidOperationException($"Không thể tạo tài khoản seed '{userName}': {string.Join(", ", result.Errors.Select(e => e.Description))}");
-            }
+            _dbContext.AppUsers.Add(user);
+            await _dbContext.SaveChangesAsync();
         }
-
-        if (!await _userManager.IsInRoleAsync(user, role))
+        else if (user.Role != role)
         {
-            var addRoleResult = await _userManager.AddToRoleAsync(user, role);
-            if (!addRoleResult.Succeeded)
-            {
-                _logger.LogWarning("Không thể gán role {Role} cho user {User}: {Errors}", role, userName, string.Join(", ", addRoleResult.Errors.Select(e => e.Description)));
-            }
+            _logger.LogWarning("Tài khoản seed {User} đã có vai trò {Existing}, không đổi sang {Role}.", userName, user.Role, role);
         }
 
         return user;

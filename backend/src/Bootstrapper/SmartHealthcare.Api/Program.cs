@@ -83,6 +83,7 @@ string[] moduleTags =
     DocumentsReporting.Api.DependencyInjection.Tag,
 ];
 
+builder.Services.AddProblemDetails();
 builder.Services.AddOpenApi(options => options.AddDocumentTransformer((document, _, _) =>
 {
     // Route group chưa có endpoint thì OpenAPI không sinh tag; khai sẵn tag của 7 module.
@@ -125,16 +126,8 @@ app.MapControllers();
 if (app.Environment.IsDevelopment() || app.Configuration.GetValue<bool>("Seed:Enabled"))
 {
     using var scope = app.Services.CreateScope();
-    try
-    {
-        var seedService = scope.ServiceProvider.GetRequiredService<IdentityPatientsSeedService>();
-        await seedService.SeedAsync();
-    }
-    catch (Exception ex)
-    {
-        var logger = scope.ServiceProvider.GetRequiredService<ILoggerFactory>().CreateLogger("Seed");
-        logger.LogWarning(ex, "Chưa thể seed dữ liệu IdentityPatients lúc khởi động (có thể DB chưa chạy migration hoặc SQL Server chưa sẵn sàng).");
-    }
+    var seedService = scope.ServiceProvider.GetRequiredService<IdentityPatientsSeedService>();
+    await seedService.SeedAsync();
 }
 
 app.UseExceptionHandler();

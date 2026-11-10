@@ -3,56 +3,32 @@ using IdentityPatients.Domain.Entities;
 using IdentityPatients.Domain.Enums;
 using IdentityPatients.Infrastructure.Persistence;
 using IdentityPatients.Infrastructure.Services;
-using Microsoft.EntityFrameworkCore;
+using SqlServerTests;
 using Xunit;
 
 namespace IdentityPatients.Tests;
 
 public sealed class CanAccessPatientTests
 {
-    private static IdentityPatientsDbContext CreateInMemoryContext()
-    {
-        var options = new DbContextOptionsBuilder<IdentityPatientsDbContext>()
-            .UseInMemoryDatabase(Guid.NewGuid().ToString())
-            .Options;
-
-        return new IdentityPatientsDbContext(options);
-    }
-
     private static async Task SeedRoleAndUserAsync(IdentityPatientsDbContext context, Guid userId, string roleName, bool isActive = true)
     {
-        var role = new ApplicationRole(roleName) { Id = Guid.NewGuid() };
-        context.Roles.Add(role);
-
-        var user = new ApplicationUser
-        {
-            Id = userId,
-            UserName = $"user_{userId:N}",
-            IsActive = isActive
-        };
-        context.Users.Add(user);
-
-        context.UserRoles.Add(new Microsoft.AspNetCore.Identity.IdentityUserRole<Guid>
-        {
-            UserId = userId,
-            RoleId = role.Id
-        });
-
-        await context.SaveChangesAsync();
+        context.AddUser(roleName, isActive).Id = userId;
+        await context.SaveChangesAsync(TestContext.Current.CancellationToken);
     }
 
     [Fact]
     public async Task CanAccessPatient_WhenNoRepresentativeRecord_ReturnsFalse()
     {
-        using var context = CreateInMemoryContext();
+        await using var db = await TestDatabase.OpenAsync();
+        var context = db.Context();
         var userId = Guid.NewGuid();
-        var patientId = Guid.NewGuid();
+        var patientId = context.AddPatient().Id;
 
         await SeedRoleAndUserAsync(context, userId, Roles.Patient);
 
         var module = new IdentityPatientsModule(context);
-        var canAccessBooking = await module.CanAccessPatientAsync(userId, patientId, AccessLevel.Booking);
-        var canAccessClinical = await module.CanAccessPatientAsync(userId, patientId, AccessLevel.ClinicalRecords);
+        var canAccessBooking = await module.CanAccessPatientAsync(userId, patientId, AccessLevel.Booking, TestContext.Current.CancellationToken);
+        var canAccessClinical = await module.CanAccessPatientAsync(userId, patientId, AccessLevel.ClinicalRecords, TestContext.Current.CancellationToken);
 
         Assert.False(canAccessBooking);
         Assert.False(canAccessClinical);
@@ -61,9 +37,10 @@ public sealed class CanAccessPatientTests
     [Fact]
     public async Task CanAccessPatient_WhenRepresentativeIsPending_AllowsBooking_DeniesClinicalRecords()
     {
-        using var context = CreateInMemoryContext();
+        await using var db = await TestDatabase.OpenAsync();
+        var context = db.Context();
         var userId = Guid.NewGuid();
-        var patientId = Guid.NewGuid();
+        var patientId = context.AddPatient().Id;
 
         await SeedRoleAndUserAsync(context, userId, Roles.Patient);
 
@@ -77,11 +54,11 @@ public sealed class CanAccessPatientTests
             IsActive = true,
             CreatedAtUtc = DateTime.UtcNow
         });
-        await context.SaveChangesAsync();
+        await context.SaveChangesAsync(TestContext.Current.CancellationToken);
 
         var module = new IdentityPatientsModule(context);
-        var canAccessBooking = await module.CanAccessPatientAsync(userId, patientId, AccessLevel.Booking);
-        var canAccessClinical = await module.CanAccessPatientAsync(userId, patientId, AccessLevel.ClinicalRecords);
+        var canAccessBooking = await module.CanAccessPatientAsync(userId, patientId, AccessLevel.Booking, TestContext.Current.CancellationToken);
+        var canAccessClinical = await module.CanAccessPatientAsync(userId, patientId, AccessLevel.ClinicalRecords, TestContext.Current.CancellationToken);
 
         Assert.True(canAccessBooking);
         Assert.False(canAccessClinical);
@@ -90,9 +67,10 @@ public sealed class CanAccessPatientTests
     [Fact]
     public async Task CanAccessPatient_WhenRepresentativeIsVerified_AllowsBookingAndClinicalRecords()
     {
-        using var context = CreateInMemoryContext();
+        await using var db = await TestDatabase.OpenAsync();
+        var context = db.Context();
         var userId = Guid.NewGuid();
-        var patientId = Guid.NewGuid();
+        var patientId = context.AddPatient().Id;
 
         await SeedRoleAndUserAsync(context, userId, Roles.Patient);
 
@@ -106,11 +84,11 @@ public sealed class CanAccessPatientTests
             IsActive = true,
             CreatedAtUtc = DateTime.UtcNow
         });
-        await context.SaveChangesAsync();
+        await context.SaveChangesAsync(TestContext.Current.CancellationToken);
 
         var module = new IdentityPatientsModule(context);
-        var canAccessBooking = await module.CanAccessPatientAsync(userId, patientId, AccessLevel.Booking);
-        var canAccessClinical = await module.CanAccessPatientAsync(userId, patientId, AccessLevel.ClinicalRecords);
+        var canAccessBooking = await module.CanAccessPatientAsync(userId, patientId, AccessLevel.Booking, TestContext.Current.CancellationToken);
+        var canAccessClinical = await module.CanAccessPatientAsync(userId, patientId, AccessLevel.ClinicalRecords, TestContext.Current.CancellationToken);
 
         Assert.True(canAccessBooking);
         Assert.True(canAccessClinical);
@@ -121,9 +99,10 @@ public sealed class CanAccessPatientTests
     [InlineData(VerificationStatus.Revoked)]
     public async Task CanAccessPatient_WhenStatusIsRejectedOrRevoked_DeniesAll(VerificationStatus status)
     {
-        using var context = CreateInMemoryContext();
+        await using var db = await TestDatabase.OpenAsync();
+        var context = db.Context();
         var userId = Guid.NewGuid();
-        var patientId = Guid.NewGuid();
+        var patientId = context.AddPatient().Id;
 
         await SeedRoleAndUserAsync(context, userId, Roles.Patient);
 
@@ -137,11 +116,11 @@ public sealed class CanAccessPatientTests
             IsActive = true,
             CreatedAtUtc = DateTime.UtcNow
         });
-        await context.SaveChangesAsync();
+        await context.SaveChangesAsync(TestContext.Current.CancellationToken);
 
         var module = new IdentityPatientsModule(context);
-        var canAccessBooking = await module.CanAccessPatientAsync(userId, patientId, AccessLevel.Booking);
-        var canAccessClinical = await module.CanAccessPatientAsync(userId, patientId, AccessLevel.ClinicalRecords);
+        var canAccessBooking = await module.CanAccessPatientAsync(userId, patientId, AccessLevel.Booking, TestContext.Current.CancellationToken);
+        var canAccessClinical = await module.CanAccessPatientAsync(userId, patientId, AccessLevel.ClinicalRecords, TestContext.Current.CancellationToken);
 
         Assert.False(canAccessBooking);
         Assert.False(canAccessClinical);
@@ -150,9 +129,10 @@ public sealed class CanAccessPatientTests
     [Fact]
     public async Task CanAccessPatient_WhenRepresentativeIsInactive_ReturnsFalse()
     {
-        using var context = CreateInMemoryContext();
+        await using var db = await TestDatabase.OpenAsync();
+        var context = db.Context();
         var userId = Guid.NewGuid();
-        var patientId = Guid.NewGuid();
+        var patientId = context.AddPatient().Id;
 
         await SeedRoleAndUserAsync(context, userId, Roles.Patient);
 
@@ -167,11 +147,11 @@ public sealed class CanAccessPatientTests
             CreatedAtUtc = DateTime.UtcNow,
             RevokedAtUtc = DateTime.UtcNow
         });
-        await context.SaveChangesAsync();
+        await context.SaveChangesAsync(TestContext.Current.CancellationToken);
 
         var module = new IdentityPatientsModule(context);
-        var canAccessBooking = await module.CanAccessPatientAsync(userId, patientId, AccessLevel.Booking);
-        var canAccessClinical = await module.CanAccessPatientAsync(userId, patientId, AccessLevel.ClinicalRecords);
+        var canAccessBooking = await module.CanAccessPatientAsync(userId, patientId, AccessLevel.Booking, TestContext.Current.CancellationToken);
+        var canAccessClinical = await module.CanAccessPatientAsync(userId, patientId, AccessLevel.ClinicalRecords, TestContext.Current.CancellationToken);
 
         Assert.False(canAccessBooking);
         Assert.False(canAccessClinical);
@@ -180,17 +160,18 @@ public sealed class CanAccessPatientTests
     [Fact]
     public async Task CanAccessPatient_WhenCalledByStaffOrRoomAccount_ReturnsFalse()
     {
-        using var context = CreateInMemoryContext();
+        await using var db = await TestDatabase.OpenAsync();
+        var context = db.Context();
         var staffUserId = Guid.NewGuid();
         var roomUserId = Guid.NewGuid();
-        var patientId = Guid.NewGuid();
+        var patientId = context.AddPatient().Id;
 
         await SeedRoleAndUserAsync(context, staffUserId, Roles.Receptionist);
         await SeedRoleAndUserAsync(context, roomUserId, Roles.RoomAccount);
 
         var module = new IdentityPatientsModule(context);
 
-        Assert.False(await module.CanAccessPatientAsync(staffUserId, patientId, AccessLevel.Booking));
-        Assert.False(await module.CanAccessPatientAsync(roomUserId, patientId, AccessLevel.Booking));
+        Assert.False(await module.CanAccessPatientAsync(staffUserId, patientId, AccessLevel.Booking, TestContext.Current.CancellationToken));
+        Assert.False(await module.CanAccessPatientAsync(roomUserId, patientId, AccessLevel.Booking, TestContext.Current.CancellationToken));
     }
 }

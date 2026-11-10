@@ -5,12 +5,10 @@ using IdentityPatients.Application.Patients;
 using IdentityPatients.Application.Rooms;
 using IdentityPatients.Application.Verifications;
 using IdentityPatients.Contracts;
-using IdentityPatients.Domain.Entities;
 using IdentityPatients.Infrastructure.Persistence;
 using IdentityPatients.Infrastructure.Seed;
 using IdentityPatients.Infrastructure.Services;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
-using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
@@ -77,28 +75,6 @@ public static class DependencyInjection
         services.AddScoped<ITokenService, TokenService>();
         services.AddScoped<IAuthService, AuthService>();
 
-        services.AddIdentityCore<IdentityPatients.Domain.Entities.ApplicationUser>(options =>
-        {
-            options.User.RequireUniqueEmail = true;
-            options.SignIn.RequireConfirmedAccount = false;
-            options.SignIn.RequireConfirmedEmail = false;
-            options.SignIn.RequireConfirmedPhoneNumber = false;
-
-            options.Password.RequireDigit = false;
-            options.Password.RequireLowercase = false;
-            options.Password.RequireUppercase = false;
-            options.Password.RequireNonAlphanumeric = false;
-            options.Password.RequiredLength = 6;
-
-            options.Lockout.AllowedForNewUsers = true;
-            options.Lockout.DefaultLockoutTimeSpan = TimeSpan.FromMinutes(15);
-            options.Lockout.MaxFailedAccessAttempts = 5;
-        })
-        .AddRoles<IdentityPatients.Domain.Entities.ApplicationRole>()
-        .AddEntityFrameworkStores<IdentityPatientsDbContext>()
-        .AddSignInManager()
-        .AddDefaultTokenProviders();
-
         var jwtSection = configuration.GetSection(JwtOptions.SectionName);
         var signingKey = jwtSection[nameof(JwtOptions.SigningKey)] ?? string.Empty;
         var issuer = jwtSection[nameof(JwtOptions.Issuer)] ?? "SmartHealthcare";
@@ -128,28 +104,14 @@ public static class DependencyInjection
             };
         });
 
+        // Mỗi AppUser một Role; AuthService chỉ cấp token kênh Staff cho vai trò nhân viên và kênh Patient cho Patient,
+        // nên kiểm vai trò đã đủ phân kênh. Token vẫn mang claim channel.
         services.AddAuthorization(options =>
         {
-            options.AddPolicy("StaffOnly", policy =>
-            {
-                policy.RequireRole(Roles.Staff);
-                policy.RequireClaim(AppClaims.Channel, Channels.Staff);
-            });
-            options.AddPolicy("ReceptionistOnly", policy =>
-            {
-                policy.RequireRole(Roles.Receptionist, Roles.Admin);
-                policy.RequireClaim(AppClaims.Channel, Channels.Staff);
-            });
-            options.AddPolicy("AdminOnly", policy =>
-            {
-                policy.RequireRole(Roles.Admin);
-                policy.RequireClaim(AppClaims.Channel, Channels.Staff);
-            });
-            options.AddPolicy("PatientOnly", policy =>
-            {
-                policy.RequireRole(Roles.Patient);
-                policy.RequireClaim(AppClaims.Channel, Channels.Patient);
-            });
+            options.AddPolicy("StaffOnly", policy => policy.RequireRole(Roles.Staff));
+            options.AddPolicy("ReceptionistOnly", policy => policy.RequireRole(Roles.Receptionist, Roles.Admin));
+            options.AddPolicy("AdminOnly", policy => policy.RequireRole(Roles.Admin));
+            options.AddPolicy("PatientOnly", policy => policy.RequireRole(Roles.Patient));
         });
 
         return services;
