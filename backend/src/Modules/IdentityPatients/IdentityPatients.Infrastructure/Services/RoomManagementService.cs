@@ -6,10 +6,11 @@ using IdentityPatients.Infrastructure.Persistence;
 using IdentityPatients.Infrastructure.Security;
 using Microsoft.Data.SqlClient;
 using Microsoft.EntityFrameworkCore;
+using Shared.Abstractions;
 
 namespace IdentityPatients.Infrastructure.Services;
 
-public sealed class RoomManagementService(IdentityPatientsDbContext dbContext) : IRoomManagementService
+public sealed class RoomManagementService(IdentityPatientsDbContext dbContext, IUnitOfWork unitOfWork) : IRoomManagementService
 {
     private readonly IdentityPatientsDbContext _dbContext = dbContext;
 
@@ -53,15 +54,11 @@ public sealed class RoomManagementService(IdentityPatientsDbContext dbContext) :
             Id = Guid.NewGuid(),
             UserName = request.UserName.Trim(),
             PasswordHash = PasswordHashing.Hash(request.Password),
-            Role = Roles.RoomAccount,
-            RoomId = roomId,
             Email = request.Email.Trim(),
             EmailConfirmed = true,
             IsActive = true,
             CreatedAtUtc = DateTime.UtcNow
         };
-
-        _dbContext.AppUsers.Add(user);
 
         var roomAccount = new RoomAccount
         {
@@ -73,14 +70,19 @@ public sealed class RoomManagementService(IdentityPatientsDbContext dbContext) :
             CreatedAtUtc = DateTime.UtcNow
         };
 
-        _dbContext.RoomAccounts.Add(roomAccount);
-
         try
         {
-            await _dbContext.SaveChangesAsync(ct);
+            // AppUser và RoomAccount ghi cùng một unit of work; Add nằm trong work để lần chạy lại sau deadlock vẫn đủ.
+            await unitOfWork.ExecuteAsync(async token =>
+            {
+                _dbContext.AppUsers.Add(user);
+                _dbContext.RoomAccounts.Add(roomAccount);
+                await _dbContext.SaveChangesAsync(token);
+            }, ct);
         }
         catch (DbUpdateException ex)
         {
+            _dbContext.ChangeTracker.Clear();
             if (IsUniqueViolation(ex, "UserName") || IsUniqueViolation(ex, "Email"))
             {
                 return ServiceResult<RoomAccountDto>.Failure(409, "Trùng tài khoản", "Tên đăng nhập hoặc email đã được dùng cho tài khoản khác.");
@@ -142,49 +144,55 @@ public sealed class RoomManagementService(IdentityPatientsDbContext dbContext) :
         bool isActive,
         CancellationToken ct = default)
     {
-        var roomAccount = await _dbContext.RoomAccounts.FirstOrDefaultAsync(r => r.Id == roomAccountId, ct);
-        if (roomAccount is null)
+        // RoomAccount, AppUser và các phiên đổi cùng một unit of work. Khóa hàng RoomAccount như lúc đăng nhập
+        // để một lần đăng nhập đồng thời không tạo phiên mới sau khi tài khoản đã bị tắt.
+        return await unitOfWork.ExecuteAsync(async token =>
         {
-            return ServiceResult<RoomAccountDto>.Failure(404, "Không tìm thấy", "Không tìm thấy tài khoản phòng.");
-        }
-
-        var user = await _dbContext.AppUsers.FindAsync([roomAccount.AppUserId], ct);
-        if (user is null)
-        {
-            return ServiceResult<RoomAccountDto>.Failure(404, "Không tìm thấy", "Không tìm thấy thông tin đăng nhập của phòng.");
-        }
-
-        roomAccount.IsActive = isActive;
-        user.IsActive = isActive;
-
-        if (!isActive)
-        {
-            // Đóng tất cả phiên hoạt động hiện thời
-            var sessions = await _dbContext.RoomDeviceSessions
-                .Where(s => s.RoomAccountId == roomAccountId && s.IsActive)
-                .ToListAsync(ct);
-
-            var now = DateTime.UtcNow;
-            foreach (var session in sessions)
+            var locked = await _dbContext.RoomAccounts
+                .FromSql($"SELECT * FROM [identity].[RoomAccount] WITH (UPDLOCK, HOLDLOCK) WHERE [Id] = {roomAccountId}")
+                .AsNoTracking()
+                .AnyAsync(token);
+            var roomAccount = locked ? await _dbContext.RoomAccounts.FindAsync([roomAccountId], token) : null;
+            if (roomAccount is null)
             {
-                session.IsActive = false;
-                session.LogoutAtUtc = now;
+                return ServiceResult<RoomAccountDto>.Failure(404, "Không tìm thấy", "Không tìm thấy tài khoản phòng.");
             }
-        }
 
-        await _dbContext.SaveChangesAsync(ct);
+            var user = await _dbContext.AppUsers.FindAsync([roomAccount.AppUserId], token);
+            if (user is null)
+            {
+                return ServiceResult<RoomAccountDto>.Failure(404, "Không tìm thấy", "Không tìm thấy thông tin đăng nhập của phòng.");
+            }
 
-        var dto = new RoomAccountDto(
-            roomAccount.Id,
-            roomAccount.RoomId,
-            roomAccount.AppUserId,
-            roomAccount.AccountCode,
-            user.UserName ?? string.Empty,
-            user.Email ?? string.Empty,
-            roomAccount.IsActive,
-            roomAccount.CreatedAtUtc);
+            roomAccount.IsActive = isActive;
+            user.IsActive = isActive;
 
-        return ServiceResult<RoomAccountDto>.Success(dto);
+            if (!isActive)
+            {
+                var sessions = await _dbContext.RoomDeviceSessions
+                    .Where(s => s.RoomAccountId == roomAccountId && s.IsActive)
+                    .ToListAsync(token);
+
+                var now = DateTime.UtcNow;
+                foreach (var session in sessions)
+                {
+                    session.IsActive = false;
+                    session.LogoutAtUtc = now;
+                }
+            }
+
+            await _dbContext.SaveChangesAsync(token);
+
+            return ServiceResult<RoomAccountDto>.Success(new RoomAccountDto(
+                roomAccount.Id,
+                roomAccount.RoomId,
+                roomAccount.AppUserId,
+                roomAccount.AccountCode,
+                user.UserName,
+                user.Email ?? string.Empty,
+                roomAccount.IsActive,
+                roomAccount.CreatedAtUtc));
+        }, ct);
     }
 
     public async Task<bool> ValidateRoomDeviceSessionAsync(Guid roomAccountId, string sessionHash, CancellationToken ct = default)

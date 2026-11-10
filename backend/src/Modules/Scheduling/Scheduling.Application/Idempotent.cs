@@ -4,7 +4,7 @@ using System.Text.Json;
 
 namespace Scheduling.Application;
 
-/// <summary>Quy ước idempotency của lệnh Scheduling (Giải pháp v2.13 §4): phạm vi theo AppUser, giữ bản ghi 24 giờ.</summary>
+/// <summary>Quy ước idempotency của lệnh Scheduling (Giải pháp v2.14 §4): phạm vi theo AppUser, giữ bản ghi 24 giờ.</summary>
 internal static class Idempotent
 {
     public const int MaxKeyLength = 64;

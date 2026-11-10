@@ -1,3 +1,4 @@
+using IdentityPatients.Contracts;
 using IdentityPatients.Application.Verifications;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Http;
@@ -5,7 +6,7 @@ using Microsoft.AspNetCore.Mvc;
 
 namespace IdentityPatients.Api.Controllers;
 
-[Authorize(Policy = "ReceptionistOnly")]
+[Authorize(Policy = Policies.ReceptionistOnly)]
 [Route("api/staff/verifications")]
 public sealed class VerificationsController(IVerificationService verificationService) : ApiControllerBase
 {

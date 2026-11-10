@@ -1,7 +1,7 @@
 namespace Notifications.Contracts;
 
 /// <summary>
-/// Ghi và tra workflow.Operation (Giải pháp v2.13 §2.2, §2.3): một lệnh đã nhận đang xử lý đến đâu.
+/// Ghi và tra workflow.Operation (Giải pháp v2.14 §2.2, §2.3): một lệnh đã nhận đang xử lý đến đâu.
 /// <see cref="StartAsync"/> và <see cref="CompleteAsync"/> phải chạy bên trong <c>IUnitOfWork</c>, cùng transaction với tác dụng nghiệp vụ.
 /// </summary>
 public interface IOperationTracker

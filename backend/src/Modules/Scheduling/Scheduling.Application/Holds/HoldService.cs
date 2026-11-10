@@ -5,7 +5,7 @@ using Shared.Abstractions;
 namespace Scheduling.Application.Holds;
 
 /// <summary>
-/// Giữ chỗ và hết hạn giữ chỗ (Giải pháp v2.13 §1.2, §5.1). Mỗi lệnh chạy trong một <see cref="IUnitOfWork"/>.
+/// Giữ chỗ và hết hạn giữ chỗ (Giải pháp v2.14 §1.2, §5.1). Mỗi lệnh chạy trong một <see cref="IUnitOfWork"/>.
 /// Giữ chỗ là lệnh đồng bộ: bản ghi idempotency, Operation và tác dụng commit cùng nhau (§4), nên gửi lặp hoặc gửi lại
 /// sau khi mất phản hồi trả cùng OperationId và cùng kết quả; lỗi trước commit không để lại gì.
 /// </summary>

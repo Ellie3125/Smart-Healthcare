@@ -6,7 +6,7 @@ using Shared.Abstractions;
 namespace Scheduling.Application.Appointments;
 
 /// <summary>
-/// Hủy và đổi lịch (Phạm vi §6.1, §6.2; Giải pháp v2.13 §10). Mỗi lệnh: idempotency + Operation + tác dụng + sự kiện trong
+/// Hủy và đổi lịch (Phạm vi §6.1, §6.2; Giải pháp v2.14 §10). Mỗi lệnh: idempotency + Operation + tác dụng + sự kiện trong
 /// một transaction, mốc 05:00 so bằng giờ DB đọc sau khi nhận khóa. Bên gọi (endpoint) đã kiểm AppUser đại diện PatientId
 /// hoặc là tiếp tân, và lấy TargetDoctorRankId từ danh mục phía server.
 /// </summary>

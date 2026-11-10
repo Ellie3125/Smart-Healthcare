@@ -18,6 +18,8 @@
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\..\src\Shared\Shared.Infrastructure\Shared.Infrastructure.csproj" />
+    <ProjectReference Include="..\..\src\Modules\Scheduling\Scheduling.Api\Scheduling.Api.csproj" />
+    <ProjectReference Include="..\..\src\Modules\Scheduling\Scheduling.Application\Scheduling.Application.csproj" />
     <Compile Include="..\SqlServerTests\TestDatabase.cs" Link="TestDatabase.cs" />
   </ItemGroup>
   <ItemGroup>

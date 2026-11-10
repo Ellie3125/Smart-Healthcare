@@ -56,11 +56,8 @@ public static class DependencyInjection
             options.UseSqlServer(connectionString, sql =>
             {
                 sql.MigrationsHistoryTable("__EFMigrationsHistory", IdentityPatientsDbContext.Schema);
+                // Không bật EnableRetryOnFailure: DbContext tham gia IUnitOfWork, UoW tự chạy lại khi deadlock 1205 (D7).
                 sql.CommandTimeout(600);
-                sql.EnableRetryOnFailure(
-                    maxRetryCount: 3,
-                    maxRetryDelay: TimeSpan.FromSeconds(10),
-                    errorNumbersToAdd: null);
             }));
 
         return services;
@@ -77,6 +74,12 @@ public static class DependencyInjection
 
         var jwtSection = configuration.GetSection(JwtOptions.SectionName);
         var signingKey = jwtSection[nameof(JwtOptions.SigningKey)] ?? string.Empty;
+        // Khóa ký chỉ lấy từ user-secrets hoặc biến môi trường; thiếu hoặc ngắn thì app không khởi động (D9).
+        if (Encoding.UTF8.GetByteCount(signingKey) < JwtOptions.MinSigningKeyBytes)
+        {
+            throw new InvalidOperationException($"Jwt:SigningKey chưa cấu hình hoặc ngắn hơn {JwtOptions.MinSigningKeyBytes} byte (dotnet user-secrets hoặc biến môi trường Jwt__SigningKey).");
+        }
+
         var issuer = jwtSection[nameof(JwtOptions.Issuer)] ?? "SmartHealthcare";
         var audience = jwtSection[nameof(JwtOptions.Audience)] ?? "SmartHealthcare";
 
@@ -99,19 +102,21 @@ public static class DependencyInjection
                 ValidateLifetime = true,
                 ValidateIssuerSigningKey = true,
                 IssuerSigningKey = new SymmetricSecurityKey(
-                    Encoding.UTF8.GetBytes(string.IsNullOrEmpty(signingKey) ? "DefaultDevSigningKeyWithAtLeast32BytesForHmacSha256!" : signingKey)),
+                    Encoding.UTF8.GetBytes(signingKey)),
                 ClockSkew = TimeSpan.FromMinutes(1)
             };
         });
 
-        // Mỗi AppUser một Role; AuthService chỉ cấp token kênh Staff cho vai trò nhân viên và kênh Patient cho Patient,
-        // nên kiểm vai trò đã đủ phân kênh. Token vẫn mang claim channel.
         services.AddAuthorization(options =>
         {
-            options.AddPolicy("StaffOnly", policy => policy.RequireRole(Roles.Staff));
-            options.AddPolicy("ReceptionistOnly", policy => policy.RequireRole(Roles.Receptionist, Roles.Admin));
-            options.AddPolicy("AdminOnly", policy => policy.RequireRole(Roles.Admin));
-            options.AddPolicy("PatientOnly", policy => policy.RequireRole(Roles.Patient));
+            foreach (var (policy, role) in Policies.RoleOf)
+            {
+                options.AddPolicy(policy, p => p.RequireRole(role).RequireClaim(AppClaims.Channel, Policies.ChannelOf(role)));
+            }
+
+            options.AddPolicy(Policies.AnyChannel, p => p.RequireAssertion(context =>
+                Policies.RoleOf.Values.Any(role => context.User.IsInRole(role)
+                    && context.User.HasClaim(AppClaims.Channel, Policies.ChannelOf(role)))));
         });
 
         return services;

@@ -4,7 +4,7 @@
 - Trạng thái: **Draft**, chờ trưởng nhóm duyệt (H-02).
 - Người giữ: Claude Code (ownership.md mục 1). Task: W2-03.
 - Mã nguồn: `backend/src/Modules/Notifications/Notifications.Contracts/IOperationTracker.cs`.
-- Nguồn: Giải pháp v2.13 §2.2, §2.3, §4; ERD v2.4 `workflow.Operation`.
+- Nguồn: Giải pháp v2.14 §2.2, §2.3, §4; ERD v2.4 `workflow.Operation`.
 
 ## 1. `IOperationTracker` (trong tiến trình)
 

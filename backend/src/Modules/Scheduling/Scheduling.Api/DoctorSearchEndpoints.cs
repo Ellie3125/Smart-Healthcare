@@ -13,7 +13,7 @@ internal static class DoctorSearchEndpoints
     public static void MapDoctorSearchEndpoints(this RouteGroupBuilder scheduling)
     {
         scheduling.MapGet("/patient/doctors", SearchAsync)
-            .RequireAuthorization(policy => policy.RequireRole(Roles.Patient))
+            .RequireAuthorization(Policies.PatientOnly)
             .WithSummary("Tìm bác sĩ, suất trống và phí khám (Patient)")
             .Produces<DoctorSearchPage>()
             .ProducesProblem(StatusCodes.Status400BadRequest)

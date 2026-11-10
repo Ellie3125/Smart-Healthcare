@@ -15,9 +15,9 @@ public sealed class TokenService(IOptions<JwtOptions> jwtOptions) : ITokenServic
 
     public string GenerateAccessToken(AppUser user, string role, string channel, Guid? doctorId = null, Guid? roomId = null)
     {
-        if (string.IsNullOrWhiteSpace(_options.SigningKey) || _options.SigningKey.Length < 32)
+        if (Encoding.UTF8.GetByteCount(_options.SigningKey) < JwtOptions.MinSigningKeyBytes)
         {
-            throw new InvalidOperationException("Jwt:SigningKey chưa được cấu hình hoặc ngắn hơn 32 ký tự.");
+            throw new InvalidOperationException("Jwt:SigningKey chưa được cấu hình hoặc ngắn hơn 32 byte.");
         }
 
         var key = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(_options.SigningKey));

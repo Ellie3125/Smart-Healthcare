@@ -7,13 +7,22 @@ using IdentityPatients.Domain.Enums;
 using IdentityPatients.Infrastructure.Persistence;
 using Microsoft.Data.SqlClient;
 using Microsoft.EntityFrameworkCore;
+using Shared.Abstractions;
 
 namespace IdentityPatients.Infrastructure.Services;
 
 public sealed class PatientProfileService(
     IdentityPatientsDbContext dbContext,
-    IIdentityPatientsModule identityModule) : IPatientProfileService
+    IIdentityPatientsModule identityModule,
+    IUnitOfWork unitOfWork) : IPatientProfileService
 {
+    public const string ProfileNotFoundCode = "ProfileNotFound";
+    public const string SelfProfileExistsCode = "SelfProfileExists";
+
+    // Hồ sơ không thuộc tài khoản trả cùng lỗi với hồ sơ không có, để không lộ sự tồn tại (D8).
+    private static ServiceResult<PatientProfileDto> NotFound() =>
+        ServiceResult<PatientProfileDto>.Failure(404, "Không tìm thấy", "Không tìm thấy hồ sơ bệnh nhân.", code: ProfileNotFoundCode);
+
     private readonly IdentityPatientsDbContext _dbContext = dbContext;
     private readonly IIdentityPatientsModule _identityModule = identityModule;
 
@@ -48,7 +57,6 @@ public sealed class PatientProfileService(
         var patient = new Patient
         {
             Id = Guid.NewGuid(),
-            OwnerUserId = userId,
             FullName = request.FullName.Trim(),
             DateOfBirth = request.DateOfBirth,
             Gender = gender,
@@ -69,29 +77,48 @@ public sealed class PatientProfileService(
             CreatedAtUtc = now
         };
 
-        // Một SaveChanges đã là một transaction; không tự mở transaction vì EnableRetryOnFailure cấm.
         try
         {
-            _dbContext.Patients.Add(patient);
-            _dbContext.PatientRepresentatives.Add(rep);
-            await _dbContext.SaveChangesAsync(ct);
+            var created = await unitOfWork.ExecuteAsync(async token =>
+            {
+                if (relationship == Relationship.Self)
+                {
+                    // ERD không có unique cho "một hồ sơ Self đang hoạt động" (Backend kiểm): khóa hàng AppUser
+                    // để hai yêu cầu đồng thời của cùng tài khoản không cùng vượt qua bước kiểm tra.
+                    await _dbContext.AppUsers
+                        .FromSql($"SELECT * FROM [identity].[AppUser] WITH (UPDLOCK, HOLDLOCK) WHERE [Id] = {userId}")
+                        .AsNoTracking()
+                        .SingleAsync(token);
+                    if (await _dbContext.PatientRepresentatives.AnyAsync(
+                            r => r.AppUserId == userId && r.Relationship == Relationship.Self && r.IsActive, token))
+                    {
+                        return false;
+                    }
+                }
+
+                _dbContext.Patients.Add(patient);
+                _dbContext.PatientRepresentatives.Add(rep);
+                await _dbContext.SaveChangesAsync(token);
+                return true;
+            }, ct);
+            if (!created)
+            {
+                return ServiceResult<PatientProfileDto>.Failure(
+                    409,
+                    "Hồ sơ đã tồn tại",
+                    "Tài khoản của bạn đã có hồ sơ chính chủ (Self). Mỗi tài khoản chỉ có tối đa một hồ sơ chính chủ.",
+                    code: SelfProfileExistsCode);
+            }
         }
         catch (DbUpdateException ex)
         {
+            _dbContext.ChangeTracker.Clear();
             if (IsUniqueViolation(ex, "NationalId"))
             {
                 return ServiceResult<PatientProfileDto>.Failure(
                     409,
                     "Trùng lặp dữ liệu",
                     "Số định danh công dân (CCCD) đã được đăng ký trong hệ thống. Vui lòng kiểm tra lại thông tin.");
-            }
-
-            if (IsUniqueViolation(ex, "Relationship") || IsUniqueViolation(ex, "AppUserId"))
-            {
-                return ServiceResult<PatientProfileDto>.Failure(
-                    409,
-                    "Hồ sơ đã tồn tại",
-                    "Tài khoản của bạn đã có hồ sơ chính chủ (Self). Mỗi tài khoản chỉ có tối đa một hồ sơ chính chủ.");
             }
 
             return ServiceResult<PatientProfileDto>.Failure(
@@ -144,7 +171,7 @@ public sealed class PatientProfileService(
         var canAccess = await _identityModule.CanAccessPatientAsync(userId, patientId, AccessLevel.Booking, ct);
         if (!canAccess)
         {
-            return ServiceResult<PatientProfileDto>.Failure(403, "Truy cập bị từ chối", "Bạn không có quyền truy cập hồ sơ bệnh nhân này.");
+            return NotFound();
         }
 
         var result = await (from r in _dbContext.PatientRepresentatives.AsNoTracking()
@@ -166,7 +193,7 @@ public sealed class PatientProfileService(
 
         if (result is null)
         {
-            return ServiceResult<PatientProfileDto>.Failure(404, "Không tìm thấy", "Không tìm thấy hồ sơ bệnh nhân.");
+            return NotFound();
         }
 
         return ServiceResult<PatientProfileDto>.Success(result);
@@ -181,7 +208,7 @@ public sealed class PatientProfileService(
         var canAccess = await _identityModule.CanAccessPatientAsync(userId, patientId, AccessLevel.Booking, ct);
         if (!canAccess)
         {
-            return ServiceResult<PatientProfileDto>.Failure(403, "Truy cập bị từ chối", "Bạn không có quyền cập nhật hồ sơ bệnh nhân này.");
+            return NotFound();
         }
 
         if (string.IsNullOrWhiteSpace(request.FullName))
@@ -202,14 +229,14 @@ public sealed class PatientProfileService(
         var patient = await _dbContext.Patients.FirstOrDefaultAsync(p => p.Id == patientId, ct);
         if (patient is null)
         {
-            return ServiceResult<PatientProfileDto>.Failure(404, "Không tìm thấy", "Không tìm thấy hồ sơ bệnh nhân.");
+            return NotFound();
         }
 
         var rep = await _dbContext.PatientRepresentatives
             .FirstOrDefaultAsync(r => r.AppUserId == userId && r.PatientId == patientId && r.IsActive, ct);
         if (rep is null)
         {
-            return ServiceResult<PatientProfileDto>.Failure(403, "Truy cập bị từ chối", "Bạn không có quyền cập nhật hồ sơ này.");
+            return NotFound();
         }
 
         patient.FullName = request.FullName.Trim();

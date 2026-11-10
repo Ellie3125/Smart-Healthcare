@@ -12,7 +12,7 @@ public sealed class CanAccessPatientTests
 {
     private static async Task SeedRoleAndUserAsync(IdentityPatientsDbContext context, Guid userId, string roleName, bool isActive = true)
     {
-        context.AddUser(roleName, isActive).Id = userId;
+        context.AddUser(roleName, isActive, userId);
         await context.SaveChangesAsync(TestContext.Current.CancellationToken);
     }
 

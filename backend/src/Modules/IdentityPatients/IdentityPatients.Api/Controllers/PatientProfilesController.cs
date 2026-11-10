@@ -6,7 +6,7 @@ using Microsoft.AspNetCore.Mvc;
 
 namespace IdentityPatients.Api.Controllers;
 
-[Authorize(Policy = "PatientOnly")]
+[Authorize(Policy = Policies.PatientOnly)]
 [Route("api/patient/profiles")]
 public sealed class PatientProfilesController(IPatientProfileService profileService) : ApiControllerBase
 {
