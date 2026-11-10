@@ -18,6 +18,5 @@ internal sealed class PatientConfiguration : IEntityTypeConfiguration<Patient>
         builder.Property(x => x.Address).HasMaxLength(200);
 
         builder.HasIndex(x => x.NationalId).IsUnique().HasFilter("[NationalId] IS NOT NULL");
-        builder.HasIndex(x => x.OwnerUserId);
     }
 }

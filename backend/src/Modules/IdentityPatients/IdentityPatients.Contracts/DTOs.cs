@@ -7,7 +7,6 @@ public sealed record DoctorDto(
     string SpecialtyCode,
     Guid RankId,
     string RankName,
-    Guid? DefaultRoomId,
     bool IsActive);
 
 public sealed record SpecialtyDto(
@@ -33,3 +32,23 @@ public sealed record DoctorSearch(
     Guid? RankId = null,
     bool? IsActive = null);
 
+public sealed record StaffDutyLeaderDto(
+    Guid StaffId,
+    string FullName,
+    string StaffCode,
+    Guid RoomId,
+    DateOnly ShiftDate,
+    string ShiftName);
+
+public sealed record PatientProfileDto(
+    Guid PatientId,
+    Guid RepresentativeId,
+    string FullName,
+    DateOnly DateOfBirth,
+    string Gender,
+    string? NationalId,
+    string PhoneNumber,
+    string Address,
+    string Relationship,
+    string VerificationStatus,
+    bool IsActive);

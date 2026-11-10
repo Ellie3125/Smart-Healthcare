@@ -15,5 +15,6 @@ internal sealed class StaffShiftAssignmentConfiguration : IEntityTypeConfigurati
 
         builder.HasOne<Staff>().WithMany().HasForeignKey(x => x.StaffId).OnDelete(DeleteBehavior.Restrict);
         builder.HasOne<Room>().WithMany().HasForeignKey(x => x.RoomId).OnDelete(DeleteBehavior.Restrict);
+
     }
 }

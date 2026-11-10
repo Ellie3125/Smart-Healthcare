@@ -9,7 +9,7 @@ public sealed class IdentityPatientsModule(IdentityPatientsDbContext dbContext) 
 {
     private readonly IdentityPatientsDbContext _dbContext = dbContext;
 
-    public async Task<bool> CanAccessPatientAsync(Guid userId, Guid patientId, CancellationToken ct = default)
+    public async Task<bool> CanAccessPatientAsync(Guid userId, Guid patientId, AccessLevel level = AccessLevel.Booking, CancellationToken ct = default)
     {
         var user = await _dbContext.AppUsers
             .AsNoTracking()
@@ -20,48 +20,27 @@ public sealed class IdentityPatientsModule(IdentityPatientsDbContext dbContext) 
             return false;
         }
 
-        // Nhân viên lâm sàng / tiếp tân có quyền truy cập hồ sơ chung (Clinical module sẽ kiểm thêm theo từng lượt khám)
-        if (user.Role is Roles.Doctor or Roles.Nurse or Roles.Receptionist)
-        {
-            return true;
-        }
-
-        // Tài khoản phòng CLS và Admin kỹ thuật KHÔNG được phép đọc trực tiếp hồ sơ bệnh nhân (SEC-01)
-        if (user.Role is Roles.RoomAccount or Roles.Admin)
+        // Nhân viên và RoomAccount không đi qua đường này để đọc dữ liệu bệnh nhân (FR04/SEC-01)
+        if ((await AccountRoles.ResolveAsync(_dbContext, userId, ct))?.Role != Roles.Patient)
         {
             return false;
         }
 
-        // Bệnh nhân tự xem hồ sơ của mình
-        if (user.Role == Roles.Patient)
+        var rep = await _dbContext.PatientRepresentatives
+            .AsNoTracking()
+            .FirstOrDefaultAsync(r => r.AppUserId == userId && r.PatientId == patientId && r.IsActive, ct);
+
+        if (rep is null)
         {
-            var patient = await _dbContext.Patients
-                .AsNoTracking()
-                .FirstOrDefaultAsync(p => p.Id == patientId, ct);
-
-            if (patient is null)
-            {
-                return false;
-            }
-
-            if (patient.OwnerUserId == userId)
-            {
-                return true;
-            }
-
-            // Kiểm tra người đại diện đã được xác thực (Verified)
-            // TODO(tuần 2): Mở rộng đầy đủ quản lý đa hồ sơ qua PatientRepresentative (quan hệ cha/mẹ/con/giám hộ).
-            var hasVerifiedRep = await _dbContext.PatientRepresentatives
-                .AsNoTracking()
-                .AnyAsync(r => r.AppUserId == userId
-                               && r.PatientId == patientId
-                               && r.IsActive
-                               && r.VerificationStatus == VerificationStatus.Verified, ct);
-
-            return hasVerifiedRep;
+            return false;
         }
 
-        return false;
+        return level switch
+        {
+            AccessLevel.Booking => rep.VerificationStatus is VerificationStatus.Pending or VerificationStatus.Verified,
+            AccessLevel.ClinicalRecords => rep.VerificationStatus is VerificationStatus.Verified,
+            _ => false
+        };
     }
 
     public async Task<DoctorDto?> GetDoctorAsync(Guid doctorId, CancellationToken ct = default)
@@ -78,7 +57,6 @@ public sealed class IdentityPatientsModule(IdentityPatientsDbContext dbContext) 
                         spec.SpecialtyCode,
                         r.Id,
                         r.RankName,
-                        d.DefaultRoomId,
                         d.IsActive && s.IsActive
                     );
 
@@ -116,7 +94,6 @@ public sealed class IdentityPatientsModule(IdentityPatientsDbContext dbContext) 
                 x.Specialty.SpecialtyCode,
                 x.Rank.Id,
                 x.Rank.RankName,
-                x.Doctor.DefaultRoomId,
                 x.Doctor.IsActive && x.Staff.IsActive
             ))
             .ToListAsync(ct);
@@ -158,5 +135,46 @@ public sealed class IdentityPatientsModule(IdentityPatientsDbContext dbContext) 
             ))
             .FirstOrDefaultAsync(ct);
     }
-}
 
+    public async Task<IReadOnlyList<RoomDto>> GetRoomsAsync(string? roomType = null, bool? isActive = null, CancellationToken ct = default)
+    {
+        var query = _dbContext.Rooms.AsNoTracking();
+
+        if (!string.IsNullOrWhiteSpace(roomType) && Enum.TryParse<RoomType>(roomType, ignoreCase: true, out var parsedType))
+        {
+            query = query.Where(r => r.RoomType == parsedType);
+        }
+
+        if (isActive.HasValue)
+        {
+            query = query.Where(r => r.IsActive == isActive.Value);
+        }
+
+        return await query
+            .OrderBy(r => r.RoomNumber)
+            .Select(r => new RoomDto(r.Id, r.RoomNumber, r.RoomName, r.RoomType.ToString(), r.IsActive))
+            .ToListAsync(ct);
+    }
+
+    public async Task<StaffDutyLeaderDto?> GetRoomShiftLeaderAsync(Guid roomId, DateOnly date, string shiftName, CancellationToken ct = default)
+    {
+        if (!Enum.TryParse<ShiftName>(shiftName, ignoreCase: true, out var parsedShift))
+        {
+            return null;
+        }
+
+        var query = from a in _dbContext.StaffShiftAssignments.AsNoTracking()
+                    join s in _dbContext.Staffs.AsNoTracking() on a.StaffId equals s.Id
+                    where a.RoomId == roomId && a.ShiftDate == date && a.ShiftName == parsedShift && a.IsShiftLeader
+                    select new StaffDutyLeaderDto(
+                        s.Id,
+                        s.FullName,
+                        s.StaffCode,
+                        a.RoomId,
+                        a.ShiftDate,
+                        a.ShiftName.ToString()
+                    );
+
+        return await query.FirstOrDefaultAsync(ct);
+    }
+}

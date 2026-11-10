@@ -1,5 +1,9 @@
 using System.Text;
+using IdentityPatients.Application.Administration;
 using IdentityPatients.Application.Auth;
+using IdentityPatients.Application.Patients;
+using IdentityPatients.Application.Rooms;
+using IdentityPatients.Application.Verifications;
 using IdentityPatients.Contracts;
 using IdentityPatients.Infrastructure.Persistence;
 using IdentityPatients.Infrastructure.Seed;
@@ -22,6 +26,10 @@ public static class DependencyInjection
         services.AddIdentityPatientsPersistence(connectionString);
         services.AddIdentityPatientsAuth(configuration);
         services.AddScoped<IIdentityPatientsModule, IdentityPatientsModule>();
+        services.AddScoped<IPatientProfileService, PatientProfileService>();
+        services.AddScoped<IVerificationService, VerificationService>();
+        services.AddScoped<IRoomManagementService, RoomManagementService>();
+        services.AddScoped<IStaffAdminService, StaffAdminService>();
         services.AddScoped<IdentityPatientsSeedService>();
         return services;
     }
@@ -32,6 +40,10 @@ public static class DependencyInjection
     {
         services.AddIdentityPatientsPersistence(connectionString);
         services.AddScoped<IIdentityPatientsModule, IdentityPatientsModule>();
+        services.AddScoped<IPatientProfileService, PatientProfileService>();
+        services.AddScoped<IVerificationService, VerificationService>();
+        services.AddScoped<IRoomManagementService, RoomManagementService>();
+        services.AddScoped<IStaffAdminService, StaffAdminService>();
         services.AddScoped<IdentityPatientsSeedService>();
         return services;
     }
@@ -41,8 +53,12 @@ public static class DependencyInjection
         string connectionString)
     {
         services.AddDbContext<IdentityPatientsDbContext>(options =>
-            options.UseSqlServer(connectionString,
-                sql => sql.MigrationsHistoryTable("__EFMigrationsHistory", IdentityPatientsDbContext.Schema)));
+            options.UseSqlServer(connectionString, sql =>
+            {
+                sql.MigrationsHistoryTable("__EFMigrationsHistory", IdentityPatientsDbContext.Schema);
+                // Không bật EnableRetryOnFailure: DbContext tham gia IUnitOfWork, UoW tự chạy lại khi deadlock 1205 (D7).
+                sql.CommandTimeout(600);
+            }));
 
         return services;
     }
@@ -51,12 +67,19 @@ public static class DependencyInjection
         this IServiceCollection services,
         IConfiguration configuration)
     {
+        services.AddHttpContextAccessor();
         services.Configure<JwtOptions>(configuration.GetSection(JwtOptions.SectionName));
         services.AddScoped<ITokenService, TokenService>();
         services.AddScoped<IAuthService, AuthService>();
 
         var jwtSection = configuration.GetSection(JwtOptions.SectionName);
         var signingKey = jwtSection[nameof(JwtOptions.SigningKey)] ?? string.Empty;
+        // Khóa ký chỉ lấy từ user-secrets hoặc biến môi trường; thiếu hoặc ngắn thì app không khởi động (D9).
+        if (Encoding.UTF8.GetByteCount(signingKey) < JwtOptions.MinSigningKeyBytes)
+        {
+            throw new InvalidOperationException($"Jwt:SigningKey chưa cấu hình hoặc ngắn hơn {JwtOptions.MinSigningKeyBytes} byte (dotnet user-secrets hoặc biến môi trường Jwt__SigningKey).");
+        }
+
         var issuer = jwtSection[nameof(JwtOptions.Issuer)] ?? "SmartHealthcare";
         var audience = jwtSection[nameof(JwtOptions.Audience)] ?? "SmartHealthcare";
 
@@ -64,6 +87,7 @@ public static class DependencyInjection
         {
             options.DefaultAuthenticateScheme = JwtBearerDefaults.AuthenticationScheme;
             options.DefaultChallengeScheme = JwtBearerDefaults.AuthenticationScheme;
+            options.DefaultScheme = JwtBearerDefaults.AuthenticationScheme;
         })
         .AddJwtBearer(options =>
         {
@@ -78,15 +102,21 @@ public static class DependencyInjection
                 ValidateLifetime = true,
                 ValidateIssuerSigningKey = true,
                 IssuerSigningKey = new SymmetricSecurityKey(
-                    Encoding.UTF8.GetBytes(string.IsNullOrEmpty(signingKey) ? "DefaultDevSigningKeyWithAtLeast32BytesForHmacSha256!" : signingKey)),
+                    Encoding.UTF8.GetBytes(signingKey)),
                 ClockSkew = TimeSpan.FromMinutes(1)
             };
         });
 
         services.AddAuthorization(options =>
         {
-            options.AddPolicy("StaffOnly", policy => policy.RequireRole(Roles.Staff));
-            options.AddPolicy("AdminOnly", policy => policy.RequireRole(Roles.Admin));
+            foreach (var (policy, role) in Policies.RoleOf)
+            {
+                options.AddPolicy(policy, p => p.RequireRole(role).RequireClaim(AppClaims.Channel, Policies.ChannelOf(role)));
+            }
+
+            options.AddPolicy(Policies.AnyChannel, p => p.RequireAssertion(context =>
+                Policies.RoleOf.Values.Any(role => context.User.IsInRole(role)
+                    && context.User.HasClaim(AppClaims.Channel, Policies.ChannelOf(role)))));
         });
 
         return services;

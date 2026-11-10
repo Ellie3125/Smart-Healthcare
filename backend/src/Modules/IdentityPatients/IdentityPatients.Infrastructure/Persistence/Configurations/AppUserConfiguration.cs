@@ -14,13 +14,10 @@ internal sealed class AppUserConfiguration : IEntityTypeConfiguration<AppUser>
         builder.Property(x => x.UserName).HasMaxLength(200);
         builder.Property(x => x.Email).HasMaxLength(256);
         builder.Property(x => x.PhoneNumber).HasMaxLength(32);
-        builder.Property(x => x.PasswordHash).HasMaxLength(256);
-        builder.Property(x => x.Role).HasMaxLength(32);
-        builder.Property(x => x.RowVersion).IsRowVersion();
+        builder.Property(x => x.PasswordHash).HasMaxLength(128);
 
         builder.HasIndex(x => x.UserName).IsUnique();
         builder.HasIndex(x => x.Email).IsUnique().HasFilter("[Email] IS NOT NULL");
         builder.HasIndex(x => x.PhoneNumber).IsUnique().HasFilter("[PhoneNumber] IS NOT NULL");
-        builder.HasIndex(x => x.Role);
     }
 }

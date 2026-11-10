@@ -16,16 +16,14 @@ public sealed class AuthController(IAuthService authService) : ControllerBase
     [HttpPost("auth/staff/login")]
     [ProducesResponseType(typeof(LoginResponse), StatusCodes.Status200OK)]
     [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status401Unauthorized)]
-    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status403Forbidden)]
     public async Task<IActionResult> StaffLogin([FromBody] LoginRequest request, CancellationToken ct)
     {
         var result = await _authService.LoginStaffAsync(request, ct);
         if (!result.IsSuccess)
         {
-            return Problem(
-                statusCode: result.StatusCode,
-                title: result.ErrorTitle,
-                detail: result.ErrorDetail);
+            var problem = ProblemDetailsFactory.CreateProblemDetails(HttpContext, result.StatusCode, result.ErrorTitle, detail: result.ErrorDetail);
+            problem.Extensions["code"] = result.ErrorCode;
+            return new ObjectResult(problem) { StatusCode = result.StatusCode };
         }
 
         return Ok(result.Response);
@@ -34,22 +32,20 @@ public sealed class AuthController(IAuthService authService) : ControllerBase
     [HttpPost("auth/patient/login")]
     [ProducesResponseType(typeof(LoginResponse), StatusCodes.Status200OK)]
     [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status401Unauthorized)]
-    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status403Forbidden)]
     public async Task<IActionResult> PatientLogin([FromBody] LoginRequest request, CancellationToken ct)
     {
         var result = await _authService.LoginPatientAsync(request, ct);
         if (!result.IsSuccess)
         {
-            return Problem(
-                statusCode: result.StatusCode,
-                title: result.ErrorTitle,
-                detail: result.ErrorDetail);
+            var problem = ProblemDetailsFactory.CreateProblemDetails(HttpContext, result.StatusCode, result.ErrorTitle, detail: result.ErrorDetail);
+            problem.Extensions["code"] = result.ErrorCode;
+            return new ObjectResult(problem) { StatusCode = result.StatusCode };
         }
 
         return Ok(result.Response);
     }
 
-    [Authorize]
+    [Authorize(Policy = Policies.AnyChannel)]
     [HttpGet("me")]
     [ProducesResponseType(typeof(CurrentUserDto), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]
