@@ -4,6 +4,6 @@ namespace IdentityPatients.Application.Auth;
 
 public interface ITokenService
 {
-    string GenerateAccessToken(AppUser user);
+    string GenerateAccessToken(AppUser user, string role, string channel, Guid? doctorId = null, Guid? roomId = null);
 }
 

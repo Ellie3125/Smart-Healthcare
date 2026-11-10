@@ -12,8 +12,8 @@ using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 namespace IdentityPatients.Infrastructure.Persistence.Migrations
 {
     [DbContext(typeof(IdentityPatientsDbContext))]
-    [Migration("20261105120131_SyncUtcDateTime")]
-    partial class SyncUtcDateTime
+    [Migration("20261110055813_IdentityPatientsBusiness")]
+    partial class IdentityPatientsBusiness
     {
         /// <inheritdoc />
         protected override void BuildTargetModel(ModelBuilder modelBuilder)
@@ -248,6 +248,10 @@ namespace IdentityPatients.Infrastructure.Persistence.Migrations
 
                     b.HasKey("Id");
 
+                    b.HasIndex("AppUserId")
+                        .IsUnique()
+                        .HasFilter("[Relationship] = 'Self' AND [IsActive] = 1");
+
                     b.HasIndex("PatientId");
 
                     b.HasIndex("AppUserId", "PatientId")
@@ -365,7 +369,9 @@ namespace IdentityPatients.Infrastructure.Persistence.Migrations
 
                     b.HasKey("Id");
 
-                    b.HasIndex("RoomAccountId");
+                    b.HasIndex("RoomAccountId")
+                        .IsUnique()
+                        .HasFilter("[IsActive] = 1");
 
                     b.HasIndex("SessionToken")
                         .IsUnique();
@@ -475,9 +481,12 @@ namespace IdentityPatients.Infrastructure.Persistence.Migrations
 
                     b.HasKey("Id");
 
-                    b.HasIndex("RoomId");
+                    b.HasIndex("StaffId", "ShiftDate")
+                        .IsUnique();
 
-                    b.HasIndex("StaffId");
+                    b.HasIndex("RoomId", "ShiftDate", "ShiftName")
+                        .IsUnique()
+                        .HasFilter("[IsShiftLeader] = 1");
 
                     b.ToTable("StaffShiftAssignment", "identity");
                 });

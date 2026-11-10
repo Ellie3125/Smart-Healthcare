@@ -245,6 +245,10 @@ namespace IdentityPatients.Infrastructure.Persistence.Migrations
 
                     b.HasKey("Id");
 
+                    b.HasIndex("AppUserId")
+                        .IsUnique()
+                        .HasFilter("[Relationship] = 'Self' AND [IsActive] = 1");
+
                     b.HasIndex("PatientId");
 
                     b.HasIndex("AppUserId", "PatientId")
@@ -362,7 +366,9 @@ namespace IdentityPatients.Infrastructure.Persistence.Migrations
 
                     b.HasKey("Id");
 
-                    b.HasIndex("RoomAccountId");
+                    b.HasIndex("RoomAccountId")
+                        .IsUnique()
+                        .HasFilter("[IsActive] = 1");
 
                     b.HasIndex("SessionToken")
                         .IsUnique();
@@ -472,9 +478,12 @@ namespace IdentityPatients.Infrastructure.Persistence.Migrations
 
                     b.HasKey("Id");
 
-                    b.HasIndex("RoomId");
+                    b.HasIndex("StaffId", "ShiftDate")
+                        .IsUnique();
 
-                    b.HasIndex("StaffId");
+                    b.HasIndex("RoomId", "ShiftDate", "ShiftName")
+                        .IsUnique()
+                        .HasFilter("[IsShiftLeader] = 1");
 
                     b.ToTable("StaffShiftAssignment", "identity");
                 });
