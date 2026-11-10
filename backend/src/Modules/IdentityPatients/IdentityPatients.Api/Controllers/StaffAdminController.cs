@@ -1,3 +1,4 @@
+using IdentityPatients.Contracts;
 using IdentityPatients.Application.Administration;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Http;
@@ -5,7 +6,7 @@ using Microsoft.AspNetCore.Mvc;
 
 namespace IdentityPatients.Api.Controllers;
 
-[Authorize(Policy = "AdminOnly")]
+[Authorize(Policy = Policies.AdminOnly)]
 [Route("api/staff/admin")]
 public sealed class StaffAdminController(IStaffAdminService adminService) : ApiControllerBase
 {
@@ -123,7 +124,7 @@ public sealed class StaffAdminController(IStaffAdminService adminService) : ApiC
     [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status409Conflict)]
     public async Task<IActionResult> CreateStaff([FromBody] CreateStaffRequest request, CancellationToken ct)
     {
-        var result = await _adminService.CreateStaffAsync(request, ct);
+        var result = await _adminService.CreateStaffAsync(GetCurrentUserId() ?? Guid.Empty, request, ct);
         return HandleResult(result);
     }
 
@@ -133,7 +134,7 @@ public sealed class StaffAdminController(IStaffAdminService adminService) : ApiC
     [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status404NotFound)]
     public async Task<IActionResult> UpdateStaff(Guid id, [FromBody] UpdateStaffRequest request, CancellationToken ct)
     {
-        var result = await _adminService.UpdateStaffAsync(id, request, ct);
+        var result = await _adminService.UpdateStaffAsync(GetCurrentUserId() ?? Guid.Empty, id, request, ct);
         return HandleResult(result);
     }
 
@@ -142,7 +143,7 @@ public sealed class StaffAdminController(IStaffAdminService adminService) : ApiC
     [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status404NotFound)]
     public async Task<IActionResult> ToggleStaffActive(Guid id, [FromQuery] bool isActive, CancellationToken ct)
     {
-        var result = await _adminService.ToggleStaffActiveAsync(id, isActive, ct);
+        var result = await _adminService.ToggleStaffActiveAsync(GetCurrentUserId() ?? Guid.Empty, id, isActive, ct);
         return HandleResult(result);
     }
 

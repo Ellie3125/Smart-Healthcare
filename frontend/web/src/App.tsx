@@ -37,12 +37,12 @@ export const App: React.FC = () => {
       <Route path="/login" element={<LoginPage />} />
       <Route path="/forbidden" element={<ForbiddenPage />} />
 
-      {/* Staff Protected Routes */}
+      {/* Mỗi khu vực chỉ cho đúng một vai trò (Giải pháp v2.14 §8.6). Chặn ở đây chỉ để không bấm nhầm; quyền thật do Backend kiểm. */}
       <Route element={<StaffLayout />}>
         <Route
           path="/reception/*"
           element={
-            <RequireRole allow={['Receptionist', 'Admin']}>
+            <RequireRole allow={['Receptionist']}>
               <ReceptionPage />
             </RequireRole>
           }
@@ -50,7 +50,7 @@ export const App: React.FC = () => {
         <Route
           path="/nurse/*"
           element={
-            <RequireRole allow={['Nurse', 'Admin']}>
+            <RequireRole allow={['Nurse']}>
               <NursePage />
             </RequireRole>
           }
@@ -58,7 +58,7 @@ export const App: React.FC = () => {
         <Route
           path="/doctor/*"
           element={
-            <RequireRole allow={['Doctor', 'Admin']}>
+            <RequireRole allow={['Doctor']}>
               <DoctorPage />
             </RequireRole>
           }
@@ -66,7 +66,7 @@ export const App: React.FC = () => {
         <Route
           path="/room/*"
           element={
-            <RequireRole allow={['RoomAccount', 'Admin']}>
+            <RequireRole allow={['RoomAccount']}>
               <RoomPage />
             </RequireRole>
           }

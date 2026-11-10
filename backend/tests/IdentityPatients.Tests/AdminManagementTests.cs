@@ -2,118 +2,69 @@ using IdentityPatients.Application.Administration;
 using IdentityPatients.Application.Rooms;
 using IdentityPatients.Domain.Entities;
 using IdentityPatients.Domain.Enums;
-using IdentityPatients.Infrastructure.Persistence;
+using IdentityPatients.Contracts;
 using IdentityPatients.Infrastructure.Services;
-using Microsoft.AspNetCore.Identity;
-using Microsoft.EntityFrameworkCore;
-using Microsoft.Extensions.Logging;
-using Microsoft.Extensions.Options;
+using SqlServerTests;
 using Xunit;
 
 namespace IdentityPatients.Tests;
 
 public sealed class AdminManagementTests
 {
-    private sealed class FakeUserManager : UserManager<ApplicationUser>
-    {
-        public bool CreateSucceeds { get; set; } = true;
-
-        public FakeUserManager()
-            : base(
-                new MockUserStore(),
-                Microsoft.Extensions.Options.Options.Create(new IdentityOptions()),
-                new PasswordHasher<ApplicationUser>(),
-                [],
-                [],
-                new UpperInvariantLookupNormalizer(),
-                new IdentityErrorDescriber(),
-                null!,
-                new LoggerFactory().CreateLogger<UserManager<ApplicationUser>>())
-        {
-        }
-
-        public override Task<IdentityResult> CreateAsync(ApplicationUser user, string password) =>
-            Task.FromResult(CreateSucceeds ? IdentityResult.Success : IdentityResult.Failed(new IdentityError { Description = "Create failed" }));
-
-        public override Task<IdentityResult> AddToRoleAsync(ApplicationUser user, string role) =>
-            Task.FromResult(IdentityResult.Success);
-    }
-
-    private sealed class MockUserStore : IUserStore<ApplicationUser>
-    {
-        public void Dispose() { }
-        public Task<string> GetUserIdAsync(ApplicationUser user, CancellationToken cancellationToken) => Task.FromResult(user.Id.ToString());
-        public Task<string?> GetUserNameAsync(ApplicationUser user, CancellationToken cancellationToken) => Task.FromResult(user.UserName);
-        public Task SetUserNameAsync(ApplicationUser user, string? userName, CancellationToken cancellationToken) { user.UserName = userName; return Task.CompletedTask; }
-        public Task<string?> GetNormalizedUserNameAsync(ApplicationUser user, CancellationToken cancellationToken) => Task.FromResult(user.NormalizedUserName);
-        public Task SetNormalizedUserNameAsync(ApplicationUser user, string? normalizedName, CancellationToken cancellationToken) { user.NormalizedUserName = normalizedName; return Task.CompletedTask; }
-        public Task<IdentityResult> CreateAsync(ApplicationUser user, CancellationToken cancellationToken) => Task.FromResult(IdentityResult.Success);
-        public Task<IdentityResult> UpdateAsync(ApplicationUser user, CancellationToken cancellationToken) => Task.FromResult(IdentityResult.Success);
-        public Task<IdentityResult> DeleteAsync(ApplicationUser user, CancellationToken cancellationToken) => Task.FromResult(IdentityResult.Success);
-        public Task<ApplicationUser?> FindByIdAsync(string userId, CancellationToken cancellationToken) => Task.FromResult<ApplicationUser?>(null);
-        public Task<ApplicationUser?> FindByNameAsync(string normalizedUserName, CancellationToken cancellationToken) => Task.FromResult<ApplicationUser?>(null);
-    }
-
-    private static (IdentityPatientsDbContext dbContext, FakeUserManager userManager) CreateContextAndUserManager()
-    {
-        var options = new DbContextOptionsBuilder<IdentityPatientsDbContext>()
-            .UseInMemoryDatabase(Guid.NewGuid().ToString())
-            .Options;
-
-        return (new IdentityPatientsDbContext(options), new FakeUserManager());
-    }
-
     [Fact]
     public async Task Specialty_SpecialtyCodeCannotBeChangedOnUpdate()
     {
-        var (dbContext, userManager) = CreateContextAndUserManager();
+        await using var host = await IdentityTestHost.OpenAsync();
+        var dbContext = host.Context;
+        var code = IdentityTestData.Unique("ORIG");
         var specialty = new Specialty
         {
             Id = Guid.NewGuid(),
-            SpecialtyCode = "ORIGINAL_CODE",
+            SpecialtyCode = code,
             SpecialtyName = "Tên Ban Đầu",
             Description = "Mô tả",
             IsActive = true
         };
         dbContext.Specialties.Add(specialty);
-        await dbContext.SaveChangesAsync();
+        await dbContext.SaveChangesAsync(TestContext.Current.CancellationToken);
 
-        var service = new StaffAdminService(dbContext, userManager);
-        var result = await service.UpdateSpecialtyAsync(specialty.Id, new UpdateSpecialtyRequest("Tên Mới", "Mô tả mới", true));
+        var service = host.Get<IStaffAdminService>();
+        var result = await service.UpdateSpecialtyAsync(specialty.Id, new UpdateSpecialtyRequest("Tên Mới", "Mô tả mới", true), TestContext.Current.CancellationToken);
 
         Assert.True(result.IsSuccess);
         Assert.Equal("Tên Mới", result.Value?.Name);
-        Assert.Equal("ORIGINAL_CODE", result.Value?.Code);
+        Assert.Equal(code, result.Value?.Code);
 
-        var fromDb = await dbContext.Specialties.FindAsync(specialty.Id);
+        dbContext.ChangeTracker.Clear();
+        var fromDb = await dbContext.Specialties.FindAsync([specialty.Id], TestContext.Current.CancellationToken);
         Assert.NotNull(fromDb);
-        Assert.Equal("ORIGINAL_CODE", fromDb.SpecialtyCode);
+        Assert.Equal(code, fromDb.SpecialtyCode);
     }
 
     [Fact]
     public async Task CreateDoctor_WhenStaffIsNotDoctor_Returns400BadRequest()
     {
-        var (dbContext, userManager) = CreateContextAndUserManager();
+        await using var host = await IdentityTestHost.OpenAsync();
+        var dbContext = host.Context;
         var staffNurse = new Staff
         {
             Id = Guid.NewGuid(),
-            AppUserId = Guid.NewGuid(),
-            StaffCode = "DD99",
+            AppUserId = dbContext.AddUser(Roles.Patient).Id,
+            StaffCode = IdentityTestData.Unique("DD"),
             FullName = "Điều Dưỡng Test",
             StaffType = StaffType.Nurse,
             IsActive = true,
             CreatedAtUtc = DateTime.UtcNow
         };
         dbContext.Staffs.Add(staffNurse);
-        await dbContext.SaveChangesAsync();
+        await dbContext.SaveChangesAsync(TestContext.Current.CancellationToken);
 
-        var service = new StaffAdminService(dbContext, userManager);
+        var service = host.Get<IStaffAdminService>();
         var result = await service.CreateDoctorAsync(new CreateDoctorRequest(
             staffNurse.Id,
             Guid.NewGuid(),
             Guid.NewGuid(),
-            null,
-            "Bio"));
+            "Bio"), TestContext.Current.CancellationToken);
 
         Assert.False(result.IsSuccess);
         Assert.Equal(400, result.StatusCode);
@@ -123,11 +74,12 @@ public sealed class AdminManagementTests
     [Fact]
     public async Task CreateRoomAccount_WhenRoomAlreadyHasAccount_Returns409Conflict()
     {
-        var (dbContext, userManager) = CreateContextAndUserManager();
+        await using var host = await IdentityTestHost.OpenAsync();
+        var dbContext = host.Context;
         var room = new Room
         {
             Id = Guid.NewGuid(),
-            RoomNumber = "TEST_ROOM",
+            RoomNumber = IdentityTestData.Unique("R"),
             RoomName = "Phòng Test",
             RoomType = RoomType.Laboratory,
             DepartmentName = "Khoa Test",
@@ -139,18 +91,18 @@ public sealed class AdminManagementTests
         {
             Id = Guid.NewGuid(),
             RoomId = room.Id,
-            AppUserId = Guid.NewGuid(),
-            AccountCode = "TK_TEST",
+            AppUserId = dbContext.AddUser(Roles.Patient).Id,
+            AccountCode = IdentityTestData.Unique("TK"),
             IsActive = true,
             CreatedAtUtc = DateTime.UtcNow
         };
         dbContext.RoomAccounts.Add(existingAccount);
-        await dbContext.SaveChangesAsync();
+        await dbContext.SaveChangesAsync(TestContext.Current.CancellationToken);
 
-        var roomService = new RoomManagementService(dbContext, userManager);
+        var roomService = host.Get<IRoomManagementService>();
         var result = await roomService.CreateRoomAccountAsync(
             room.Id,
-            new CreateRoomAccountRequest("user_room", "room@test.local", "P@ss123", "TK_TEST_2"));
+            new CreateRoomAccountRequest(IdentityTestData.Unique("user_room"), "room@test.local", "P@ss123", IdentityTestData.Unique("TK2")), TestContext.Current.CancellationToken);
 
         Assert.False(result.IsSuccess);
         Assert.Equal(409, result.StatusCode);
@@ -160,12 +112,13 @@ public sealed class AdminManagementTests
     [Fact]
     public async Task CreateShiftAssignment_WhenEndsAtUtcBeforeStartsAtUtc_Returns400BadRequest()
     {
-        var (dbContext, userManager) = CreateContextAndUserManager();
+        await using var host = await IdentityTestHost.OpenAsync();
+        var dbContext = host.Context;
         var staff = new Staff
         {
             Id = Guid.NewGuid(),
-            AppUserId = Guid.NewGuid(),
-            StaffCode = "BS99",
+            AppUserId = dbContext.AddUser(Roles.Patient).Id,
+            StaffCode = IdentityTestData.Unique("BS"),
             FullName = "Bác Sĩ Test",
             StaffType = StaffType.Doctor,
             IsActive = true,
@@ -174,7 +127,7 @@ public sealed class AdminManagementTests
         var room = new Room
         {
             Id = Guid.NewGuid(),
-            RoomNumber = "PK99",
+            RoomNumber = IdentityTestData.Unique("PK"),
             RoomName = "Phòng Test",
             RoomType = RoomType.Clinical,
             DepartmentName = "Khoa Test",
@@ -182,9 +135,9 @@ public sealed class AdminManagementTests
         };
         dbContext.Staffs.Add(staff);
         dbContext.Rooms.Add(room);
-        await dbContext.SaveChangesAsync();
+        await dbContext.SaveChangesAsync(TestContext.Current.CancellationToken);
 
-        var service = new StaffAdminService(dbContext, userManager);
+        var service = host.Get<IStaffAdminService>();
         var now = DateTime.UtcNow;
         var result = await service.CreateShiftAssignmentAsync(new CreateShiftAssignmentRequest(
             staff.Id,
@@ -193,7 +146,7 @@ public sealed class AdminManagementTests
             "Morning",
             StartsAtUtc: now,
             EndsAtUtc: now.AddHours(-1), // invalid: ends before starts
-            IsShiftLeader: false));
+            IsShiftLeader: false), TestContext.Current.CancellationToken);
 
         Assert.False(result.IsSuccess);
         Assert.Equal(400, result.StatusCode);

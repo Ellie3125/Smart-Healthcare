@@ -1,3 +1,4 @@
+using IdentityPatients.Contracts;
 using IdentityPatients.Application.Rooms;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Http;
@@ -5,7 +6,7 @@ using Microsoft.AspNetCore.Mvc;
 
 namespace IdentityPatients.Api.Controllers;
 
-[Authorize(Policy = "AdminOnly")]
+[Authorize(Policy = Policies.AdminOnly)]
 [Route("api/staff/admin/rooms")]
 public sealed class RoomAdminController(IRoomManagementService roomService) : ApiControllerBase
 {

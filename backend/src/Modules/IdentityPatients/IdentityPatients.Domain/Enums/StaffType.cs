@@ -5,5 +5,6 @@ public enum StaffType
     Doctor,
     Nurse,
     Receptionist,
-    Technician
+    Technician,
+    Admin
 }

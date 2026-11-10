@@ -5,6 +5,7 @@ using IdentityPatients.Domain.Entities;
 using IdentityPatients.Domain.Enums;
 using IdentityPatients.Infrastructure.Persistence;
 using Microsoft.EntityFrameworkCore;
+using Shared.Abstractions;
 using Shared.Infrastructure.Persistence;
 using Shared.Infrastructure.Persistence.Entities;
 using Shared.Infrastructure.Persistence.Enums;
@@ -13,10 +14,20 @@ namespace IdentityPatients.Infrastructure.Services;
 
 public sealed class VerificationService(
     IdentityPatientsDbContext dbContext,
-    SharedDbContext? sharedDbContext = null) : IVerificationService
+    IUnitOfWork unitOfWork,
+    AuditLogWriter auditLog) : IVerificationService
 {
     private readonly IdentityPatientsDbContext _dbContext = dbContext;
-    private readonly SharedDbContext? _sharedDbContext = sharedDbContext;
+
+    // Khóa hàng PatientRepresentative: hai tiếp tân thao tác cùng hồ sơ thì người sau thấy trạng thái mới.
+    private async Task<PatientRepresentative?> LockRepresentativeAsync(Guid representativeId, CancellationToken ct)
+    {
+        var exists = await _dbContext.PatientRepresentatives
+            .FromSql($"SELECT * FROM [identity].[PatientRepresentative] WITH (UPDLOCK, HOLDLOCK) WHERE [Id] = {representativeId}")
+            .AsNoTracking()
+            .AnyAsync(ct);
+        return exists ? await _dbContext.PatientRepresentatives.FindAsync([representativeId], ct) : null;
+    }
 
     public async Task<ServiceResult<PagedResult<VerificationItemDto>>> SearchVerificationsAsync(
         VerificationSearchQuery query,
@@ -75,39 +86,38 @@ public sealed class VerificationService(
         Guid representativeId,
         CancellationToken ct = default)
     {
-        var rep = await _dbContext.PatientRepresentatives.FirstOrDefaultAsync(r => r.Id == representativeId, ct);
-        if (rep is null)
+        return await unitOfWork.ExecuteAsync(async _ =>
         {
-            return ServiceResult<VerificationItemDto>.Failure(404, "Không tìm thấy", "Không tìm thấy yêu cầu xác minh hồ sơ.");
-        }
-
-        if (rep.VerificationStatus != VerificationStatus.Pending)
-        {
-            var extensions = new Dictionary<string, object?>
+            var rep = await LockRepresentativeAsync(representativeId, ct);
+            if (rep is null)
             {
-                ["currentStatus"] = rep.VerificationStatus.ToString(),
-                ["allowedTransitions"] = new[] { "Pending -> Verified", "Pending -> Rejected" }
-            };
+                return ServiceResult<VerificationItemDto>.Failure(404, "Không tìm thấy", "Không tìm thấy yêu cầu xác minh hồ sơ.");
+            }
 
-            return ServiceResult<VerificationItemDto>.Failure(
-                409,
-                "Chuyển trạng thái không hợp lệ",
-                $"Không thể duyệt xác minh hồ sơ đang ở trạng thái '{rep.VerificationStatus}'. Hồ sơ phải ở trạng thái 'Pending'.",
-                extensions);
-        }
+            if (rep.VerificationStatus != VerificationStatus.Pending)
+            {
+                var extensions = new Dictionary<string, object?>
+                {
+                    ["currentStatus"] = rep.VerificationStatus.ToString(),
+                    ["allowedTransitions"] = new[] { "Pending -> Verified", "Pending -> Rejected" }
+                };
 
-        var oldStatus = rep.VerificationStatus;
-        rep.VerificationStatus = VerificationStatus.Verified;
-        var now = DateTime.UtcNow;
+                return ServiceResult<VerificationItemDto>.Failure(
+                    409,
+                    "Chuyển trạng thái không hợp lệ",
+                    $"Không thể duyệt xác minh hồ sơ đang ở trạng thái '{rep.VerificationStatus}'. Hồ sơ phải ở trạng thái 'Pending'.",
+                    extensions);
+            }
 
-        var patient = await _dbContext.Patients.FirstOrDefaultAsync(p => p.Id == rep.PatientId, ct);
+            var oldStatus = rep.VerificationStatus;
+            rep.VerificationStatus = VerificationStatus.Verified;
+            var now = DateTime.UtcNow;
 
-        await using var tx = await _dbContext.Database.BeginTransactionAsync(ct);
-        await _dbContext.SaveChangesAsync(ct);
+            var patient = await _dbContext.Patients.FirstOrDefaultAsync(p => p.Id == rep.PatientId, ct);
 
-        if (_sharedDbContext != null)
-        {
-            _sharedDbContext.Set<AuditLog>().Add(new AuditLog
+            await _dbContext.SaveChangesAsync(ct);
+
+            await auditLog.WriteAsync(new AuditLog
             {
                 Id = Guid.NewGuid(),
                 PerformedByUserId = staffUserId,
@@ -119,28 +129,26 @@ public sealed class VerificationService(
                 NewValuesJson = JsonSerializer.Serialize(new { VerificationStatus = rep.VerificationStatus.ToString() }),
                 ChangeReason = "Đối chiếu bản gốc và xác minh hợp lệ tại quầy tiếp tân",
                 TimestampUtc = now
-            });
-            await _sharedDbContext.SaveChangesAsync(ct);
-        }
+            }, ct);
 
-        await tx.CommitAsync(ct);
 
-        var dto = new VerificationItemDto(
-            rep.Id,
-            rep.PatientId,
-            rep.AppUserId,
-            patient?.FullName ?? string.Empty,
-            patient?.DateOfBirth ?? default,
-            patient?.Gender.ToString() ?? string.Empty,
-            MaskNationalId(patient?.NationalId),
-            patient?.PhoneNumber ?? string.Empty,
-            patient?.Address ?? string.Empty,
-            rep.Relationship.ToString(),
-            rep.VerificationStatus.ToString(),
-            rep.CreatedAtUtc,
-            rep.RevokedAtUtc);
+            var dto = new VerificationItemDto(
+                rep.Id,
+                rep.PatientId,
+                rep.AppUserId,
+                patient?.FullName ?? string.Empty,
+                patient?.DateOfBirth ?? default,
+                patient?.Gender.ToString() ?? string.Empty,
+                MaskNationalId(patient?.NationalId),
+                patient?.PhoneNumber ?? string.Empty,
+                patient?.Address ?? string.Empty,
+                rep.Relationship.ToString(),
+                rep.VerificationStatus.ToString(),
+                rep.CreatedAtUtc,
+                rep.RevokedAtUtc);
 
-        return ServiceResult<VerificationItemDto>.Success(dto);
+            return ServiceResult<VerificationItemDto>.Success(dto);
+        }, ct);
     }
 
     public async Task<ServiceResult<VerificationItemDto>> RejectAsync(
@@ -154,41 +162,40 @@ public sealed class VerificationService(
             return ServiceResult<VerificationItemDto>.Failure(400, "Thiếu lý do từ chối", "Vui lòng nhập lý do từ chối xác minh.");
         }
 
-        var rep = await _dbContext.PatientRepresentatives.FirstOrDefaultAsync(r => r.Id == representativeId, ct);
-        if (rep is null)
+        return await unitOfWork.ExecuteAsync(async _ =>
         {
-            return ServiceResult<VerificationItemDto>.Failure(404, "Không tìm thấy", "Không tìm thấy yêu cầu xác minh hồ sơ.");
-        }
-
-        if (rep.VerificationStatus != VerificationStatus.Pending)
-        {
-            var extensions = new Dictionary<string, object?>
+            var rep = await LockRepresentativeAsync(representativeId, ct);
+            if (rep is null)
             {
-                ["currentStatus"] = rep.VerificationStatus.ToString(),
-                ["allowedTransitions"] = new[] { "Pending -> Verified", "Pending -> Rejected" }
-            };
+                return ServiceResult<VerificationItemDto>.Failure(404, "Không tìm thấy", "Không tìm thấy yêu cầu xác minh hồ sơ.");
+            }
 
-            return ServiceResult<VerificationItemDto>.Failure(
-                409,
-                "Chuyển trạng thái không hợp lệ",
-                $"Không thể từ chối hồ sơ đang ở trạng thái '{rep.VerificationStatus}'. Hồ sơ phải ở trạng thái 'Pending'.",
-                extensions);
-        }
+            if (rep.VerificationStatus != VerificationStatus.Pending)
+            {
+                var extensions = new Dictionary<string, object?>
+                {
+                    ["currentStatus"] = rep.VerificationStatus.ToString(),
+                    ["allowedTransitions"] = new[] { "Pending -> Verified", "Pending -> Rejected" }
+                };
 
-        var oldStatus = rep.VerificationStatus;
-        rep.VerificationStatus = VerificationStatus.Rejected;
-        rep.IsActive = false;
-        var now = DateTime.UtcNow;
-        rep.RevokedAtUtc = now;
+                return ServiceResult<VerificationItemDto>.Failure(
+                    409,
+                    "Chuyển trạng thái không hợp lệ",
+                    $"Không thể từ chối hồ sơ đang ở trạng thái '{rep.VerificationStatus}'. Hồ sơ phải ở trạng thái 'Pending'.",
+                    extensions);
+            }
 
-        var patient = await _dbContext.Patients.FirstOrDefaultAsync(p => p.Id == rep.PatientId, ct);
+            var oldStatus = rep.VerificationStatus;
+            rep.VerificationStatus = VerificationStatus.Rejected;
+            rep.IsActive = false;
+            var now = DateTime.UtcNow;
+            rep.RevokedAtUtc = now;
 
-        await using var tx = await _dbContext.Database.BeginTransactionAsync(ct);
-        await _dbContext.SaveChangesAsync(ct);
+            var patient = await _dbContext.Patients.FirstOrDefaultAsync(p => p.Id == rep.PatientId, ct);
 
-        if (_sharedDbContext != null)
-        {
-            _sharedDbContext.Set<AuditLog>().Add(new AuditLog
+            await _dbContext.SaveChangesAsync(ct);
+
+            await auditLog.WriteAsync(new AuditLog
             {
                 Id = Guid.NewGuid(),
                 PerformedByUserId = staffUserId,
@@ -200,28 +207,26 @@ public sealed class VerificationService(
                 NewValuesJson = JsonSerializer.Serialize(new { VerificationStatus = rep.VerificationStatus.ToString(), IsActive = false }),
                 ChangeReason = request.Reason.Trim(),
                 TimestampUtc = now
-            });
-            await _sharedDbContext.SaveChangesAsync(ct);
-        }
+            }, ct);
 
-        await tx.CommitAsync(ct);
 
-        var dto = new VerificationItemDto(
-            rep.Id,
-            rep.PatientId,
-            rep.AppUserId,
-            patient?.FullName ?? string.Empty,
-            patient?.DateOfBirth ?? default,
-            patient?.Gender.ToString() ?? string.Empty,
-            MaskNationalId(patient?.NationalId),
-            patient?.PhoneNumber ?? string.Empty,
-            patient?.Address ?? string.Empty,
-            rep.Relationship.ToString(),
-            rep.VerificationStatus.ToString(),
-            rep.CreatedAtUtc,
-            rep.RevokedAtUtc);
+            var dto = new VerificationItemDto(
+                rep.Id,
+                rep.PatientId,
+                rep.AppUserId,
+                patient?.FullName ?? string.Empty,
+                patient?.DateOfBirth ?? default,
+                patient?.Gender.ToString() ?? string.Empty,
+                MaskNationalId(patient?.NationalId),
+                patient?.PhoneNumber ?? string.Empty,
+                patient?.Address ?? string.Empty,
+                rep.Relationship.ToString(),
+                rep.VerificationStatus.ToString(),
+                rep.CreatedAtUtc,
+                rep.RevokedAtUtc);
 
-        return ServiceResult<VerificationItemDto>.Success(dto);
+            return ServiceResult<VerificationItemDto>.Success(dto);
+        }, ct);
     }
 
     public async Task<ServiceResult<VerificationItemDto>> RevokeAsync(
@@ -235,41 +240,40 @@ public sealed class VerificationService(
             return ServiceResult<VerificationItemDto>.Failure(400, "Thiếu lý do thu hồi", "Vui lòng nhập lý do thu hồi xác minh.");
         }
 
-        var rep = await _dbContext.PatientRepresentatives.FirstOrDefaultAsync(r => r.Id == representativeId, ct);
-        if (rep is null)
+        return await unitOfWork.ExecuteAsync(async _ =>
         {
-            return ServiceResult<VerificationItemDto>.Failure(404, "Không tìm thấy", "Không tìm thấy yêu cầu xác minh hồ sơ.");
-        }
-
-        if (rep.VerificationStatus != VerificationStatus.Verified)
-        {
-            var extensions = new Dictionary<string, object?>
+            var rep = await LockRepresentativeAsync(representativeId, ct);
+            if (rep is null)
             {
-                ["currentStatus"] = rep.VerificationStatus.ToString(),
-                ["allowedTransitions"] = new[] { "Verified -> Revoked" }
-            };
+                return ServiceResult<VerificationItemDto>.Failure(404, "Không tìm thấy", "Không tìm thấy yêu cầu xác minh hồ sơ.");
+            }
 
-            return ServiceResult<VerificationItemDto>.Failure(
-                409,
-                "Chuyển trạng thái không hợp lệ",
-                $"Không thể thu hồi hồ sơ đang ở trạng thái '{rep.VerificationStatus}'. Hồ sơ phải ở trạng thái 'Verified'.",
-                extensions);
-        }
+            if (rep.VerificationStatus != VerificationStatus.Verified)
+            {
+                var extensions = new Dictionary<string, object?>
+                {
+                    ["currentStatus"] = rep.VerificationStatus.ToString(),
+                    ["allowedTransitions"] = new[] { "Verified -> Revoked" }
+                };
 
-        var oldStatus = rep.VerificationStatus;
-        rep.VerificationStatus = VerificationStatus.Revoked;
-        rep.IsActive = false;
-        var now = DateTime.UtcNow;
-        rep.RevokedAtUtc = now;
+                return ServiceResult<VerificationItemDto>.Failure(
+                    409,
+                    "Chuyển trạng thái không hợp lệ",
+                    $"Không thể thu hồi hồ sơ đang ở trạng thái '{rep.VerificationStatus}'. Hồ sơ phải ở trạng thái 'Verified'.",
+                    extensions);
+            }
 
-        var patient = await _dbContext.Patients.FirstOrDefaultAsync(p => p.Id == rep.PatientId, ct);
+            var oldStatus = rep.VerificationStatus;
+            rep.VerificationStatus = VerificationStatus.Revoked;
+            rep.IsActive = false;
+            var now = DateTime.UtcNow;
+            rep.RevokedAtUtc = now;
 
-        await using var tx = await _dbContext.Database.BeginTransactionAsync(ct);
-        await _dbContext.SaveChangesAsync(ct);
+            var patient = await _dbContext.Patients.FirstOrDefaultAsync(p => p.Id == rep.PatientId, ct);
 
-        if (_sharedDbContext != null)
-        {
-            _sharedDbContext.Set<AuditLog>().Add(new AuditLog
+            await _dbContext.SaveChangesAsync(ct);
+
+            await auditLog.WriteAsync(new AuditLog
             {
                 Id = Guid.NewGuid(),
                 PerformedByUserId = staffUserId,
@@ -281,28 +285,26 @@ public sealed class VerificationService(
                 NewValuesJson = JsonSerializer.Serialize(new { VerificationStatus = rep.VerificationStatus.ToString(), IsActive = false }),
                 ChangeReason = request.Reason.Trim(),
                 TimestampUtc = now
-            });
-            await _sharedDbContext.SaveChangesAsync(ct);
-        }
+            }, ct);
 
-        await tx.CommitAsync(ct);
 
-        var dto = new VerificationItemDto(
-            rep.Id,
-            rep.PatientId,
-            rep.AppUserId,
-            patient?.FullName ?? string.Empty,
-            patient?.DateOfBirth ?? default,
-            patient?.Gender.ToString() ?? string.Empty,
-            MaskNationalId(patient?.NationalId),
-            patient?.PhoneNumber ?? string.Empty,
-            patient?.Address ?? string.Empty,
-            rep.Relationship.ToString(),
-            rep.VerificationStatus.ToString(),
-            rep.CreatedAtUtc,
-            rep.RevokedAtUtc);
+            var dto = new VerificationItemDto(
+                rep.Id,
+                rep.PatientId,
+                rep.AppUserId,
+                patient?.FullName ?? string.Empty,
+                patient?.DateOfBirth ?? default,
+                patient?.Gender.ToString() ?? string.Empty,
+                MaskNationalId(patient?.NationalId),
+                patient?.PhoneNumber ?? string.Empty,
+                patient?.Address ?? string.Empty,
+                rep.Relationship.ToString(),
+                rep.VerificationStatus.ToString(),
+                rep.CreatedAtUtc,
+                rep.RevokedAtUtc);
 
-        return ServiceResult<VerificationItemDto>.Success(dto);
+            return ServiceResult<VerificationItemDto>.Success(dto);
+        }, ct);
     }
 
     private static string? MaskNationalId(string? nationalId)

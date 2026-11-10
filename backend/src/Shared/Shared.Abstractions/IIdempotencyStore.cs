@@ -1,7 +1,7 @@
 namespace Shared.Abstractions;
 
 /// <summary>
-/// Idempotency của lệnh thay đổi (Giải pháp v2.13 §4, DB-04): bản ghi theo bộ ba (callerScope, operationType, key)
+/// Idempotency của lệnh thay đổi (Giải pháp v2.14 §4, DB-04): bản ghi theo bộ ba (callerScope, operationType, key)
 /// lưu RequestHash, OperationId và kết quả trong DB. Hai Backend nhận cùng khóa tranh nhau tại DB bằng khóa hàng.
 /// Phải gọi bên trong <see cref="IUnitOfWork"/>; gọi ngoài transaction là lỗi.
 /// </summary>

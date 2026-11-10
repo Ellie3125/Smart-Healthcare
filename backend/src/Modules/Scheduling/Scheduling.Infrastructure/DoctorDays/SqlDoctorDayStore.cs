@@ -87,13 +87,7 @@ public sealed class SqlDoctorDayStore(SchedulingDbContext db) : IDoctorDayStore
 
     // Booking writers take the same quota lock before checking IsOpen or changing bookings.
     private Task<DoctorDayQuota?> FindForUpdateAsync(Guid doctorId, DateOnly serviceDate, CancellationToken ct) =>
-        db.Set<DoctorDayQuota>()
-            .FromSql($"""
-                SELECT * FROM [scheduling].[DoctorDayQuota] WITH (UPDLOCK, HOLDLOCK)
-                WHERE [DoctorId] = {doctorId} AND [ServiceDate] = {serviceDate}
-                """)
-            .AsNoTracking()
-            .SingleOrDefaultAsync(ct);
+        db.LockQuotaAsync(doctorId, serviceDate, ct);
 
     private Task<int> SetOpenAsync(Guid quotaId, bool isOpen, CancellationToken ct) =>
         db.Set<DoctorDayQuota>().Where(x => x.Id == quotaId)

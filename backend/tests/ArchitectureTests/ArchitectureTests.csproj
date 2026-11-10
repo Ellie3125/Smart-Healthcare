@@ -18,5 +18,7 @@
     <ProjectReference Include="..\..\src\Modules\Notifications\Notifications.Infrastructure\Notifications.Infrastructure.csproj" />
     <ProjectReference Include="..\..\src\Shared\Shared.Infrastructure\Shared.Infrastructure.csproj" />
     <ProjectReference Include="..\..\src\Bootstrapper\SmartHealthcare.Worker\SmartHealthcare.Worker.csproj" />
+    <!-- Kiểm kê endpoint: lấy mọi module *.Api và đăng ký như Program.cs. -->
+    <ProjectReference Include="..\..\src\Bootstrapper\SmartHealthcare.Api\SmartHealthcare.Api.csproj" />
   </ItemGroup>
 </Project>

@@ -4,18 +4,21 @@ using IdentityPatients.Contracts;
 using IdentityPatients.Domain.Entities;
 using IdentityPatients.Domain.Enums;
 using IdentityPatients.Infrastructure.Persistence;
-using Microsoft.AspNetCore.Identity;
+using IdentityPatients.Infrastructure.Security;
 using Microsoft.Data.SqlClient;
 using Microsoft.EntityFrameworkCore;
+using Shared.Abstractions;
 
 namespace IdentityPatients.Infrastructure.Services;
 
-public sealed class StaffAdminService(
-    IdentityPatientsDbContext dbContext,
-    UserManager<ApplicationUser> userManager) : IStaffAdminService
+public sealed class StaffAdminService(IdentityPatientsDbContext dbContext, IUnitOfWork unitOfWork) : IStaffAdminService
 {
+    public const string AdminManagedByAdminCode = "AdminManagedByAdmin";
+    public const string LastActiveAdminCode = "LastActiveAdmin";
+    public const string ShiftAlreadyAssignedCode = "ShiftAlreadyAssigned";
+    public const string ShiftLeaderExistsCode = "ShiftLeaderExists";
+
     private readonly IdentityPatientsDbContext _dbContext = dbContext;
-    private readonly UserManager<ApplicationUser> _userManager = userManager;
 
     // --- Specialties ---
 
@@ -261,7 +264,7 @@ public sealed class StaffAdminService(
     public async Task<ServiceResult<IReadOnlyList<StaffAdminDto>>> GetStaffListAsync(string? staffType = null, bool? isActive = null, CancellationToken ct = default)
     {
         var query = from s in _dbContext.Staffs.AsNoTracking()
-                    join u in _dbContext.Users.AsNoTracking() on s.AppUserId equals u.Id
+                    join u in _dbContext.AppUsers.AsNoTracking() on s.AppUserId equals u.Id
                     select new { Staff = s, User = u };
 
         if (!string.IsNullOrWhiteSpace(staffType) && Enum.TryParse<StaffType>(staffType, ignoreCase: true, out var parsedType))
@@ -292,7 +295,7 @@ public sealed class StaffAdminService(
         return ServiceResult<IReadOnlyList<StaffAdminDto>>.Success(list);
     }
 
-    public async Task<ServiceResult<StaffAdminDto>> CreateStaffAsync(CreateStaffRequest request, CancellationToken ct = default)
+    public async Task<ServiceResult<StaffAdminDto>> CreateStaffAsync(Guid actorUserId, CreateStaffRequest request, CancellationToken ct = default)
     {
         if (string.IsNullOrWhiteSpace(request.UserName) || string.IsNullOrWhiteSpace(request.Password))
         {
@@ -304,48 +307,35 @@ public sealed class StaffAdminService(
             return ServiceResult<StaffAdminDto>.Failure(400, "Dữ liệu không hợp lệ", "Mã nhân viên và họ tên không được để trống.");
         }
 
-        if (!Enum.TryParse<StaffType>(request.StaffType, ignoreCase: true, out var staffType))
+        if (request.Password.Length < PasswordHashing.MinPasswordLength)
         {
-            return ServiceResult<StaffAdminDto>.Failure(400, "Loại nhân sự không hợp lệ", "Loại nhân sự hợp lệ: Doctor, Nurse, Receptionist, Technician.");
+            return ServiceResult<StaffAdminDto>.Failure(400, "Dữ liệu không hợp lệ", $"Mật khẩu phải có ít nhất {PasswordHashing.MinPasswordLength} ký tự.");
         }
 
-        var targetRole = staffType switch
+        // Technician chưa có vai trò đăng nhập (D3), nên không tạo tài khoản cho loại này.
+        if (!Enum.TryParse<StaffType>(request.StaffType, ignoreCase: true, out var staffType) || staffType == StaffType.Technician)
         {
-            StaffType.Doctor => Roles.Doctor,
-            StaffType.Nurse => Roles.Nurse,
-            StaffType.Receptionist => Roles.Receptionist,
-            _ => Roles.Doctor // Fallback nếu chưa có role riêng cho Technician
-        };
+            return ServiceResult<StaffAdminDto>.Failure(400, "Loại nhân sự không hợp lệ", "Loại nhân sự hợp lệ: Doctor, Nurse, Receptionist, Admin.");
+        }
 
-        var user = new ApplicationUser
+        if (staffType == StaffType.Admin && !await IsAdminAsync(actorUserId, ct))
+        {
+            return AdminOnlyFailure<StaffAdminDto>();
+        }
+
+        var now = DateTime.UtcNow;
+        var user = new AppUser
         {
             Id = Guid.NewGuid(),
             UserName = request.UserName.Trim(),
-            Email = request.Email.Trim(),
+            PasswordHash = PasswordHashing.Hash(request.Password),
+            Email = string.IsNullOrWhiteSpace(request.Email) ? null : request.Email.Trim(),
             PhoneNumber = string.IsNullOrWhiteSpace(request.PhoneNumber) ? null : request.PhoneNumber.Trim(),
             EmailConfirmed = true,
             PhoneNumberConfirmed = !string.IsNullOrWhiteSpace(request.PhoneNumber),
             IsActive = true,
-            CreatedAtUtc = DateTime.UtcNow
+            CreatedAtUtc = now
         };
-
-        await using var tx = await _dbContext.Database.BeginTransactionAsync(ct);
-
-        var createResult = await _userManager.CreateAsync(user, request.Password);
-        if (!createResult.Succeeded)
-        {
-            await tx.RollbackAsync(ct);
-            var errors = string.Join("; ", createResult.Errors.Select(e => e.Description));
-            return ServiceResult<StaffAdminDto>.Failure(400, "Tạo tài khoản thất bại", errors);
-        }
-
-        var addRoleResult = await _userManager.AddToRoleAsync(user, targetRole);
-        if (!addRoleResult.Succeeded)
-        {
-            await tx.RollbackAsync(ct);
-            return ServiceResult<StaffAdminDto>.Failure(400, "Gán quyền thất bại", "Không thể gán vai trò nhân sự.");
-        }
-
         var staff = new Staff
         {
             Id = Guid.NewGuid(),
@@ -354,145 +344,126 @@ public sealed class StaffAdminService(
             FullName = request.FullName.Trim(),
             StaffType = staffType,
             IsActive = true,
-            CreatedAtUtc = DateTime.UtcNow
+            CreatedAtUtc = now
         };
-
-        _dbContext.Staffs.Add(staff);
 
         try
         {
-            await _dbContext.SaveChangesAsync(ct);
-            await tx.CommitAsync(ct);
+            await unitOfWork.ExecuteAsync(async token =>
+            {
+                _dbContext.AppUsers.Add(user);
+                _dbContext.Staffs.Add(staff);
+                await _dbContext.SaveChangesAsync(token);
+            }, ct);
         }
         catch (DbUpdateException ex)
         {
-            await tx.RollbackAsync(ct);
+            _dbContext.ChangeTracker.Clear();
+            if (IsUniqueViolation(ex, "UserName"))
+            {
+                return ServiceResult<StaffAdminDto>.Failure(409, "Trùng tên đăng nhập", "Tên đăng nhập đã tồn tại.", code: "UserNameTaken");
+            }
+            if (IsUniqueViolation(ex, "Email") || IsUniqueViolation(ex, "PhoneNumber"))
+            {
+                return ServiceResult<StaffAdminDto>.Failure(409, "Trùng liên hệ", "Email hoặc số điện thoại đã được dùng cho tài khoản khác.", code: "ContactTaken");
+            }
             if (IsUniqueViolation(ex, "StaffCode"))
             {
-                return ServiceResult<StaffAdminDto>.Failure(409, "Trùng mã nhân viên", $"Mã nhân viên '{request.StaffCode}' đã tồn tại.");
-            }
-            if (IsUniqueViolation(ex, "AppUserId"))
-            {
-                return ServiceResult<StaffAdminDto>.Failure(409, "Xung đột tài khoản", "Tài khoản người dùng đã được liên kết với nhân sự khác.");
+                return ServiceResult<StaffAdminDto>.Failure(409, "Trùng mã nhân viên", "Mã nhân viên đã tồn tại.", code: "StaffCodeTaken");
             }
             return ServiceResult<StaffAdminDto>.Failure(409, "Xung đột dữ liệu", "Không thể tạo nhân sự do xung đột dữ liệu.");
         }
 
-        var dto = new StaffAdminDto(
-            staff.Id,
-            staff.AppUserId,
-            staff.StaffCode,
-            staff.FullName,
-            staff.StaffType.ToString(),
-            user.UserName,
-            user.Email ?? string.Empty,
-            user.PhoneNumber,
-            staff.IsActive,
-            staff.CreatedAtUtc);
-
-        return ServiceResult<StaffAdminDto>.Success(dto, 201);
+        return ServiceResult<StaffAdminDto>.Success(ToDto(staff, user), 201);
     }
 
-    public async Task<ServiceResult<StaffAdminDto>> UpdateStaffAsync(Guid id, UpdateStaffRequest request, CancellationToken ct = default)
+    public Task<ServiceResult<StaffAdminDto>> UpdateStaffAsync(Guid actorUserId, Guid id, UpdateStaffRequest request, CancellationToken ct = default)
     {
-        var staff = await _dbContext.Staffs.FindAsync([id], ct);
-        if (staff is null)
-        {
-            return ServiceResult<StaffAdminDto>.Failure(404, "Không tìm thấy", "Không tìm thấy nhân sự.");
-        }
-
         if (string.IsNullOrWhiteSpace(request.FullName))
         {
-            return ServiceResult<StaffAdminDto>.Failure(400, "Dữ liệu không hợp lệ", "Họ tên không được để trống.");
+            return Task.FromResult(ServiceResult<StaffAdminDto>.Failure(400, "Dữ liệu không hợp lệ", "Họ tên không được để trống."));
         }
 
-        staff.FullName = request.FullName.Trim();
-        staff.IsActive = request.IsActive;
-
-        var user = await _userManager.FindByIdAsync(staff.AppUserId.ToString());
-        if (user != null)
-        {
-            user.IsActive = request.IsActive;
-            if (!request.IsActive)
-            {
-                await _userManager.SetLockoutEndDateAsync(user, DateTimeOffset.UtcNow.AddYears(100));
-            }
-            else
-            {
-                await _userManager.SetLockoutEndDateAsync(user, null);
-            }
-            await _userManager.UpdateAsync(user);
-        }
-
-        await _dbContext.SaveChangesAsync(ct);
-
-        var dto = new StaffAdminDto(
-            staff.Id,
-            staff.AppUserId,
-            staff.StaffCode,
-            staff.FullName,
-            staff.StaffType.ToString(),
-            user?.UserName ?? string.Empty,
-            user?.Email ?? string.Empty,
-            user?.PhoneNumber,
-            staff.IsActive,
-            staff.CreatedAtUtc);
-
-        return ServiceResult<StaffAdminDto>.Success(dto);
+        return ChangeStaffAsync(actorUserId, id, request.IsActive, staff => staff.FullName = request.FullName.Trim(), ct);
     }
 
-    public async Task<ServiceResult<StaffAdminDto>> ToggleStaffActiveAsync(Guid id, bool isActive, CancellationToken ct = default)
+    public Task<ServiceResult<StaffAdminDto>> ToggleStaffActiveAsync(Guid actorUserId, Guid id, bool isActive, CancellationToken ct = default) =>
+        ChangeStaffAsync(actorUserId, id, isActive, _ => { }, ct);
+
+    // Staff, AppUser và Doctor đổi IsActive trong cùng một unit of work.
+    // Nhân sự loại Admin chỉ Admin sửa được; không vô hiệu hóa Admin đang hoạt động cuối cùng (D5).
+    private async Task<ServiceResult<StaffAdminDto>> ChangeStaffAsync(Guid actorUserId, Guid id, bool isActive, Action<Staff> apply, CancellationToken ct)
     {
-        var staff = await _dbContext.Staffs.FindAsync([id], ct);
-        if (staff is null)
+        var actorIsAdmin = await IsAdminAsync(actorUserId, ct);
+        return await unitOfWork.ExecuteAsync(async token =>
         {
-            return ServiceResult<StaffAdminDto>.Failure(404, "Không tìm thấy", "Không tìm thấy nhân sự.");
-        }
-
-        await using var tx = await _dbContext.Database.BeginTransactionAsync(ct);
-
-        staff.IsActive = isActive;
-        var user = await _userManager.FindByIdAsync(staff.AppUserId.ToString());
-        if (user != null)
-        {
-            user.IsActive = isActive;
-            if (!isActive)
+            var staff = await _dbContext.Staffs.FindAsync([id], token);
+            if (staff is null)
             {
-                await _userManager.SetLockoutEndDateAsync(user, DateTimeOffset.UtcNow.AddYears(100));
+                return ServiceResult<StaffAdminDto>.Failure(404, "Không tìm thấy", "Không tìm thấy nhân sự.");
             }
-            else
+
+            if (staff.StaffType == StaffType.Admin)
             {
-                await _userManager.SetLockoutEndDateAsync(user, null);
-            }
-            await _userManager.UpdateAsync(user);
-        }
+                if (!actorIsAdmin)
+                {
+                    return AdminOnlyFailure<StaffAdminDto>();
+                }
 
-        if (staff.StaffType == StaffType.Doctor)
-        {
-            var doctor = await _dbContext.Doctors.FirstOrDefaultAsync(d => d.StaffId == staff.Id, ct);
-            if (doctor != null)
+                if (staff.IsActive && !isActive)
+                {
+                    // Khóa mọi Admin đang hoạt động để hai lệnh vô hiệu hóa đồng thời không cùng thấy "còn Admin khác".
+                    var activeAdmins = await _dbContext.Staffs
+                        .FromSql($"SELECT * FROM [identity].[Staff] WITH (UPDLOCK, HOLDLOCK) WHERE [StaffType] = N'Admin' AND [IsActive] = 1")
+                        .AsNoTracking()
+                        .Select(s => s.Id)
+                        .ToListAsync(token);
+                    if (activeAdmins.All(adminId => adminId == staff.Id))
+                    {
+                        return ServiceResult<StaffAdminDto>.Failure(409, "Không thể vô hiệu hóa", "Đây là tài khoản quản trị đang hoạt động cuối cùng.", code: LastActiveAdminCode);
+                    }
+                }
+            }
+
+            apply(staff);
+            staff.IsActive = isActive;
+            var user = await _dbContext.AppUsers.FindAsync([staff.AppUserId], token);
+            if (user != null)
             {
-                doctor.IsActive = isActive;
+                user.IsActive = isActive;
             }
-        }
 
-        await _dbContext.SaveChangesAsync(ct);
-        await tx.CommitAsync(ct);
+            if (staff.StaffType == StaffType.Doctor)
+            {
+                var doctor = await _dbContext.Doctors.FirstOrDefaultAsync(d => d.StaffId == staff.Id, token);
+                if (doctor != null)
+                {
+                    doctor.IsActive = isActive;
+                }
+            }
 
-        var dto = new StaffAdminDto(
-            staff.Id,
-            staff.AppUserId,
-            staff.StaffCode,
-            staff.FullName,
-            staff.StaffType.ToString(),
-            user?.UserName ?? string.Empty,
-            user?.Email ?? string.Empty,
-            user?.PhoneNumber,
-            staff.IsActive,
-            staff.CreatedAtUtc);
-
-        return ServiceResult<StaffAdminDto>.Success(dto);
+            await _dbContext.SaveChangesAsync(token);
+            return ServiceResult<StaffAdminDto>.Success(ToDto(staff, user));
+        }, ct);
     }
+
+    private async Task<bool> IsAdminAsync(Guid appUserId, CancellationToken ct) =>
+        (await AccountRoles.ResolveAsync(_dbContext, appUserId, ct))?.Role == Roles.Admin;
+
+    private static ServiceResult<T> AdminOnlyFailure<T>() =>
+        ServiceResult<T>.Failure(403, "Không có quyền", "Chỉ quản trị viên được quản lý nhân sự loại Admin.", code: AdminManagedByAdminCode);
+
+    private static StaffAdminDto ToDto(Staff staff, AppUser? user) => new(
+        staff.Id,
+        staff.AppUserId,
+        staff.StaffCode,
+        staff.FullName,
+        staff.StaffType.ToString(),
+        user?.UserName ?? string.Empty,
+        user?.Email ?? string.Empty,
+        user?.PhoneNumber,
+        staff.IsActive,
+        staff.CreatedAtUtc);
 
     // --- Doctors ---
 
@@ -534,7 +505,6 @@ public sealed class StaffAdminService(
                 x.Specialty.SpecialtyName,
                 x.Rank.Id,
                 x.Rank.RankName,
-                x.Doctor.DefaultRoomId,
                 x.Doctor.Biography,
                 x.Doctor.IsActive))
             .ToListAsync(ct);
@@ -573,7 +543,6 @@ public sealed class StaffAdminService(
             StaffId = request.StaffId,
             SpecialtyId = request.SpecialtyId,
             DoctorRankId = request.DoctorRankId,
-            DefaultRoomId = request.DefaultRoomId,
             Biography = request.Biography?.Trim(),
             IsActive = true
         };
@@ -602,7 +571,6 @@ public sealed class StaffAdminService(
             specialty.SpecialtyName,
             rank.Id,
             rank.RankName,
-            doctor.DefaultRoomId,
             doctor.Biography,
             doctor.IsActive);
 
@@ -631,7 +599,6 @@ public sealed class StaffAdminService(
 
         doctor.SpecialtyId = request.SpecialtyId;
         doctor.DoctorRankId = request.DoctorRankId;
-        doctor.DefaultRoomId = request.DefaultRoomId;
         doctor.Biography = request.Biography?.Trim();
         doctor.IsActive = request.IsActive;
 
@@ -648,7 +615,6 @@ public sealed class StaffAdminService(
             specialty.SpecialtyName,
             rank.Id,
             rank.RankName,
-            doctor.DefaultRoomId,
             doctor.Biography,
             doctor.IsActive);
 
@@ -679,7 +645,6 @@ public sealed class StaffAdminService(
             specialty?.SpecialtyName ?? string.Empty,
             rank?.Id ?? Guid.Empty,
             rank?.RankName ?? string.Empty,
-            doctor.DefaultRoomId,
             doctor.Biography,
             doctor.IsActive);
 
@@ -739,18 +704,6 @@ public sealed class StaffAdminService(
         CreateShiftAssignmentRequest request,
         CancellationToken ct = default)
     {
-        var staff = await _dbContext.Staffs.FindAsync([request.StaffId], ct);
-        if (staff is null)
-        {
-            return ServiceResult<ShiftAssignmentDto>.Failure(404, "Không tìm thấy", "Không tìm thấy nhân sự.");
-        }
-
-        var room = await _dbContext.Rooms.FindAsync([request.RoomId], ct);
-        if (room is null)
-        {
-            return ServiceResult<ShiftAssignmentDto>.Failure(404, "Không tìm thấy", "Không tìm thấy phòng.");
-        }
-
         if (!Enum.TryParse<ShiftName>(request.ShiftName, ignoreCase: true, out var shiftName))
         {
             return ServiceResult<ShiftAssignmentDto>.Failure(400, "Ca trực không hợp lệ", "Ca trực hợp lệ: Morning, Afternoon, FullDay.");
@@ -761,60 +714,75 @@ public sealed class StaffAdminService(
             return ServiceResult<ShiftAssignmentDto>.Failure(400, "Thời gian không hợp lệ", "Thời gian kết thúc ca trực phải sau thời gian bắt đầu.");
         }
 
-        var assignment = new StaffShiftAssignment
+        // ERD không có unique cho hai quy tắc dưới (Backend kiểm). Khóa hàng Staff (một ca mỗi ngày) và hàng Room
+        // (một trưởng ca mỗi ca) để hai yêu cầu đồng thời không cùng vượt qua bước kiểm tra.
+        return await unitOfWork.ExecuteAsync(async token =>
         {
-            Id = Guid.NewGuid(),
-            StaffId = request.StaffId,
-            RoomId = request.RoomId,
-            ShiftDate = request.ShiftDate,
-            ShiftName = shiftName,
-            StartsAtUtc = request.StartsAtUtc,
-            EndsAtUtc = request.EndsAtUtc,
-            IsShiftLeader = request.IsShiftLeader
-        };
+            var staff = await _dbContext.Staffs
+                .FromSql($"SELECT * FROM [identity].[Staff] WITH (UPDLOCK, HOLDLOCK) WHERE [Id] = {request.StaffId}")
+                .AsNoTracking()
+                .SingleOrDefaultAsync(token);
+            if (staff is null)
+            {
+                return ServiceResult<ShiftAssignmentDto>.Failure(404, "Không tìm thấy", "Không tìm thấy nhân sự.");
+            }
 
-        _dbContext.StaffShiftAssignments.Add(assignment);
+            var room = await _dbContext.Rooms
+                .FromSql($"SELECT * FROM [identity].[Room] WITH (UPDLOCK, HOLDLOCK) WHERE [Id] = {request.RoomId}")
+                .AsNoTracking()
+                .SingleOrDefaultAsync(token);
+            if (room is null)
+            {
+                return ServiceResult<ShiftAssignmentDto>.Failure(404, "Không tìm thấy", "Không tìm thấy phòng.");
+            }
 
-        try
-        {
-            await _dbContext.SaveChangesAsync(ct);
-        }
-        catch (DbUpdateException ex)
-        {
-            if (IsUniqueViolation(ex, "StaffId") || IsUniqueViolation(ex, "ShiftDate"))
+            if (await _dbContext.StaffShiftAssignments.AnyAsync(a => a.StaffId == staff.Id && a.ShiftDate == request.ShiftDate, token))
             {
                 return ServiceResult<ShiftAssignmentDto>.Failure(
                     409,
                     "Trùng ca trực",
-                    $"Nhân viên '{staff.FullName}' đã được phân công ca trực trong ngày {request.ShiftDate:yyyy-MM-dd}.");
+                    $"Nhân viên '{staff.FullName}' đã được phân công ca trực trong ngày {request.ShiftDate:yyyy-MM-dd}.",
+                    code: ShiftAlreadyAssignedCode);
             }
 
-            if (IsUniqueViolation(ex, "IsShiftLeader") || IsUniqueViolation(ex, "RoomId"))
+            if (request.IsShiftLeader && await _dbContext.StaffShiftAssignments.AnyAsync(
+                    a => a.RoomId == room.Id && a.ShiftDate == request.ShiftDate && a.ShiftName == shiftName && a.IsShiftLeader, token))
             {
                 return ServiceResult<ShiftAssignmentDto>.Failure(
                     409,
                     "Trùng trưởng ca",
-                    $"Phòng '{room.RoomNumber}' đã có trưởng ca được phân công cho ca {request.ShiftName} ngày {request.ShiftDate:yyyy-MM-dd}.");
+                    $"Phòng '{room.RoomNumber}' đã có trưởng ca cho ca {shiftName} ngày {request.ShiftDate:yyyy-MM-dd}.",
+                    code: ShiftLeaderExistsCode);
             }
 
-            return ServiceResult<ShiftAssignmentDto>.Failure(409, "Xung đột dữ liệu", "Không thể phân ca trực do xung đột dữ liệu.");
-        }
+            var assignment = new StaffShiftAssignment
+            {
+                Id = Guid.NewGuid(),
+                StaffId = staff.Id,
+                RoomId = room.Id,
+                ShiftDate = request.ShiftDate,
+                ShiftName = shiftName,
+                StartsAtUtc = request.StartsAtUtc,
+                EndsAtUtc = request.EndsAtUtc,
+                IsShiftLeader = request.IsShiftLeader
+            };
+            _dbContext.StaffShiftAssignments.Add(assignment);
+            await _dbContext.SaveChangesAsync(token);
 
-        var dto = new ShiftAssignmentDto(
-            assignment.Id,
-            staff.Id,
-            staff.FullName,
-            staff.StaffCode,
-            room.Id,
-            room.RoomNumber,
-            room.RoomName,
-            assignment.ShiftDate,
-            assignment.ShiftName.ToString(),
-            assignment.StartsAtUtc,
-            assignment.EndsAtUtc,
-            assignment.IsShiftLeader);
-
-        return ServiceResult<ShiftAssignmentDto>.Success(dto, 201);
+            return ServiceResult<ShiftAssignmentDto>.Success(new ShiftAssignmentDto(
+                assignment.Id,
+                staff.Id,
+                staff.FullName,
+                staff.StaffCode,
+                room.Id,
+                room.RoomNumber,
+                room.RoomName,
+                assignment.ShiftDate,
+                assignment.ShiftName.ToString(),
+                assignment.StartsAtUtc,
+                assignment.EndsAtUtc,
+                assignment.IsShiftLeader), 201);
+        }, ct);
     }
 
     public async Task<ServiceResult> DeleteShiftAssignmentAsync(Guid id, CancellationToken ct = default)

@@ -11,7 +11,7 @@ public sealed class IdentityPatientsModule(IdentityPatientsDbContext dbContext) 
 
     public async Task<bool> CanAccessPatientAsync(Guid userId, Guid patientId, AccessLevel level = AccessLevel.Booking, CancellationToken ct = default)
     {
-        var user = await _dbContext.Users
+        var user = await _dbContext.AppUsers
             .AsNoTracking()
             .FirstOrDefaultAsync(u => u.Id == userId, ct);
 
@@ -20,13 +20,8 @@ public sealed class IdentityPatientsModule(IdentityPatientsDbContext dbContext) 
             return false;
         }
 
-        var roles = await (from ur in _dbContext.UserRoles.AsNoTracking()
-                           join r in _dbContext.Roles.AsNoTracking() on ur.RoleId equals r.Id
-                           where ur.UserId == userId
-                           select r.Name).ToListAsync(ct);
-
         // Nhân viên và RoomAccount không đi qua đường này để đọc dữ liệu bệnh nhân (FR04/SEC-01)
-        if (!roles.Contains(Roles.Patient))
+        if ((await AccountRoles.ResolveAsync(_dbContext, userId, ct))?.Role != Roles.Patient)
         {
             return false;
         }
@@ -62,7 +57,6 @@ public sealed class IdentityPatientsModule(IdentityPatientsDbContext dbContext) 
                         spec.SpecialtyCode,
                         r.Id,
                         r.RankName,
-                        d.DefaultRoomId,
                         d.IsActive && s.IsActive
                     );
 
@@ -100,7 +94,6 @@ public sealed class IdentityPatientsModule(IdentityPatientsDbContext dbContext) 
                 x.Specialty.SpecialtyCode,
                 x.Rank.Id,
                 x.Rank.RankName,
-                x.Doctor.DefaultRoomId,
                 x.Doctor.IsActive && x.Staff.IsActive
             ))
             .ToListAsync(ct);

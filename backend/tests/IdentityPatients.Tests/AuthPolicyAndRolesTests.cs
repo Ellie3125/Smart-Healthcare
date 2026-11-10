@@ -33,11 +33,12 @@ public sealed class AuthPolicyAndRolesTests
     [Fact]
     public void AuthResult_Failure_ReturnsExpectedStatusCodeAndDetails()
     {
-        var result = AuthResult.Failure(403, "Truy cập bị từ chối", "Tài khoản bệnh nhân không được phép đăng nhập kênh nhân viên.");
+        var result = AuthResult.Failure(403, "Truy cập bị từ chối", "Tài khoản bệnh nhân không được phép đăng nhập kênh nhân viên.", "Forbidden");
         Assert.False(result.IsSuccess);
         Assert.Equal(403, result.StatusCode);
         Assert.Equal("Truy cập bị từ chối", result.ErrorTitle);
         Assert.Contains("bệnh nhân", result.ErrorDetail);
+        Assert.Equal("Forbidden", result.ErrorCode);
     }
 
     [Fact]

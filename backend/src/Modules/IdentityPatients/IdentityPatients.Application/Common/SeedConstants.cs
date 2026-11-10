@@ -80,6 +80,7 @@ public static class SeedConstants
     // Staff
     public static readonly Guid StaffReceptionist01Id = Guid.Parse("44444444-4444-4444-4444-444444440001");
     public static readonly Guid StaffNurse01Id = Guid.Parse("44444444-4444-4444-4444-444444440002");
+    public static readonly Guid StaffAdmin01Id = Guid.Parse("44444444-4444-4444-4444-444444440020");
     public static readonly Guid StaffDoctor01Id = Guid.Parse("44444444-4444-4444-4444-444444440003");
     public static readonly Guid StaffDoctor02Id = Guid.Parse("44444444-4444-4444-4444-444444440004");
     public static readonly Guid StaffDoctor03Id = Guid.Parse("44444444-4444-4444-4444-444444440005");
@@ -109,7 +110,7 @@ public static class SeedConstants
     public static readonly Guid Patient03Id = Guid.Parse("77777777-7777-7777-7777-777777770003");
     public static readonly Guid Patient04Id = Guid.Parse("77777777-7777-7777-7777-777777770004");
 
-    // ApplicationUsers
+    // AppUsers
     public static readonly Guid UserPatient01Id = Guid.Parse("aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaa0001");
     public const string UserPatient01UserName = "patient01";
 
