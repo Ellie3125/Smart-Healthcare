@@ -31,7 +31,7 @@ public static class DependencyInjection
             // nên đăng ký cùng store, không ở AddSchedulingApplication (host test endpoint chỉ có Application).
             .AddScoped<HoldService>()
             .AddScoped<BookingAttemptService>()
-            .AddScoped<BookingProgressService>()
+            // BookingProgressService cần IIdentityPatientsModule nên đăng ký ở host có Identity (SmartHealthcare.Api), không ở đây: Worker cũng gọi hàm này.
             // Dispatcher Outbox (W3-00) gọi handler; host cần IBillingModule khi resolve.
             .AddScoped<IIntegrationEventHandler<PaymentVerified>, PaymentVerifiedHandler>()
             .AddScoped<IConfirmationStore, SqlConfirmationStore>()

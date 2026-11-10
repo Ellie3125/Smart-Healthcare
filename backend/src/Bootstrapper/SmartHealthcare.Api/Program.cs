@@ -67,6 +67,8 @@ builder.Services
 builder.Services
     .AddIdentityPatientsApplication().AddIdentityPatientsApi()
     .AddSchedulingApplication().AddSchedulingApi()
+    // Cần IIdentityPatientsModule nên đăng ký ở đây, không trong AddSchedulingInfrastructure mà Worker cũng gọi (FIX-014).
+    .AddScoped<Scheduling.Application.BookingAttempts.BookingProgressService>()
     .AddClinicalApplication().AddClinicalApi()
     .AddMedicationCatalogApplication().AddMedicationCatalogApi()
     .AddBillingApplication().AddBillingApi()
