@@ -15,8 +15,5 @@ internal sealed class StaffShiftAssignmentConfiguration : IEntityTypeConfigurati
 
         builder.HasOne<Staff>().WithMany().HasForeignKey(x => x.StaffId).OnDelete(DeleteBehavior.Restrict);
         builder.HasOne<Room>().WithMany().HasForeignKey(x => x.RoomId).OnDelete(DeleteBehavior.Restrict);
-
-        builder.HasIndex(x => new { x.StaffId, x.ShiftDate }).IsUnique();
-        builder.HasIndex(x => new { x.RoomId, x.ShiftDate, x.ShiftName }).IsUnique().HasFilter("[IsShiftLeader] = 1");
     }
 }
