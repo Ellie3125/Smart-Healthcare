@@ -1,6 +1,6 @@
 # Contract module Scheduling
 
-- contract_version: **v0.2** (§4.4 Draft, chờ trưởng nhóm duyệt; phần còn lại giữ như v0.1 Approved)
+- contract_version: **v0.2** (Approved; §4.4 trưởng nhóm duyệt 10/11/2026)
 - Trạng thái: **Approved** (H-02, trưởng nhóm duyệt 10/11/2026). Câu hỏi Q1–Q5 ở §6 vẫn là đề xuất cho tới khi trưởng nhóm chốt từng câu.
 - Người giữ: theo ownership.md mục 1. Task: W1-04.
 - Mã nguồn: `backend/src/Modules/Scheduling/Scheduling.Contracts/` (in-process), `Scheduling.Api/` (HTTP).
@@ -127,15 +127,16 @@ Theo code trên `dev` (PR #44 merge 80a563a, policy sửa trong PR #54), `Schedu
 - Mốc cutoff so bằng giờ DB: `nowUtc` đọc một lần qua `IDbClock`, dùng chung cho lọc `BookingCutoffTimeUtc > nowUtc` và `QuoteExamFee.AtUtc`. Phí lấy qua `IBillingModule.QuoteExamFeeAsync` từng bác sĩ trong trang (tối đa 50; đổi sang báo giá theo lô khi Billing có).
 - Danh sách bác sĩ đang lấy từ `DevelopmentDoctorSearchDirectory` (dữ liệu giả) cho tới khi IdentityPatients có contract.
 
-### 4.4 Khôi phục tiến trình đặt lịch (W2-04) — Draft, theo PR #55, chưa merge
+### 4.4 Khôi phục tiến trình đặt lịch (W2-04, PR #55 đã merge 93e59e0)
 
-Theo đề nghị OWN-14 trong mô tả PR #55 (HEAD df7ea12). Ba route chỉ map ở Development; policy `PatientOnly` (vai trò `Patient` + claim `channel` = `Patient`). Thiếu xác thực trả 401, sai policy trả 403. Tiến trình, lệnh không tồn tại, không thuộc người gọi hoặc người gọi mất quyền Booking trên hồ sơ đều trả cùng 404.
+Theo đề nghị OWN-14 trong mô tả PR #55 (HEAD 6b9e776). Ba route chỉ map ở Development; policy `PatientOnly` (vai trò `Patient` + claim `channel` = `Patient`). Thiếu xác thực trả 401, sai policy trả 403. Tiến trình, lệnh không tồn tại, không thuộc người gọi hoặc người gọi mất quyền Booking trên hồ sơ đều trả cùng 404.
 
 `GET /api/scheduling/patient/booking-attempts/{bookingAttemptId:guid}`
 
 - 200: `{ "bookingAttemptId", "status", "currentStep", "expiresAtUtc" (nullable), "allowedActions": [...] }`. Enum dạng chuỗi tên.
 - Hết hạn so bằng giờ DB (`IDbClock`): attempt `Held`/`WaitingPayment` mà reservation mới nhất không còn `Held` hoặc `expiresAtUtc <= nowUtc` thì trả `status = NeedsReselection`, `currentStep = DoctorSelection`, kể cả khi worker chưa cập nhật hàng.
-- `allowedActions`: `Draft` → `["Hold"]`; `Held`/`WaitingPayment` còn hạn → `["ContinuePayment"]`; trạng thái khác → `[]`. **Đang review:** `NeedsReselection` đã lưu trong DB nên trả `["Hold"]` (store nhận giữ chỗ ở trạng thái này; Giải pháp §2.3 yêu cầu chọn lại lịch).
+- `allowedActions`: trạng thái đã lưu `Draft` hoặc `NeedsReselection` → `["Hold"]` (Giải pháp §2.3: chọn lại lịch); `Held`/`WaitingPayment` còn hạn → `["ContinuePayment"]`; trạng thái khác → `[]`.
+- Hết hạn phát hiện lúc đọc (hàng còn `Held`/`WaitingPayment`, worker chưa lưu `NeedsReselection`) trả `NeedsReselection`, `DoctorSelection`, `allowedActions = []`, vì lệnh giữ chỗ chỉ nhận trạng thái đã lưu `Draft`/`NeedsReselection`. Client đọc lại sau khi worker cập nhật.
 - Lỗi: 404 `AttemptNotFound`.
 
 `GET /api/scheduling/patient/operations/{operationId:guid}`
@@ -190,4 +191,5 @@ Chỉ route và mục đích, để UI (W2-09) mock trước. Body, mã lỗi v�
 | v0.1 | 09/11/2026 | Bản đầu (W1-04): `ISchedulingModule` (tìm bác sĩ theo DTO của PR #44, check in, vé CLS + vé quay lại), 3 sự kiện, HTTP W2-01, W2-05 theo PR #44, danh sách endpoint W2 dự kiến |
 | v0.1 (sửa) | 09/11/2026 | Q6 (hasMore), Q7 (tiền tố kênh) đã chốt; route §5 thêm tiền tố kênh và route staff; đề xuất Q1–Q5 chờ duyệt; Q3 ghi vào `AppointmentCancelled` |
 | v0.1 Approved | 10/11/2026 | H-02 duyệt; §4.1–4.3 đối chiếu `dev` sau FIX-013 (policy vai trò + kênh) và W2-05 phần 1 (đã merge, `PatientOnly`, bỏ 503 không còn trong code); Phạm vi v2.12, Giải pháp v2.14 |
-| v0.2 | 10/11/2026 | Thêm §4.4 (W2-04: khôi phục tiến trình, tra Operation, giữ chỗ qua web) theo đề nghị OWN-14 của PR #55; Draft, chờ duyệt; thêm mã 415 `UnsupportedMediaType` |
+| v0.2 | 10/11/2026 | Thêm §4.4 (W2-04: khôi phục tiến trình, tra Operation, giữ chỗ qua web) theo đề nghị OWN-14 của PR #55; thêm mã 415 `UnsupportedMediaType` |
+| v0.2 Approved | 10/11/2026 | Trưởng nhóm duyệt §4.4; `allowedActions` theo PR #55 đã merge (`NeedsReselection` đã lưu → `["Hold"]`, hết hạn tính lúc đọc → `[]`) |
