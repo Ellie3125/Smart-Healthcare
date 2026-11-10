@@ -1,3 +1,5 @@
+using Notifications.Contracts;
+using Notifications.Infrastructure.Operations;
 using Notifications.Infrastructure.Persistence;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
@@ -8,5 +10,6 @@ public static class DependencyInjection
 {
     public static IServiceCollection AddNotificationsInfrastructure(this IServiceCollection services, string connectionString) =>
         services.AddDbContext<WorkflowDbContext>(options => options.UseSqlServer(connectionString,
-            sql => sql.MigrationsHistoryTable("__EFMigrationsHistory", WorkflowDbContext.Schema)));
+            sql => sql.MigrationsHistoryTable("__EFMigrationsHistory", WorkflowDbContext.Schema)))
+            .AddScoped<IOperationTracker, EfOperationTracker>();
 }

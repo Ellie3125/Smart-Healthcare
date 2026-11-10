@@ -1,6 +1,8 @@
 using Hangfire;
 using Hangfire.SqlServer;
 using Microsoft.Data.SqlClient;
+using Notifications.Infrastructure;
+using Notifications.Infrastructure.Persistence;
 using Scheduling.Application;
 using Scheduling.Application.Holds;
 using Scheduling.Infrastructure;
@@ -31,7 +33,9 @@ builder.Services.AddHangfireServer();
 builder.Services
     .AddSharedInfrastructure(connectionString)
     .AddSchedulingInfrastructure(connectionString)
+    .AddNotificationsInfrastructure(connectionString)
     .AddUnitOfWorkParticipant<SchedulingDbContext>()
+    .AddUnitOfWorkParticipant<WorkflowDbContext>()
     .AddSchedulingApplication();
 
 var host = builder.Build();
