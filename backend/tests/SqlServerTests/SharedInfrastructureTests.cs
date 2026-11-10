@@ -370,6 +370,61 @@ public class SharedInfrastructureTests
     }
 
     [Fact]
+    public async Task Idempotency_two_backends_contending_for_a_key_keep_the_first_operation()
+    {
+        await using var services = BuildServices();
+        var key = Guid.NewGuid().ToString("N");
+        var (winnerId, contenderId) = (Guid.NewGuid(), Guid.NewGuid());
+
+        try
+        {
+            await using var first = services.CreateAsyncScope();
+            await using var second = services.CreateAsyncScope();
+            var firstStore = first.ServiceProvider.GetRequiredService<IIdempotencyStore>();
+            var secondStore = second.ServiceProvider.GetRequiredService<IIdempotencyStore>();
+            var secondDb = second.ServiceProvider.GetRequiredService<SharedDbContext>();
+
+            await Uow(first).ExecuteAsync(async t =>
+            {
+                Assert.IsType<IdempotencyBeginResult.Started>(await Begin(firstStore, key, "hash-1", Hour, winnerId, t));
+
+                // Thử khóa từ phiên khác khi phiên đầu còn giữ transaction, không phụ thuộc vào timing của Task.Delay.
+                var error = await Assert.ThrowsAsync<SqlException>(() => Uow(second).ExecuteAsync(async t2 =>
+                {
+                    await secondDb.Database.ExecuteSqlRawAsync("SET LOCK_TIMEOUT 0", t2);
+                    try
+                    {
+                        await Begin(secondStore, key, "hash-1", Hour, contenderId, t2);
+                    }
+                    finally
+                    {
+                        await secondDb.Database.ExecuteSqlRawAsync("SET LOCK_TIMEOUT -1", CancellationToken.None);
+                    }
+                }, t));
+
+                Assert.Equal(1222, error.Number);
+            }, Ct);
+
+            await using var retry = services.CreateAsyncScope();
+            var retryStore = retry.ServiceProvider.GetRequiredService<IIdempotencyStore>();
+            var result = await Uow(retry).ExecuteAsync(t => Begin(retryStore, key, "hash-1", Hour, contenderId, t), Ct);
+            Assert.Equal(new IdempotencyBeginResult.InProgress(winnerId), result);
+
+            var retryDb = retry.ServiceProvider.GetRequiredService<SharedDbContext>();
+            Assert.Equal(1, await retryDb.Set<ApiIdempotencyRecord>()
+                .CountAsync(row => row.CallerScope == Scope && row.OperationType == OperationType && row.IdempotencyKey == key, Ct));
+        }
+        finally
+        {
+            await using var cleanup = services.CreateAsyncScope();
+            var db = cleanup.ServiceProvider.GetRequiredService<SharedDbContext>();
+            await db.Database.ExecuteSqlAsync(
+                $"DELETE FROM shared.ApiIdempotencyRecord WHERE CallerScope = {Scope} AND OperationType = {OperationType} AND IdempotencyKey = {key}",
+                CancellationToken.None);
+        }
+    }
+
+    [Fact]
     public async Task Idempotency_expired_record_is_overwritten()
     {
         await using var services = BuildServices();
