@@ -1,4 +1,5 @@
 using Billing.Contracts;
+using Scheduling.Contracts;
 using Shared.Abstractions;
 
 namespace Scheduling.Application.DoctorSearch;
