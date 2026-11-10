@@ -1,3 +1,5 @@
+using Billing.Contracts;
+using Billing.Infrastructure;
 using Hangfire;
 using Hangfire.SqlServer;
 using Microsoft.Data.SqlClient;
@@ -8,6 +10,7 @@ using Scheduling.Application.Holds;
 using Scheduling.Infrastructure;
 using Scheduling.Infrastructure.Persistence;
 using Shared.Infrastructure;
+using Shared.Infrastructure.Outbox;
 
 var builder = Host.CreateApplicationBuilder(args);
 
@@ -36,12 +39,21 @@ builder.Services
     .AddNotificationsInfrastructure(connectionString)
     .AddUnitOfWorkParticipant<SchedulingDbContext>()
     .AddUnitOfWorkParticipant<WorkflowDbContext>()
-    .AddSchedulingApplication();
+    .AddSchedulingApplication()
+    // PaymentVerifiedHandler báo giá lại phí khám qua IBillingModule (W2-06).
+    .AddBillingInfrastructure(connectionString)
+    .AddOutboxDispatcher(builder.Configuration.GetSection(OutboxOptions.Section).Get<OutboxOptions>() ?? new OutboxOptions())
+    .AddOutboxEvent<PaymentVerified>();
 
 var host = builder.Build();
 
 // Hết hạn giữ chỗ (W2-02, Giải pháp §5.1). Hangfire chạy tối đa mỗi phút; lệnh xác nhận vẫn tự kiểm ExpiresAt.
 host.Services.GetRequiredService<IRecurringJobManager>().AddOrUpdate<HoldService>(
     "scheduling-expire-holds", service => service.ExpireDueAsync(CancellationToken.None), Cron.Minutely());
+
+// Phát Outbox tới handler (W3-00, Giải pháp §8.3). Mỗi lần chạy xử lý tới khi hết bản ghi tới hạn; nhiều worker không nhận trùng.
+host.Services.GetRequiredService<IRecurringJobManager>().AddOrUpdate<OutboxDispatcher>(
+    "shared-outbox-dispatch", dispatcher => dispatcher.DispatchPendingAsync(CancellationToken.None),
+    builder.Configuration[$"{OutboxOptions.Section}:Cron"] ?? Cron.Minutely());
 
 host.Run();

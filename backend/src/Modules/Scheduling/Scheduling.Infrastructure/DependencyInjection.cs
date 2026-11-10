@@ -1,3 +1,4 @@
+using Billing.Contracts;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Scheduling.Application.Appointments;
@@ -13,6 +14,7 @@ using Scheduling.Infrastructure.DoctorDays;
 using Scheduling.Infrastructure.DoctorSearch;
 using Scheduling.Infrastructure.Holds;
 using Scheduling.Infrastructure.Persistence;
+using Shared.Abstractions;
 
 namespace Scheduling.Infrastructure;
 
@@ -30,7 +32,8 @@ public static class DependencyInjection
             .AddScoped<HoldService>()
             .AddScoped<BookingAttemptService>()
             .AddScoped<BookingProgressService>()
-            // PaymentVerifiedHandler (cần IBillingModule) đăng ký cùng dispatcher Outbox ở W3-00.
+            // Dispatcher Outbox (W3-00) gọi handler; host cần IBillingModule khi resolve.
+            .AddScoped<IIntegrationEventHandler<PaymentVerified>, PaymentVerifiedHandler>()
             .AddScoped<IConfirmationStore, SqlConfirmationStore>()
             // AppointmentChangeService (cần IBillingModule) đăng ký cùng endpoint đổi/hủy khi contract được duyệt.
             .AddScoped<IAppointmentChangeStore, SqlAppointmentChangeStore>();
