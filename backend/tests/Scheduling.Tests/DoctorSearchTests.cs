@@ -1,5 +1,6 @@
 using Billing.Contracts;
 using Scheduling.Application.DoctorSearch;
+using Scheduling.Contracts;
 using Shared.Abstractions;
 using Xunit;
 

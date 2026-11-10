@@ -5,6 +5,7 @@ using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Routing;
 using Scheduling.Application.DoctorSearch;
+using Scheduling.Contracts;
 
 namespace Scheduling.Api;
 
