@@ -1,11 +1,11 @@
 # Contract module Scheduling
 
 - contract_version: **v0.1**
-- Trạng thái: **Draft**, chờ trưởng nhóm duyệt (H-02). Chưa dùng để tích hợp thật trước khi Approved (API-02).
-- Người giữ: Claude Code (ownership.md mục 1). Task: W1-04.
+- Trạng thái: **Approved** (H-02, trưởng nhóm duyệt 10/11/2026). Câu hỏi Q1–Q5 ở §6 vẫn là đề xuất cho tới khi trưởng nhóm chốt từng câu.
+- Người giữ: theo ownership.md mục 1. Task: W1-04.
 - Mã nguồn: `backend/src/Modules/Scheduling/Scheduling.Contracts/` (in-process), `Scheduling.Api/` (HTTP).
 - Quy ước chung: `docs/conventions.md` v0.1 (W1-03, PR #43, chờ duyệt): ProblemDetails + extension `code`, JSON camelCase, thời điểm UTC ISO-8601 có `Z`, ngày phục vụ `yyyy-MM-dd`, header `Idempotency-Key`.
-- Nguồn nghiệp vụ: Phạm vi v2.11 §4–6; Giải pháp v2.13 §1.2, §2.3, §4, §8.2; ERD v2.4 (DoctorDayQuota, Reservation, Appointment, QueueTicket).
+- Nguồn nghiệp vụ: Phạm vi v2.12 §4–6; Giải pháp v2.14 §1.2, §2.3, §4, §8.2; ERD v2.4 (DoctorDayQuota, Reservation, Appointment, QueueTicket).
 
 ## 1. Quy tắc suất trống
 
@@ -21,13 +21,13 @@ Lỗi nghiệp vụ ném `SchedulingException` với `SchedulingErrorCode`. Ba m
 
 | Method | Bên gọi | Cài đặt | Unit of work | Idempotency |
 |---|---|---|---|---|
-| `SearchDoctorsAsync(DoctorSearchQuery)` | Endpoint tìm bác sĩ của Scheduling (W2-05); web bệnh nhân và chatbot dùng qua REST | W2-05 (Codex, PR #44 phần 1) | Không cần; chỉ đọc, không khóa | Không áp dụng |
-| `CheckInAsync(CheckInAppointment)` | Endpoint tiếp tân (W3-02), đăng ký tại quầy (W3-01) | W3-02 (Codex) | Tự mở `IUnitOfWork`; lồng trong UoW của bên gọi thì tham gia | Theo `AppointmentId`: đã CheckedIn thì trả kết quả cũ, `alreadyCheckedIn = true`, không phát sự kiện lần hai |
-| `CreateClsTicketsAsync(CreateClsTickets)` | Clinical khi bác sĩ chỉ định CLS | W3-04 (Claude Code) | **Bắt buộc** trong `IUnitOfWork` của Clinical, cùng đợt chỉ định và khoản phí CLS của Billing; không có transaction thì `InvalidOperationException` | Vé CLS theo `ServiceOrderItemId`, vé quay lại theo `ServiceOrderId`; gọi lặp trả vé đã có |
+| `SearchDoctorsAsync(DoctorSearchQuery)` | Endpoint tìm bác sĩ của Scheduling (W2-05); web bệnh nhân và chatbot dùng qua REST | W2-05 (PR #44 phần 1, đã merge 80a563a) | Không cần; chỉ đọc, không khóa | Không áp dụng |
+| `CheckInAsync(CheckInAppointment)` | Endpoint tiếp tân (W3-02), đăng ký tại quầy (W3-01) | W3-02 | Tự mở `IUnitOfWork`; lồng trong UoW của bên gọi thì tham gia | Theo `AppointmentId`: đã CheckedIn thì trả kết quả cũ, `alreadyCheckedIn = true`, không phát sự kiện lần hai |
+| `CreateClsTicketsAsync(CreateClsTickets)` | Clinical khi bác sĩ chỉ định CLS | W3-04 | **Bắt buộc** trong `IUnitOfWork` của Clinical, cùng đợt chỉ định và khoản phí CLS của Billing; không có transaction thì `InvalidOperationException` | Vé CLS theo `ServiceOrderItemId`, vé quay lại theo `ServiceOrderId`; gọi lặp trả vé đã có |
 
 ### 2.1 `SearchDoctorsAsync`
 
-DTO trùng tên trường và kiểu với DTO tạm của W2-05 (PR #44, `Scheduling.Application/DoctorSearch/DoctorSearchDtos.cs`); sau khi W1-04 merge, Codex chuyển sang dùng bản trong `Scheduling.Contracts`.
+DTO trùng tên trường và kiểu với DTO tạm của W2-05 (PR #44, `Scheduling.Application/DoctorSearch/DoctorSearchDtos.cs`); W2-05 phần 2 chuyển sang dùng bản trong `Scheduling.Contracts`.
 
 - Vào: `DoctorSearchQuery(DateOnly ServiceDate, Guid? DoctorRankId = null, Guid? SpecialtyId = null, int Page = 1, int PageSize = 20)`; `Page` 1..1000 (`MaxPage`), `PageSize` 1..50 (`MaxPageSize`).
 - Ra: `DoctorSearchPage(ServiceDate, Page, PageSize, HasMore, Items)`, `Items` là `DoctorSearchItem(DoctorId, FullName, DoctorRankId, SpecialtyId, AvailableSlots, ExamFee, Currency)`, sắp theo `DoctorId`.
@@ -78,7 +78,7 @@ Payload:
 
 `POST /api/scheduling/admin/doctor-days/{doctorId:guid}/{serviceDate}`
 
-- Kênh: **Staff**. Policy `AdminOnly`. Không có body. Không nhận `Idempotency-Key` (gọi lại trả 409 `AlreadyExists` khi ngày đang mở).
+- Kênh: **Staff**. Policy `AdminOnly` (vai trò `Admin` và claim `channel` = `Staff`, FIX-013). Không có body. Không nhận `Idempotency-Key` (gọi lại trả 409 `AlreadyExists` khi ngày đang mở).
 - Mở ngày mới với Capacity 30, `SessionStartTimeUtc` 06:30, `BookingCutoffTimeUtc` 09:30, `RescheduleCutoffTimeUtc` 05:00, `CheckInDeadlineUtc` theo cấu hình `Scheduling:DoctorDays:CheckInDeadline` (mặc định 11:00), quy đổi từ giờ Việt Nam sang UTC. Ngày đã đóng (`isOpen = false`) thì mở lại dưới khóa `UPDLOCK, HOLDLOCK` và trả quota cũ, giữ cấu hình cũ.
 - 201 + body (không có header Location):
 
@@ -96,7 +96,7 @@ Payload:
 
 `POST /api/scheduling/admin/doctor-days/{doctorId:guid}/{serviceDate}/close`
 
-- Kênh: **Staff**. Policy `AdminOnly`. Không có body. Gọi lặp trên ngày đã đóng trả 204.
+- Kênh: **Staff**. Policy `AdminOnly` (như 4.1). Không có body. Gọi lặp trên ngày đã đóng trả 204.
 - Khóa quota `UPDLOCK, HOLDLOCK`; từ chối khi còn bộ đếm khác 0, Reservation `Held`/`Confirmed`, hoặc Appointment khác `Cancelled`/`Rescheduled`. Giữ bản ghi quota, chỉ đặt `isOpen = false`.
 - 204. Lỗi: 400 `InvalidInput` · 404 `DayNotFound` · 409 `HasBookings` · 401/403.
 
@@ -105,15 +105,15 @@ Ghi chú chung cho 4.1 và 4.2:
 - Lỗi là ProblemDetails có extension `code` = tên `DoctorDayResult`.
 - **Hai endpoint chỉ được map khi môi trường là Development** (`MapSchedulingEndpoints`), chưa lộ ở Staging/Prod.
 - `IDoctorDirectory` hiện là `DevelopmentDoctorDirectory`, đọc dữ liệu giả `Scheduling:DoctorDays:DevelopmentDoctorRooms:{doctorId}` cho tới khi IdentityPatients có contract tra bác sĩ và phòng.
-- Chưa có test từ chối kênh Patient (API-05); cần bổ sung khi có phiên theo kênh.
+- Test từ chối kênh sai (API-05): `AuthorizationMatrixTests` gọi HTTP endpoint mở ngày với mọi vai trò khác và với Admin mang `channel` = `Patient`, đều 403; `EndpointAuthorizationInventoryTests` bắt endpoint thiếu policy vai trò + kênh.
 
-### 4.3 Tìm bác sĩ, suất trống và phí (W2-05) — theo PR #44, chưa chốt
+### 4.3 Tìm bác sĩ, suất trống và phí (W2-05 phần 1, đã merge)
 
-Theo code PR #44 (`feature/w2-05-doctor-search`, 9e124cf, phần 1, chưa merge), `Scheduling.Api/DoctorSearchEndpoints.cs`:
+Theo code trên `dev` (PR #44 merge 80a563a, policy sửa trong PR #54), `Scheduling.Api/DoctorSearchEndpoints.cs`:
 
 `GET /api/scheduling/patient/doctors?serviceDate=2026-11-12&doctorRankId=&specialtyId=&page=1&pageSize=20`
 
-- Kênh: **Patient** (vai trò `Patient`); chatbot gọi bằng phiên bệnh nhân. Chỉ map ở Development.
+- Kênh: **Patient**. Policy `PatientOnly` (vai trò `Patient` và claim `channel` = `Patient`); chatbot gọi bằng phiên bệnh nhân. Chỉ map ở Development.
 - Query: `serviceDate` bắt buộc; `doctorRankId`, `specialtyId` tùy chọn; `page` 1..1000 (mặc định 1); `pageSize` 1..50 (mặc định 20).
 - 200:
 
@@ -123,13 +123,13 @@ Theo code PR #44 (`feature/w2-05-doctor-search`, 9e124cf, phần 1, chưa merge)
                  "availableSlots": 12, "examFee": 150000, "currency": "VND" } ] }
   ```
 
-- Lỗi: 400 (ngày, bộ lọc hoặc phân trang không hợp lệ) · 401/403 · 503 `ExamFeeBatchUnavailable` (Billing chưa có báo giá theo lô; phần 1 dùng fake).
+- Lỗi: 400 `InvalidInput` (ngày, bộ lọc hoặc phân trang không hợp lệ) · 401/403.
+- Mốc cutoff so bằng giờ DB: `nowUtc` đọc một lần qua `IDbClock`, dùng chung cho lọc `BookingCutoffTimeUtc > nowUtc` và `QuoteExamFee.AtUtc`. Phí lấy qua `IBillingModule.QuoteExamFeeAsync` từng bác sĩ trong trang (tối đa 50; đổi sang báo giá theo lô khi Billing có).
 - Danh sách bác sĩ đang lấy từ `DevelopmentDoctorSearchDirectory` (dữ liệu giả) cho tới khi IdentityPatients có contract.
-- Điểm cần sửa trước khi chốt (gửi Codex): (1) so cutoff bằng `DateTime.UtcNow` của máy BE, cần dùng giờ DB (`IDbClock`) theo §1; (2) 400 chưa có extension `code` = `InvalidInput` (docs/conventions.md §4).
 
 ## 5. HTTP dự kiến của W2 — chưa chốt
 
-Chỉ route và mục đích, để Antigravity (W2-09) mock trước. Body, mã lỗi và quyền chốt trong bản contract sau. Route có tiền tố kênh `/patient/`, `/staff/`, `/admin/` (Q7, đã chốt 09/11/2026); Backend kiểm vai trò theo kênh. Mọi lệnh thay đổi nhận `Idempotency-Key`. Danh sách trả `items, page, pageSize, hasMore` (Q6, đã chốt).
+Chỉ route và mục đích, để UI (W2-09) mock trước. Body, mã lỗi và quyền chốt trong bản contract sau. Route có tiền tố kênh `/patient/`, `/staff/`, `/admin/` (Q7, đã chốt 09/11/2026); Backend kiểm vai trò theo kênh. Mọi lệnh thay đổi nhận `Idempotency-Key`. Danh sách trả `items, page, pageSize, hasMore` (Q6, đã chốt).
 
 | Method + route | Mục đích | Task |
 |---|---|---|
@@ -165,3 +165,4 @@ Chỉ route và mục đích, để Antigravity (W2-09) mock trước. Body, mã
 |---|---|---|
 | v0.1 | 09/11/2026 | Bản đầu (W1-04): `ISchedulingModule` (tìm bác sĩ theo DTO của PR #44, check in, vé CLS + vé quay lại), 3 sự kiện, HTTP W2-01, W2-05 theo PR #44, danh sách endpoint W2 dự kiến |
 | v0.1 (sửa) | 09/11/2026 | Q6 (hasMore), Q7 (tiền tố kênh) đã chốt; route §5 thêm tiền tố kênh và route staff; đề xuất Q1–Q5 chờ duyệt; Q3 ghi vào `AppointmentCancelled` |
+| v0.1 Approved | 10/11/2026 | H-02 duyệt; §4.1–4.3 đối chiếu `dev` sau FIX-013 (policy vai trò + kênh) và W2-05 phần 1 (đã merge, `PatientOnly`, bỏ 503 không còn trong code); Phạm vi v2.12, Giải pháp v2.14 |

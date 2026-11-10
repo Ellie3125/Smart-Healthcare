@@ -30,7 +30,7 @@ public sealed class TokenServiceTests
     public void GenerateAccessToken_ForDoctor_ContainsDoctorIdClaimAndStaffChannel()
     {
         var doctorId = Guid.NewGuid();
-        var user = new ApplicationUser
+        var user = new AppUser
         {
             Id = Guid.NewGuid(),
             UserName = "dr.smith",
@@ -52,7 +52,7 @@ public sealed class TokenServiceTests
     public void GenerateAccessToken_ForRoomAccount_ContainsRoomIdClaimAndStaffChannel()
     {
         var roomId = Guid.NewGuid();
-        var user = new ApplicationUser
+        var user = new AppUser
         {
             Id = Guid.NewGuid(),
             UserName = "room_xq",
@@ -73,7 +73,7 @@ public sealed class TokenServiceTests
     [Fact]
     public void GenerateAccessToken_ForPatient_ContainsPatientChannel()
     {
-        var user = new ApplicationUser
+        var user = new AppUser
         {
             Id = Guid.NewGuid(),
             UserName = "patient.smith",

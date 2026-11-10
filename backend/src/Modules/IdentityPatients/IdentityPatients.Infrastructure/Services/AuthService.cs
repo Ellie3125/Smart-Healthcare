@@ -4,8 +4,9 @@ using IdentityPatients.Application.Auth;
 using IdentityPatients.Contracts;
 using IdentityPatients.Domain.Entities;
 using IdentityPatients.Infrastructure.Persistence;
-using Microsoft.AspNetCore.Identity;
+using IdentityPatients.Infrastructure.Security;
 using Microsoft.EntityFrameworkCore;
+using Shared.Abstractions;
 using Shared.Infrastructure.Persistence;
 using Shared.Infrastructure.Persistence.Entities;
 using Shared.Infrastructure.Persistence.Enums;
@@ -13,120 +14,61 @@ using Shared.Infrastructure.Persistence.Enums;
 namespace IdentityPatients.Infrastructure.Services;
 
 public sealed class AuthService(
-    UserManager<ApplicationUser> userManager,
-    SignInManager<ApplicationUser> signInManager,
     IdentityPatientsDbContext dbContext,
     ITokenService tokenService,
-    SharedDbContext? sharedDbContext = null) : IAuthService
+    IUnitOfWork unitOfWork,
+    AuditLogWriter auditLog) : IAuthService
 {
-    private readonly UserManager<ApplicationUser> _userManager = userManager;
-    private readonly SignInManager<ApplicationUser> _signInManager = signInManager;
-    private readonly IdentityPatientsDbContext _dbContext = dbContext;
-    private readonly ITokenService _tokenService = tokenService;
-    private readonly SharedDbContext? _sharedDbContext = sharedDbContext;
+    public const string InvalidCredentialsCode = "InvalidCredentials";
 
-    public async Task<AuthResult> LoginStaffAsync(LoginRequest request, CancellationToken ct = default)
+    // Sai kênh, sai mật khẩu, tài khoản không tồn tại, bị vô hiệu hóa hay Technician đều trả cùng một lỗi (D8).
+    private static AuthResult InvalidCredentials() =>
+        AuthResult.Failure(401, "Đăng nhập thất bại", "Tên đăng nhập hoặc mật khẩu không chính xác.", InvalidCredentialsCode);
+
+    private static readonly Lazy<string> DummyHash = new(() => PasswordHashing.Hash(Guid.NewGuid().ToString()));
+
+    public Task<AuthResult> LoginStaffAsync(LoginRequest request, CancellationToken ct = default) =>
+        LoginAsync(request, Channels.Staff, ct);
+
+    public Task<AuthResult> LoginPatientAsync(LoginRequest request, CancellationToken ct = default) =>
+        LoginAsync(request, Channels.Patient, ct);
+
+    private async Task<AuthResult> LoginAsync(LoginRequest request, string channel, CancellationToken ct)
     {
-        if (string.IsNullOrWhiteSpace(request.UserName) || string.IsNullOrWhiteSpace(request.Password))
+        var userName = request.UserName ?? string.Empty;
+        var user = await dbContext.AppUsers.AsNoTracking().FirstOrDefaultAsync(u => u.UserName == userName, ct);
+        // Luôn chạy PBKDF2 để thời gian phản hồi không lộ tên đăng nhập có tồn tại hay không.
+        var passwordOk = PasswordHashing.Verify(request.Password ?? string.Empty, user?.PasswordHash ?? DummyHash.Value);
+        if (user is not { IsActive: true } || !passwordOk)
         {
-            return AuthResult.Failure(401, "Đăng nhập thất bại", "Tên đăng nhập hoặc mật khẩu không chính xác.");
+            return InvalidCredentials();
         }
 
-        var user = await _userManager.FindByNameAsync(request.UserName);
-        if (user is null || !user.IsActive)
+        var account = await AccountRoles.ResolveAsync(dbContext, user.Id, ct);
+        if (account is null || account.Channel != channel)
         {
-            return AuthResult.Failure(401, "Đăng nhập thất bại", "Tên đăng nhập hoặc mật khẩu không chính xác.");
+            return InvalidCredentials();
         }
 
-        var signInResult = await _signInManager.CheckPasswordSignInAsync(user, request.Password, lockoutOnFailure: true);
-        if (signInResult.IsLockedOut)
+        if (account.RoomAccountId is { } roomAccountId)
         {
-            return AuthResult.Failure(423, "Tài khoản bị tạm khóa", "Tài khoản đã bị tạm khóa do nhập sai mật khẩu quá nhiều lần. Vui lòng thử lại sau.");
+            await unitOfWork.ExecuteAsync(token => StartRoomSessionAsync(user.Id, roomAccountId, request, token), ct);
         }
 
-        if (!signInResult.Succeeded)
-        {
-            return AuthResult.Failure(401, "Đăng nhập thất bại", "Tên đăng nhập hoặc mật khẩu không chính xác.");
-        }
-
-        var roles = await _userManager.GetRolesAsync(user);
-
-        if (roles.Contains(Roles.Patient) && !roles.Any(r => Roles.Staff.Contains(r)))
-        {
-            return AuthResult.Failure(403, "Truy cập bị từ chối", "Tài khoản bệnh nhân không được phép đăng nhập kênh nhân viên.");
-        }
-
-        var staffRole = roles.FirstOrDefault(r => Roles.Staff.Contains(r));
-        if (staffRole is null)
-        {
-            return AuthResult.Failure(403, "Truy cập bị từ chối", "Tài khoản không có quyền truy cập kênh nhân viên.");
-        }
-
-        Guid? doctorId = null;
-        if (staffRole == Roles.Doctor)
-        {
-            doctorId = await (from d in _dbContext.Doctors
-                              join s in _dbContext.Staffs on d.StaffId equals s.Id
-                              where s.AppUserId == user.Id
-                              select (Guid?)d.Id).FirstOrDefaultAsync(ct);
-        }
-
-        Guid? roomId = null;
-        if (staffRole == Roles.RoomAccount)
-        {
-            var roomAccount = await _dbContext.RoomAccounts.FirstOrDefaultAsync(r => r.AppUserId == user.Id, ct);
-            if (roomAccount != null)
-            {
-                roomId = roomAccount.RoomId;
-                await HandleRoomDeviceSessionAsync(user.Id, roomAccount.Id, request, ct);
-            }
-        }
-
-        var token = _tokenService.GenerateAccessToken(user, staffRole, Channels.Staff, doctorId, roomId);
-        var response = new LoginResponse(token, staffRole, user.UserName ?? string.Empty, user.Id, doctorId, roomId);
-
-        return AuthResult.Success(response);
+        var token = tokenService.GenerateAccessToken(user, account.Role, channel, account.DoctorId, account.RoomId);
+        return AuthResult.Success(new LoginResponse(token, account.Role, user.UserName, user.Id, account.DoctorId, account.RoomId));
     }
 
-    public async Task<AuthResult> LoginPatientAsync(LoginRequest request, CancellationToken ct = default)
+    // Mỗi RoomAccount tối đa một phiên hoạt động (ERD: Backend kiểm). Khóa hàng RoomAccount để hai lần đăng nhập
+    // đồng thời không cùng thấy "chưa có phiên" rồi cùng tạo phiên mới.
+    private async Task StartRoomSessionAsync(Guid userId, Guid roomAccountId, LoginRequest request, CancellationToken ct)
     {
-        if (string.IsNullOrWhiteSpace(request.UserName) || string.IsNullOrWhiteSpace(request.Password))
-        {
-            return AuthResult.Failure(401, "Đăng nhập thất bại", "Tên đăng nhập hoặc mật khẩu không chính xác.");
-        }
+        await dbContext.RoomAccounts
+            .FromSql($"SELECT * FROM [identity].[RoomAccount] WITH (UPDLOCK, HOLDLOCK) WHERE [Id] = {roomAccountId}")
+            .AsNoTracking()
+            .SingleAsync(ct);
 
-        var user = await _userManager.FindByNameAsync(request.UserName);
-        if (user is null || !user.IsActive)
-        {
-            return AuthResult.Failure(401, "Đăng nhập thất bại", "Tên đăng nhập hoặc mật khẩu không chính xác.");
-        }
-
-        var signInResult = await _signInManager.CheckPasswordSignInAsync(user, request.Password, lockoutOnFailure: true);
-        if (signInResult.IsLockedOut)
-        {
-            return AuthResult.Failure(423, "Tài khoản bị tạm khóa", "Tài khoản đã bị tạm khóa do nhập sai mật khẩu quá nhiều lần. Vui lòng thử lại sau.");
-        }
-
-        if (!signInResult.Succeeded)
-        {
-            return AuthResult.Failure(401, "Đăng nhập thất bại", "Tên đăng nhập hoặc mật khẩu không chính xác.");
-        }
-
-        var roles = await _userManager.GetRolesAsync(user);
-        if (!roles.Contains(Roles.Patient))
-        {
-            return AuthResult.Failure(403, "Truy cập bị từ chối", "Tài khoản nhân viên không được phép đăng nhập kênh bệnh nhân.");
-        }
-
-        var token = _tokenService.GenerateAccessToken(user, Roles.Patient, Channels.Patient, doctorId: null, roomId: null);
-        var response = new LoginResponse(token, Roles.Patient, user.UserName ?? string.Empty, user.Id, null, null);
-
-        return AuthResult.Success(response);
-    }
-
-    private async Task HandleRoomDeviceSessionAsync(Guid userId, Guid roomAccountId, LoginRequest request, CancellationToken ct)
-    {
-        var activeSessions = await _dbContext.RoomDeviceSessions
+        var activeSessions = await dbContext.RoomDeviceSessions
             .Where(s => s.RoomAccountId == roomAccountId && s.IsActive)
             .ToListAsync(ct);
 
@@ -138,24 +80,22 @@ public sealed class AuthService(
         }
 
         var rawSessionToken = Guid.NewGuid().ToString("N");
-        var hashedToken = Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(rawSessionToken))).ToLowerInvariant();
-
         var newSession = new RoomDeviceSession
         {
             Id = Guid.NewGuid(),
             RoomAccountId = roomAccountId,
             DeviceId = request.DeviceId ?? "default-device",
             DeviceIpAddress = request.DeviceIpAddress ?? "127.0.0.1",
-            SessionToken = hashedToken,
+            SessionToken = Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(rawSessionToken))).ToLowerInvariant(),
             LoginAtUtc = now,
             IsActive = true
         };
+        dbContext.RoomDeviceSessions.Add(newSession);
+        await dbContext.SaveChangesAsync(ct);
 
-        _dbContext.RoomDeviceSessions.Add(newSession);
-
-        if (_sharedDbContext != null && activeSessions.Count > 0)
+        if (activeSessions.Count > 0)
         {
-            _sharedDbContext.Set<AuditLog>().Add(new AuditLog
+            await auditLog.WriteAsync(new AuditLog
             {
                 Id = Guid.NewGuid(),
                 PerformedByUserId = userId,
@@ -169,10 +109,7 @@ public sealed class AuthService(
                 ChangedColumns = "IsActive,LogoutAtUtc",
                 ChangeReason = "Ended previous room device sessions upon new device login",
                 TimestampUtc = now
-            });
-            await _sharedDbContext.SaveChangesAsync(ct);
+            }, ct);
         }
-
-        await _dbContext.SaveChangesAsync(ct);
     }
 }

@@ -3,7 +3,7 @@ using IdentityPatients.Contracts;
 using IdentityPatients.Domain.Entities;
 using IdentityPatients.Domain.Enums;
 using IdentityPatients.Infrastructure.Persistence;
-using Microsoft.AspNetCore.Identity;
+using IdentityPatients.Infrastructure.Security;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
@@ -11,14 +11,10 @@ using Microsoft.Extensions.Logging;
 namespace IdentityPatients.Infrastructure.Seed;
 
 public sealed class IdentityPatientsSeedService(
-    UserManager<ApplicationUser> userManager,
-    RoleManager<ApplicationRole> roleManager,
     IdentityPatientsDbContext dbContext,
     IConfiguration configuration,
     ILogger<IdentityPatientsSeedService> logger)
 {
-    private readonly UserManager<ApplicationUser> _userManager = userManager;
-    private readonly RoleManager<ApplicationRole> _roleManager = roleManager;
     private readonly IdentityPatientsDbContext _dbContext = dbContext;
     private readonly IConfiguration _configuration = configuration;
     private readonly ILogger<IdentityPatientsSeedService> _logger = logger;
@@ -33,19 +29,7 @@ public sealed class IdentityPatientsSeedService(
 
         _logger.LogInformation("Bắt đầu thực hiện Seed dữ liệu cho module IdentityPatients. Lưu ý: Đây là dữ liệu giả định demo, không phải số liệu bệnh viện thật. ServiceStation không thuộc module này.");
 
-        // 1. Roles
-        string[] allRoles = [Roles.Patient, Roles.Receptionist, Roles.Nurse, Roles.Doctor, Roles.RoomAccount, Roles.Admin];
-        foreach (var roleName in allRoles)
-        {
-            if (!await _roleManager.RoleExistsAsync(roleName))
-            {
-                var roleResult = await _roleManager.CreateAsync(new ApplicationRole(roleName));
-                if (!roleResult.Succeeded)
-                {
-                    _logger.LogWarning("Không thể tạo role {Role}: {Errors}", roleName, string.Join(", ", roleResult.Errors.Select(e => e.Description)));
-                }
-            }
-        }
+        // 1. Vai trò không lưu cột: suy từ RoomAccount, Staff.StaffType, còn lại là Patient (ERD v2.4).
 
         // 2. Chuyên khoa (Specialties)
         var specialtiesToSeed = new (Guid Id, string Code, string Name, string Desc)[]
@@ -178,7 +162,7 @@ public sealed class IdentityPatientsSeedService(
 
         foreach (var acc in clsAccounts)
         {
-            var user = await EnsureUserAsync(acc.UserId, acc.UserName, acc.Email, null, Roles.RoomAccount, defaultPassword);
+            var user = await EnsureUserAsync(acc.UserId, acc.UserName, acc.Email, null, defaultPassword);
             var existing = await _dbContext.RoomAccounts.FirstOrDefaultAsync(r => r.RoomId == acc.RoomId, ct);
             if (existing is null)
             {
@@ -207,7 +191,7 @@ public sealed class IdentityPatientsSeedService(
 
         foreach (var doc in doctorsToSeed)
         {
-            var user = await EnsureUserAsync(doc.UserId, doc.UserName, doc.Email, doc.Phone, Roles.Doctor, defaultPassword);
+            var user = await EnsureUserAsync(doc.UserId, doc.UserName, doc.Email, doc.Phone, defaultPassword);
             var staff = await _dbContext.Staffs.FirstOrDefaultAsync(s => s.Id == doc.StaffId, ct);
             if (staff is null)
             {
@@ -233,7 +217,6 @@ public sealed class IdentityPatientsSeedService(
                     StaffId = staff.Id,
                     SpecialtyId = doc.SpecialtyId,
                     DoctorRankId = doc.RankId,
-                    DefaultRoomId = doc.RoomId,
                     Biography = doc.Bio,
                     IsActive = true
                 };
@@ -242,7 +225,7 @@ public sealed class IdentityPatientsSeedService(
         }
 
         // 7. Nhân sự khác: Tiếp tân, Điều dưỡng, Admin
-        var userReceptionist = await EnsureUserAsync(SeedConstants.UserReceptionist01Id, SeedConstants.UserReceptionist01UserName, "letan01@smarthealthcare.local", "0902000001", Roles.Receptionist, defaultPassword);
+        var userReceptionist = await EnsureUserAsync(SeedConstants.UserReceptionist01Id, SeedConstants.UserReceptionist01UserName, "letan01@smarthealthcare.local", "0902000001", defaultPassword);
         var staffReceptionist = await _dbContext.Staffs.FirstOrDefaultAsync(s => s.Id == SeedConstants.StaffReceptionist01Id, ct);
         if (staffReceptionist is null)
         {
@@ -258,7 +241,7 @@ public sealed class IdentityPatientsSeedService(
             });
         }
 
-        var userNurse = await EnsureUserAsync(SeedConstants.UserNurse01Id, SeedConstants.UserNurse01UserName, "dieuduong01@smarthealthcare.local", "0903000001", Roles.Nurse, defaultPassword);
+        var userNurse = await EnsureUserAsync(SeedConstants.UserNurse01Id, SeedConstants.UserNurse01UserName, "dieuduong01@smarthealthcare.local", "0903000001", defaultPassword);
         var staffNurse = await _dbContext.Staffs.FirstOrDefaultAsync(s => s.Id == SeedConstants.StaffNurse01Id, ct);
         if (staffNurse is null)
         {
@@ -274,10 +257,24 @@ public sealed class IdentityPatientsSeedService(
             });
         }
 
-        await EnsureUserAsync(SeedConstants.UserAdmin01Id, SeedConstants.UserAdmin01UserName, "admin01@smarthealthcare.local", "0906000001", Roles.Admin, defaultPassword);
+        // Admin là nhân viên quản trị riêng, một loại nhân sự (Phạm vi v2.12 mục 2.3).
+        var userAdmin = await EnsureUserAsync(SeedConstants.UserAdmin01Id, SeedConstants.UserAdmin01UserName, "admin01@smarthealthcare.local", "0906000001", defaultPassword);
+        if (!await _dbContext.Staffs.AnyAsync(s => s.Id == SeedConstants.StaffAdmin01Id, ct))
+        {
+            _dbContext.Staffs.Add(new Staff
+            {
+                Id = SeedConstants.StaffAdmin01Id,
+                AppUserId = userAdmin.Id,
+                StaffCode = "QT01",
+                FullName = "Phạm Văn Quản Trị",
+                StaffType = StaffType.Admin,
+                IsActive = true,
+                CreatedAtUtc = DateTime.UtcNow
+            });
+        }
 
         // 8. Bệnh nhân mẫu (Có cả Pending và Verified)
-        var userPatient01 = await EnsureUserAsync(SeedConstants.UserPatient01Id, SeedConstants.UserPatient01UserName, "patient01@example.com", "0901000001", Roles.Patient, defaultPassword);
+        var userPatient01 = await EnsureUserAsync(SeedConstants.UserPatient01Id, SeedConstants.UserPatient01UserName, "patient01@example.com", "0901000001", defaultPassword);
 
         // Hồ sơ 1: Chính chủ của patient01 (Verified)
         var patient01 = await _dbContext.Patients.FirstOrDefaultAsync(p => p.Id == SeedConstants.Patient01Id, ct);
@@ -286,7 +283,6 @@ public sealed class IdentityPatientsSeedService(
             patient01 = new Patient
             {
                 Id = SeedConstants.Patient01Id,
-                OwnerUserId = userPatient01.Id,
                 FullName = "Nguyễn Văn Bệnh Nhân",
                 DateOfBirth = new DateOnly(1990, 1, 1),
                 Gender = Gender.Male,
@@ -320,7 +316,6 @@ public sealed class IdentityPatientsSeedService(
             patient02 = new Patient
             {
                 Id = SeedConstants.Patient02Id,
-                OwnerUserId = userPatient01.Id,
                 FullName = "Nguyễn Văn Con",
                 DateOfBirth = new DateOnly(2020, 5, 15),
                 Gender = Gender.Male,
@@ -354,7 +349,6 @@ public sealed class IdentityPatientsSeedService(
             patient03 = new Patient
             {
                 Id = SeedConstants.Patient03Id,
-                OwnerUserId = userPatient01.Id,
                 FullName = "Nguyễn Văn Bố",
                 DateOfBirth = new DateOnly(1960, 10, 20),
                 Gender = Gender.Male,
@@ -382,14 +376,13 @@ public sealed class IdentityPatientsSeedService(
         }
 
         // Hồ sơ 4: Bệnh nhân độc lập patient02 (Pending)
-        var userPatient02 = await EnsureUserAsync(SeedConstants.UserPatient02Id, SeedConstants.UserPatient02UserName, "patient02@example.com", "0901000002", Roles.Patient, defaultPassword);
+        var userPatient02 = await EnsureUserAsync(SeedConstants.UserPatient02Id, SeedConstants.UserPatient02UserName, "patient02@example.com", "0901000002", defaultPassword);
         var patient04 = await _dbContext.Patients.FirstOrDefaultAsync(p => p.Id == SeedConstants.Patient04Id, ct);
         if (patient04 is null)
         {
             patient04 = new Patient
             {
                 Id = SeedConstants.Patient04Id,
-                OwnerUserId = userPatient02.Id,
                 FullName = "Trần Thị Bệnh Nhân",
                 DateOfBirth = new DateOnly(1995, 8, 8),
                 Gender = Gender.Female,
@@ -420,42 +413,30 @@ public sealed class IdentityPatientsSeedService(
         _logger.LogInformation("Hoàn tất Seed dữ liệu demo cho module IdentityPatients thành công.");
     }
 
-    private async Task<ApplicationUser> EnsureUserAsync(
+    private async Task<AppUser> EnsureUserAsync(
         Guid userId,
         string userName,
         string email,
         string? phoneNumber,
-        string role,
         string password)
     {
-        var user = await _userManager.FindByNameAsync(userName);
+        var user = await _dbContext.AppUsers.FirstOrDefaultAsync(u => u.UserName == userName);
         if (user is null)
         {
-            user = new ApplicationUser
+            user = new AppUser
             {
                 Id = userId,
                 UserName = userName,
                 Email = email,
                 PhoneNumber = phoneNumber,
+                PasswordHash = PasswordHashing.Hash(password),
                 EmailConfirmed = true,
                 PhoneNumberConfirmed = !string.IsNullOrWhiteSpace(phoneNumber),
                 IsActive = true,
                 CreatedAtUtc = DateTime.UtcNow
             };
-            var result = await _userManager.CreateAsync(user, password);
-            if (!result.Succeeded)
-            {
-                throw new InvalidOperationException($"Không thể tạo tài khoản seed '{userName}': {string.Join(", ", result.Errors.Select(e => e.Description))}");
-            }
-        }
-
-        if (!await _userManager.IsInRoleAsync(user, role))
-        {
-            var addRoleResult = await _userManager.AddToRoleAsync(user, role);
-            if (!addRoleResult.Succeeded)
-            {
-                _logger.LogWarning("Không thể gán role {Role} cho user {User}: {Errors}", role, userName, string.Join(", ", addRoleResult.Errors.Select(e => e.Description)));
-            }
+            _dbContext.AppUsers.Add(user);
+            await _dbContext.SaveChangesAsync();
         }
 
         return user;

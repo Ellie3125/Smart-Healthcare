@@ -3,18 +3,16 @@ using IdentityPatients.Application.Rooms;
 using IdentityPatients.Contracts;
 using IdentityPatients.Domain.Entities;
 using IdentityPatients.Infrastructure.Persistence;
-using Microsoft.AspNetCore.Identity;
+using IdentityPatients.Infrastructure.Security;
 using Microsoft.Data.SqlClient;
 using Microsoft.EntityFrameworkCore;
+using Shared.Abstractions;
 
 namespace IdentityPatients.Infrastructure.Services;
 
-public sealed class RoomManagementService(
-    IdentityPatientsDbContext dbContext,
-    UserManager<ApplicationUser> userManager) : IRoomManagementService
+public sealed class RoomManagementService(IdentityPatientsDbContext dbContext, IUnitOfWork unitOfWork) : IRoomManagementService
 {
     private readonly IdentityPatientsDbContext _dbContext = dbContext;
-    private readonly UserManager<ApplicationUser> _userManager = userManager;
 
     public async Task<ServiceResult<RoomAccountDto>> CreateRoomAccountAsync(
         Guid roomId,
@@ -37,6 +35,11 @@ public sealed class RoomManagementService(
             return ServiceResult<RoomAccountDto>.Failure(400, "Dữ liệu không hợp lệ", "Mã tài khoản (AccountCode) không được để trống.");
         }
 
+        if (request.Password.Length < PasswordHashing.MinPasswordLength)
+        {
+            return ServiceResult<RoomAccountDto>.Failure(400, "Dữ liệu không hợp lệ", $"Mật khẩu phải có ít nhất {PasswordHashing.MinPasswordLength} ký tự.");
+        }
+
         var existingAccount = await _dbContext.RoomAccounts.AnyAsync(r => r.RoomId == roomId, ct);
         if (existingAccount)
         {
@@ -46,32 +49,16 @@ public sealed class RoomManagementService(
                 "Phòng chức năng này đã có tài khoản được cấp. Mỗi phòng chỉ có đúng một tài khoản.");
         }
 
-        var user = new ApplicationUser
+        var user = new AppUser
         {
             Id = Guid.NewGuid(),
             UserName = request.UserName.Trim(),
+            PasswordHash = PasswordHashing.Hash(request.Password),
             Email = request.Email.Trim(),
             EmailConfirmed = true,
             IsActive = true,
             CreatedAtUtc = DateTime.UtcNow
         };
-
-        await using var tx = await _dbContext.Database.BeginTransactionAsync(ct);
-
-        var createResult = await _userManager.CreateAsync(user, request.Password);
-        if (!createResult.Succeeded)
-        {
-            await tx.RollbackAsync(ct);
-            var errors = string.Join("; ", createResult.Errors.Select(e => e.Description));
-            return ServiceResult<RoomAccountDto>.Failure(400, "Tạo tài khoản thất bại", errors);
-        }
-
-        var roleResult = await _userManager.AddToRoleAsync(user, Roles.RoomAccount);
-        if (!roleResult.Succeeded)
-        {
-            await tx.RollbackAsync(ct);
-            return ServiceResult<RoomAccountDto>.Failure(400, "Gán quyền thất bại", "Không thể gán vai trò RoomAccount.");
-        }
 
         var roomAccount = new RoomAccount
         {
@@ -83,16 +70,24 @@ public sealed class RoomManagementService(
             CreatedAtUtc = DateTime.UtcNow
         };
 
-        _dbContext.RoomAccounts.Add(roomAccount);
-
         try
         {
-            await _dbContext.SaveChangesAsync(ct);
-            await tx.CommitAsync(ct);
+            // AppUser và RoomAccount ghi cùng một unit of work; Add nằm trong work để lần chạy lại sau deadlock vẫn đủ.
+            await unitOfWork.ExecuteAsync(async token =>
+            {
+                _dbContext.AppUsers.Add(user);
+                _dbContext.RoomAccounts.Add(roomAccount);
+                await _dbContext.SaveChangesAsync(token);
+            }, ct);
         }
         catch (DbUpdateException ex)
         {
-            await tx.RollbackAsync(ct);
+            _dbContext.ChangeTracker.Clear();
+            if (IsUniqueViolation(ex, "UserName") || IsUniqueViolation(ex, "Email"))
+            {
+                return ServiceResult<RoomAccountDto>.Failure(409, "Trùng tài khoản", "Tên đăng nhập hoặc email đã được dùng cho tài khoản khác.");
+            }
+
             if (IsUniqueViolation(ex, "AccountCode"))
             {
                 return ServiceResult<RoomAccountDto>.Failure(409, "Trùng mã tài khoản", "Mã tài khoản phòng đã được sử dụng.");
@@ -149,59 +144,55 @@ public sealed class RoomManagementService(
         bool isActive,
         CancellationToken ct = default)
     {
-        var roomAccount = await _dbContext.RoomAccounts.FirstOrDefaultAsync(r => r.Id == roomAccountId, ct);
-        if (roomAccount is null)
+        // RoomAccount, AppUser và các phiên đổi cùng một unit of work. Khóa hàng RoomAccount như lúc đăng nhập
+        // để một lần đăng nhập đồng thời không tạo phiên mới sau khi tài khoản đã bị tắt.
+        return await unitOfWork.ExecuteAsync(async token =>
         {
-            return ServiceResult<RoomAccountDto>.Failure(404, "Không tìm thấy", "Không tìm thấy tài khoản phòng.");
-        }
-
-        var user = await _userManager.FindByIdAsync(roomAccount.AppUserId.ToString());
-        if (user is null)
-        {
-            return ServiceResult<RoomAccountDto>.Failure(404, "Không tìm thấy", "Không tìm thấy thông tin đăng nhập của phòng.");
-        }
-
-        await using var tx = await _dbContext.Database.BeginTransactionAsync(ct);
-
-        roomAccount.IsActive = isActive;
-        user.IsActive = isActive;
-
-        if (!isActive)
-        {
-            await _userManager.SetLockoutEndDateAsync(user, DateTimeOffset.UtcNow.AddYears(100));
-
-            // Đóng tất cả phiên hoạt động hiện thời
-            var sessions = await _dbContext.RoomDeviceSessions
-                .Where(s => s.RoomAccountId == roomAccountId && s.IsActive)
-                .ToListAsync(ct);
-
-            var now = DateTime.UtcNow;
-            foreach (var session in sessions)
+            var locked = await _dbContext.RoomAccounts
+                .FromSql($"SELECT * FROM [identity].[RoomAccount] WITH (UPDLOCK, HOLDLOCK) WHERE [Id] = {roomAccountId}")
+                .AsNoTracking()
+                .AnyAsync(token);
+            var roomAccount = locked ? await _dbContext.RoomAccounts.FindAsync([roomAccountId], token) : null;
+            if (roomAccount is null)
             {
-                session.IsActive = false;
-                session.LogoutAtUtc = now;
+                return ServiceResult<RoomAccountDto>.Failure(404, "Không tìm thấy", "Không tìm thấy tài khoản phòng.");
             }
-        }
-        else
-        {
-            await _userManager.SetLockoutEndDateAsync(user, null);
-        }
 
-        await _userManager.UpdateAsync(user);
-        await _dbContext.SaveChangesAsync(ct);
-        await tx.CommitAsync(ct);
+            var user = await _dbContext.AppUsers.FindAsync([roomAccount.AppUserId], token);
+            if (user is null)
+            {
+                return ServiceResult<RoomAccountDto>.Failure(404, "Không tìm thấy", "Không tìm thấy thông tin đăng nhập của phòng.");
+            }
 
-        var dto = new RoomAccountDto(
-            roomAccount.Id,
-            roomAccount.RoomId,
-            roomAccount.AppUserId,
-            roomAccount.AccountCode,
-            user.UserName ?? string.Empty,
-            user.Email ?? string.Empty,
-            roomAccount.IsActive,
-            roomAccount.CreatedAtUtc);
+            roomAccount.IsActive = isActive;
+            user.IsActive = isActive;
 
-        return ServiceResult<RoomAccountDto>.Success(dto);
+            if (!isActive)
+            {
+                var sessions = await _dbContext.RoomDeviceSessions
+                    .Where(s => s.RoomAccountId == roomAccountId && s.IsActive)
+                    .ToListAsync(token);
+
+                var now = DateTime.UtcNow;
+                foreach (var session in sessions)
+                {
+                    session.IsActive = false;
+                    session.LogoutAtUtc = now;
+                }
+            }
+
+            await _dbContext.SaveChangesAsync(token);
+
+            return ServiceResult<RoomAccountDto>.Success(new RoomAccountDto(
+                roomAccount.Id,
+                roomAccount.RoomId,
+                roomAccount.AppUserId,
+                roomAccount.AccountCode,
+                user.UserName,
+                user.Email ?? string.Empty,
+                roomAccount.IsActive,
+                roomAccount.CreatedAtUtc));
+        }, ct);
     }
 
     public async Task<bool> ValidateRoomDeviceSessionAsync(Guid roomAccountId, string sessionHash, CancellationToken ct = default)
