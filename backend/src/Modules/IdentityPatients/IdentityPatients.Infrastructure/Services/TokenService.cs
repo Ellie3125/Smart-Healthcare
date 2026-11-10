@@ -13,7 +13,7 @@ public sealed class TokenService(IOptions<JwtOptions> jwtOptions) : ITokenServic
 {
     private readonly JwtOptions _options = jwtOptions.Value;
 
-    public string GenerateAccessToken(AppUser user)
+    public string GenerateAccessToken(ApplicationUser user, string role, string channel, Guid? doctorId = null, Guid? roomId = null)
     {
         if (string.IsNullOrWhiteSpace(_options.SigningKey) || _options.SigningKey.Length < 32)
         {
@@ -27,19 +27,20 @@ public sealed class TokenService(IOptions<JwtOptions> jwtOptions) : ITokenServic
         {
             new(JwtRegisteredClaimNames.Sub, user.Id.ToString()),
             new(ClaimTypes.NameIdentifier, user.Id.ToString()),
-            new(ClaimTypes.Name, user.UserName),
-            new(ClaimTypes.Role, user.Role),
+            new(ClaimTypes.Name, user.UserName ?? string.Empty),
+            new(ClaimTypes.Role, role),
+            new(AppClaims.Channel, channel),
             new(JwtRegisteredClaimNames.Jti, Guid.NewGuid().ToString())
         };
 
-        if (user.DoctorId.HasValue)
+        if (doctorId.HasValue)
         {
-            claims.Add(new Claim(AppClaims.DoctorId, user.DoctorId.Value.ToString()));
+            claims.Add(new Claim(AppClaims.DoctorId, doctorId.Value.ToString()));
         }
 
-        if (user.RoomId.HasValue)
+        if (roomId.HasValue)
         {
-            claims.Add(new Claim(AppClaims.RoomId, user.RoomId.Value.ToString()));
+            claims.Add(new Claim(AppClaims.RoomId, roomId.Value.ToString()));
         }
 
         var now = DateTime.UtcNow;
