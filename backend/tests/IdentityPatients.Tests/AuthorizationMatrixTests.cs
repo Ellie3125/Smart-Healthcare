@@ -84,6 +84,8 @@ public sealed class AuthorizationMatrixTests
             .AddUnitOfWorkParticipant<IdentityPatientsDbContext>();
         builder.Services.AddSchedulingApplication().AddSchedulingApi();
         builder.Services.AddSingleton(DispatchProxy.Create<IDoctorDayStore, ThrowingStore>());
+        builder.Services.AddSingleton(DispatchProxy.Create<Scheduling.Application.DoctorSearch.IDoctorSearchQuotaReader, ThrowingStore>());
+        builder.Services.AddSingleton(DispatchProxy.Create<Billing.Contracts.IBillingModule, ThrowingStore>());
         await using var app = builder.Build();
         app.UseAuthentication();
         app.UseAuthorization();
@@ -117,6 +119,7 @@ public sealed class AuthorizationMatrixTests
             (HttpMethod.Post, "/api/scheduling/admin/doctor-days/" + Guid.NewGuid() + "/2099-01-01", Roles.Admin),
             (HttpMethod.Get, "/api/staff/verifications", Roles.Receptionist),
             (HttpMethod.Get, "/api/patient/profiles", Roles.Patient),
+            (HttpMethod.Get, "/api/scheduling/patient/doctors?serviceDate=2099-01-01", Roles.Patient),
         };
 
         foreach (var (method, url, owner) in areas)
