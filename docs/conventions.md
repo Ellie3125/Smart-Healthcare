@@ -1,7 +1,7 @@
 # Quy ước code và API — Smart Healthcare
 
 - Phiên bản: v0.1, Draft chờ trưởng nhóm duyệt (W1-03)
-- Đối chiếu: code trên `dev` e714206 và PR #44 (W2-05); Giải pháp kỹ thuật v2.13 §2.3, §8.2; luật API-01..05, MOD-01..05, MSG-02, MSG-03 trong `docs/ai/instructions/`.
+- Đối chiếu: code trên `dev` e714206 và PR #44 (W2-05), đối chiếu lại với `dev` 15e58ad ngày 10/11/2026; Giải pháp kỹ thuật v2.14 §2.3, §8.2; luật API-01..05, MOD-01..05, MSG-02, MSG-03 trong `docs/ai/instructions/`.
 - Phạm vi: Backend .NET và contract trong `docs/api/`. Quy ước UI nằm ở `docs/ai/instructions/frontend-react.md`.
 
 Khi quy ước này mâu thuẫn với Giải pháp kỹ thuật hoặc Phạm vi nghiệp vụ thì hai tài liệu đó thắng; sửa file này theo GOV-06.
@@ -48,6 +48,7 @@ Tên DbContext và schema của ba module **khác tên module**:
 - Tài nguyên: danh từ số nhiều, kebab-case (`/doctor-days`, `/appointments`). Tham số đường dẫn camelCase có ràng buộc kiểu (`{doctorId:guid}`). Ngày phục vụ dạng `yyyy-MM-dd` (`DateOnly`).
 - Hành động không phải CRUD: `POST` tới tài nguyên con là động từ (`POST .../{serviceDate}/close`, `POST /appointments/{id}/cancel`).
 - **Tiền tố kênh (đã chốt 09/11/2026):** sau tiền tố module là kênh: `/api/<module>/patient/...` (web bệnh nhân, chatbot), `/api/<module>/staff/...` (web nhân viên: bác sĩ, điều dưỡng, tiếp tân, tài khoản phòng CLS), `/api/<module>/admin/...` (admin, policy `AdminOnly`). Ví dụ: `GET /api/scheduling/patient/doctors`, `POST /api/scheduling/admin/doctor-days/{doctorId}/{serviceDate}`. Backend kiểm vai trò theo kênh (SEC-03): route `patient` yêu cầu vai trò `Patient`, route `staff` yêu cầu vai trò nhân viên phù hợp (`Roles` trong `IdentityPatients.Contracts`), route `admin` yêu cầu `Admin`. Callback cổng thanh toán là kênh hệ thống, không theo tiền tố này, xác minh bằng chữ ký (API-05).
+  - **Câu hỏi chờ trưởng nhóm chốt (10/11/2026):** IdentityPatients hiện dùng `/auth/staff/login`, `/auth/patient/login`, `/me`, `/api/staff/admin/...`, `/api/staff/verifications`, `/api/patient/profiles`, chưa theo tiền tố `/api/identity-patients/<kênh>/...`. Quy ước trên giữ nguyên tới khi chốt; module mới theo quy ước.
 - Mỗi endpoint khai báo kênh trong contract và có test từ chối kênh sai (API-05).
 - JSON camelCase (mặc định ASP.NET Core). Enum trả dạng chuỗi tên. Thời điểm là ISO-8601 UTC có hậu tố `Z`, tên trường kết thúc bằng `Utc`; hiển thị theo Asia/Ho_Chi_Minh ở UI (API-04).
 - **Phân trang (đã chốt 09/11/2026):** query `page` (từ 1) và `pageSize`; contract ghi mặc định và giới hạn trên. Response gồm `items`, `page`, `pageSize`, `hasMore`; **không** trả `totalCount` (không tốn `COUNT`, UI dùng "tải thêm"). Cài đặt: đọc `pageSize + 1` dòng, `hasMore` = có dòng thứ `pageSize + 1`.
