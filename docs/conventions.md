@@ -72,6 +72,7 @@ Tên DbContext và schema của ba module **khác tên module**:
   | 401 / 403 | Chưa đăng nhập / sai vai trò, sai kênh, không có quyền trên hồ sơ | do middleware xác thực trả |
   | 404 | Không có tài nguyên hoặc người gọi không được biết nó tồn tại | `DayNotFound`, `DoctorNotFound` |
   | 409 | Xung đột trạng thái hoặc quy tắc nghiệp vụ (hết suất, quá cutoff, đã tồn tại, rowversion cũ, idempotency) | `AlreadyExists`, `HasBookings` |
+  | 415 | Body gửi lên không phải `application/json` | `UnsupportedMediaType` |
   | 503 | Dịch vụ phụ thuộc tạm ngưng (cổng thanh toán, chatbot ngoài giờ demo) | `GatewayUnavailable` |
 
 - Không trả stack trace hay thông điệp exception ra client. Lỗi không lường trước đi qua `UseExceptionHandler()` thành 500 ProblemDetails.
