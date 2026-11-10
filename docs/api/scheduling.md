@@ -1,6 +1,6 @@
 # Contract module Scheduling
 
-- contract_version: **v0.1**
+- contract_version: **v0.2** (§4.4 Draft, chờ trưởng nhóm duyệt; phần còn lại giữ như v0.1 Approved)
 - Trạng thái: **Approved** (H-02, trưởng nhóm duyệt 10/11/2026). Câu hỏi Q1–Q5 ở §6 vẫn là đề xuất cho tới khi trưởng nhóm chốt từng câu.
 - Người giữ: theo ownership.md mục 1. Task: W1-04.
 - Mã nguồn: `backend/src/Modules/Scheduling/Scheduling.Contracts/` (in-process), `Scheduling.Api/` (HTTP).
@@ -127,6 +127,30 @@ Theo code trên `dev` (PR #44 merge 80a563a, policy sửa trong PR #54), `Schedu
 - Mốc cutoff so bằng giờ DB: `nowUtc` đọc một lần qua `IDbClock`, dùng chung cho lọc `BookingCutoffTimeUtc > nowUtc` và `QuoteExamFee.AtUtc`. Phí lấy qua `IBillingModule.QuoteExamFeeAsync` từng bác sĩ trong trang (tối đa 50; đổi sang báo giá theo lô khi Billing có).
 - Danh sách bác sĩ đang lấy từ `DevelopmentDoctorSearchDirectory` (dữ liệu giả) cho tới khi IdentityPatients có contract.
 
+### 4.4 Khôi phục tiến trình đặt lịch (W2-04) — Draft, theo PR #55, chưa merge
+
+Theo đề nghị OWN-14 trong mô tả PR #55 (HEAD df7ea12). Ba route chỉ map ở Development; policy `PatientOnly` (vai trò `Patient` + claim `channel` = `Patient`). Thiếu xác thực trả 401, sai policy trả 403. Tiến trình, lệnh không tồn tại, không thuộc người gọi hoặc người gọi mất quyền Booking trên hồ sơ đều trả cùng 404.
+
+`GET /api/scheduling/patient/booking-attempts/{bookingAttemptId:guid}`
+
+- 200: `{ "bookingAttemptId", "status", "currentStep", "expiresAtUtc" (nullable), "allowedActions": [...] }`. Enum dạng chuỗi tên.
+- Hết hạn so bằng giờ DB (`IDbClock`): attempt `Held`/`WaitingPayment` mà reservation mới nhất không còn `Held` hoặc `expiresAtUtc <= nowUtc` thì trả `status = NeedsReselection`, `currentStep = DoctorSelection`, kể cả khi worker chưa cập nhật hàng.
+- `allowedActions`: `Draft` → `["Hold"]`; `Held`/`WaitingPayment` còn hạn → `["ContinuePayment"]`; trạng thái khác → `[]`. **Đang review:** `NeedsReselection` đã lưu trong DB nên trả `["Hold"]` (store nhận giữ chỗ ở trạng thái này; Giải pháp §2.3 yêu cầu chọn lại lịch).
+- Lỗi: 404 `AttemptNotFound`.
+
+`GET /api/scheduling/patient/operations/{operationId:guid}`
+
+- Chỉ Operation do người gọi khởi tạo và gắn với một BookingAttempt người gọi được xem.
+- 200: `{ "operationId", "bookingAttemptId", "operationType", "status", "bookingAttemptStatus", "currentStep", "expiresAtUtc", "allowedActions", "createdAtUtc", "completedAtUtc" (nullable) }`. Không trả lý do lỗi nội bộ.
+- Lỗi: 404 `OperationNotFound`.
+
+`POST /api/scheduling/patient/booking-attempts/{bookingAttemptId:guid}/hold`
+
+- Header `Idempotency-Key` bắt buộc (một giá trị, tối đa 64 ký tự). Body JSON `{ "doctorId": "<uuid>", "serviceDate": "yyyy-MM-dd" }`. Hạng bác sĩ lấy phía server, không nhận từ client.
+- 201 `{ "operationId", "reservationId", "expiresAtUtc" }` khi giữ chỗ đã commit; 202 `{ "operationId" }` khi lệnh cùng khóa đang xử lý và đã có OperationId. Cả hai có header `Location: /api/scheduling/patient/operations/{operationId}`.
+- Gửi lại cùng người gọi, khóa và nội dung trả kết quả đã lưu với cùng `operationId`, không tạo lệnh mới.
+- Lỗi: 400 `InvalidInput` · 415 `UnsupportedMediaType` (body không phải JSON) · 404 `AttemptNotFound`, `DoctorNotFound`, `DayNotFound` · 409 `IdempotencyConflict`, `RequestInProgress` (đang xử lý, chưa có OperationId), `InvalidAttemptState`, `DayClosed`, `CutoffPassed`, `Full`, `AlreadyClaimed`.
+
 ## 5. HTTP dự kiến của W2 — chưa chốt
 
 Chỉ route và mục đích, để UI (W2-09) mock trước. Body, mã lỗi và quyền chốt trong bản contract sau. Route có tiền tố kênh `/patient/`, `/staff/`, `/admin/` (Q7, đã chốt 09/11/2026); Backend kiểm vai trò theo kênh. Mọi lệnh thay đổi nhận `Idempotency-Key`. Danh sách trả `items, page, pageSize, hasMore` (Q6, đã chốt).
@@ -134,10 +158,10 @@ Chỉ route và mục đích, để UI (W2-09) mock trước. Body, mã lỗi v�
 | Method + route | Mục đích | Task |
 |---|---|---|
 | `POST /api/scheduling/patient/booking-attempts` | Tạo tiến trình đặt lịch (BookingAttempt) cho một hồ sơ bệnh nhân được đại diện | W2-03 |
-| `GET /api/scheduling/patient/booking-attempts/{bookingAttemptId}` | Khôi phục tiến trình: trạng thái, bước đã xong, `expiresAtUtc`, `allowedActions` (Giải pháp §2.3) | W2-04 |
-| `POST /api/scheduling/patient/booking-attempts/{bookingAttemptId}/hold` | Giữ chỗ bác sĩ + ngày (5 phút) | W2-02 |
+| `GET /api/scheduling/patient/booking-attempts/{bookingAttemptId}` | Khôi phục tiến trình: trạng thái, bước đã xong, `expiresAtUtc`, `allowedActions` (Giải pháp §2.3); chi tiết §4.4 | W2-04 |
+| `POST /api/scheduling/patient/booking-attempts/{bookingAttemptId}/hold` | Giữ chỗ bác sĩ + ngày (5 phút); chi tiết §4.4 | W2-02, W2-04 |
 | `POST /api/scheduling/patient/booking-attempts/{bookingAttemptId}/payment` | Tạo yêu cầu thanh toán phí khám (gọi `IBillingModule.CreatePaymentAsync`), trả liên kết VNPAY | W2-02/W2-06 |
-| `GET /api/scheduling/patient/operations/{operationId}` | Tra lệnh dài (202 + `operationId`) | W2-03 |
+| `GET /api/scheduling/patient/operations/{operationId}` | Tra lệnh dài (202 + `operationId`); chi tiết §4.4 | W2-03, W2-04 |
 | `GET /api/scheduling/patient/appointments` | Lịch hẹn của các hồ sơ người dùng được đại diện | W2-07 |
 | `GET /api/scheduling/patient/appointments/{appointmentId}` | Chi tiết lịch hẹn, mã lịch hẹn, số thứ tự (sau check in) | W2-07 |
 | `POST /api/scheduling/patient/appointments/{appointmentId}/reschedule` | Đổi lịch trước 05:00 sang bác sĩ cùng mức phí | W2-07 |
@@ -166,3 +190,4 @@ Chỉ route và mục đích, để UI (W2-09) mock trước. Body, mã lỗi v�
 | v0.1 | 09/11/2026 | Bản đầu (W1-04): `ISchedulingModule` (tìm bác sĩ theo DTO của PR #44, check in, vé CLS + vé quay lại), 3 sự kiện, HTTP W2-01, W2-05 theo PR #44, danh sách endpoint W2 dự kiến |
 | v0.1 (sửa) | 09/11/2026 | Q6 (hasMore), Q7 (tiền tố kênh) đã chốt; route §5 thêm tiền tố kênh và route staff; đề xuất Q1–Q5 chờ duyệt; Q3 ghi vào `AppointmentCancelled` |
 | v0.1 Approved | 10/11/2026 | H-02 duyệt; §4.1–4.3 đối chiếu `dev` sau FIX-013 (policy vai trò + kênh) và W2-05 phần 1 (đã merge, `PatientOnly`, bỏ 503 không còn trong code); Phạm vi v2.12, Giải pháp v2.14 |
+| v0.2 | 10/11/2026 | Thêm §4.4 (W2-04: khôi phục tiến trình, tra Operation, giữ chỗ qua web) theo đề nghị OWN-14 của PR #55; Draft, chờ duyệt; thêm mã 415 `UnsupportedMediaType` |
