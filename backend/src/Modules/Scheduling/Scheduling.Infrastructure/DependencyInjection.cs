@@ -4,11 +4,13 @@ using Scheduling.Application.Appointments;
 using Scheduling.Application.BookingAttempts;
 using Scheduling.Application.Confirmations;
 using Scheduling.Application.DoctorDays;
+using Scheduling.Application.DoctorSearch;
 using Scheduling.Application.Holds;
 using Scheduling.Infrastructure.Appointments;
 using Scheduling.Infrastructure.BookingAttempts;
 using Scheduling.Infrastructure.Confirmations;
 using Scheduling.Infrastructure.DoctorDays;
+using Scheduling.Infrastructure.DoctorSearch;
 using Scheduling.Infrastructure.Holds;
 using Scheduling.Infrastructure.Persistence;
 
@@ -20,6 +22,7 @@ public static class DependencyInjection
         services.AddDbContext<SchedulingDbContext>(options => options.UseSqlServer(connectionString,
             sql => sql.MigrationsHistoryTable("__EFMigrationsHistory", SchedulingDbContext.Schema)))
             .AddScoped<IDoctorDayStore, SqlDoctorDayStore>()
+            .AddScoped<IDoctorSearchQuotaReader, SqlDoctorSearchQuotaReader>()
             .AddScoped<IHoldStore, SqlHoldStore>()
             .AddScoped<IBookingAttemptStore, SqlBookingAttemptStore>()
             // Hai service cần IUnitOfWork/IIdempotencyStore (Shared.Infrastructure) và IOperationTracker (Notifications.Infrastructure)

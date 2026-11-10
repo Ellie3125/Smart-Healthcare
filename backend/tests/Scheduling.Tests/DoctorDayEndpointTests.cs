@@ -1,21 +1,8 @@
-using System.IdentityModel.Tokens.Jwt;
 using System.Net;
-using System.Net.Http.Headers;
-using System.Security.Claims;
-using System.Security.Cryptography;
-using System.Text;
 using System.Text.Json;
-using IdentityPatients.Application.Auth;
 using IdentityPatients.Contracts;
-using IdentityPatients.Infrastructure;
 using Microsoft.AspNetCore.Builder;
-using Microsoft.AspNetCore.Hosting;
-using Microsoft.Extensions.DependencyInjection;
-using Microsoft.Extensions.DependencyInjection.Extensions;
-using Microsoft.Extensions.Hosting;
-using Microsoft.IdentityModel.Tokens;
 using Scheduling.Api;
-using Scheduling.Application;
 using Scheduling.Application.DoctorDays;
 using Scheduling.Domain.Entities;
 using Xunit;
@@ -29,17 +16,8 @@ public sealed class DoctorDayEndpointTests
     {
         var ct = TestContext.Current.CancellationToken;
         var doctorId = Guid.NewGuid();
-        var signingKey = Convert.ToHexString(RandomNumberGenerator.GetBytes(32));
-        var builder = WebApplication.CreateBuilder(new WebApplicationOptions { EnvironmentName = Environments.Development });
-        builder.WebHost.UseUrls("http://127.0.0.1:0");
-        builder.Configuration["Jwt:SigningKey"] = signingKey;
-        builder.Configuration["Jwt:Issuer"] = builder.Configuration["Jwt:Audience"] = "Scheduling.Tests";
+        var builder = SchedulingEndpointTestSetup.CreateBuilder();
         builder.Configuration[$"Scheduling:DoctorDays:DevelopmentDoctorRooms:{doctorId:D}"] = Guid.NewGuid().ToString("D");
-        builder.Services.AddIdentityPatientsAuth(builder.Configuration);
-        builder.Services.RemoveAll<IAuthService>();
-        builder.Services.AddOpenApi();
-        builder.Services.AddSchedulingApplication().AddSchedulingApi();
-        builder.Services.AddSingleton<IDoctorDayStore, Store>();
         await using var app = builder.Build();
         app.MapSchedulingEndpoints();
         app.MapOpenApi();
@@ -56,13 +34,13 @@ public sealed class DoctorDayEndpointTests
         using var anonymous = await client.PostAsync(url, null, ct);
         Assert.Equal(HttpStatusCode.Unauthorized, anonymous.StatusCode);
 
-        Authorize(Roles.Patient);
+        SchedulingEndpointTestSetup.Authorize(client, app.Configuration, Roles.Patient);
         using var patientOpen = await client.PostAsync(url, null, ct);
         using var patientClose = await client.PostAsync(url + "/close", null, ct);
         Assert.Equal(HttpStatusCode.Forbidden, patientOpen.StatusCode);
         Assert.Equal(HttpStatusCode.Forbidden, patientClose.StatusCode);
 
-        Authorize(Roles.Admin);
+        SchedulingEndpointTestSetup.Authorize(client, app.Configuration, Roles.Admin);
         using var opened = await client.PostAsync(url, null, ct);
         Assert.Equal(HttpStatusCode.Created, opened.StatusCode);
         using var quota = JsonDocument.Parse(await opened.Content.ReadAsStringAsync(ct));
@@ -80,16 +58,9 @@ public sealed class DoctorDayEndpointTests
         using var problem = JsonDocument.Parse(await blocked.Content.ReadAsStringAsync(ct));
         Assert.Equal("HasBookings", problem.RootElement.GetProperty("code").GetString());
 
-        void Authorize(string role)
-        {
-            var token = new JwtSecurityToken("Scheduling.Tests", "Scheduling.Tests", [new Claim("role", role)],
-                expires: DateTime.UtcNow.AddMinutes(5), signingCredentials: new SigningCredentials(
-                    new SymmetricSecurityKey(Encoding.UTF8.GetBytes(signingKey)), SecurityAlgorithms.HmacSha256));
-            client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", new JwtSecurityTokenHandler().WriteToken(token));
-        }
     }
 
-    private sealed class Store : IDoctorDayStore
+    internal sealed class Store : IDoctorDayStore
     {
         public Task<DoctorDayQuota?> TryOpenAsync(DoctorDayQuota quota, CancellationToken ct) => Task.FromResult<DoctorDayQuota?>(quota);
         public Task<DoctorDayResult> CloseAsync(Guid doctorId, DateOnly serviceDate, CancellationToken ct) =>
