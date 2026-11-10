@@ -77,6 +77,7 @@ internal sealed class SqlHoldStore(SchedulingDbContext db, IDbClock dbClock) : I
         attempt.Status = BookingAttemptStatus.Held;
         attempt.CurrentStep = CurrentStep.SlotHeld;
         attempt.SelectedDoctorId = request.DoctorId;
+        attempt.SelectedDoctorRankId = request.DoctorRankId;
         attempt.SelectedServiceDate = request.ServiceDate;
         attempt.UpdatedAtUtc = now;
         await db.SaveChangesAsync(ct);
