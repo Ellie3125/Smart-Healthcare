@@ -16,22 +16,22 @@ public sealed class BookingProgressService(IBookingAttemptStore attempts, IOpera
 
         var nowUtc = await dbClock.GetUtcNowAsync(ct);
         var status = attempt.Status;
-        var step = attempt.CurrentStep;
         var expiresAtUtc = attempt.Reservation?.ExpiresAtUtc;
         if (status is BookingAttemptStatus.Held or BookingAttemptStatus.WaitingPayment
             && (attempt.Reservation is not { Status: ReservationStatus.Held } hold || hold.ExpiresAtUtc <= nowUtc))
         {
-            status = BookingAttemptStatus.NeedsReselection;
-            step = CurrentStep.DoctorSelection;
+            // Chờ worker lưu NeedsReselection vì lệnh giữ chỗ kiểm trạng thái đã lưu.
+            return new BookingProgress(attemptId, BookingAttemptStatus.NeedsReselection.ToString(),
+                CurrentStep.DoctorSelection.ToString(), expiresAtUtc, []);
         }
 
         string[] actions = status switch
         {
-            BookingAttemptStatus.Draft => ["Hold"],
+            BookingAttemptStatus.Draft or BookingAttemptStatus.NeedsReselection => ["Hold"],
             BookingAttemptStatus.Held or BookingAttemptStatus.WaitingPayment => ["ContinuePayment"],
             _ => [],
         };
-        return new BookingProgress(attemptId, status.ToString(), step.ToString(), expiresAtUtc, actions);
+        return new BookingProgress(attemptId, status.ToString(), attempt.CurrentStep.ToString(), expiresAtUtc, actions);
     }
 
     public async Task<BookingOperationProgress?> GetOperationAsync(Guid operationId, Guid userId, CancellationToken ct)

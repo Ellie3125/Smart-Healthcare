@@ -54,7 +54,7 @@ public sealed class HoldService(IHoldStore store, IUnitOfWork uow, IIdempotencyS
         var request = r;
         if (resolveRankAsync is not null)
         {
-            // Replay uses the original result even if the doctor's rank changes. Reservation keys are globally unique.
+            // Gửi lặp dùng kết quả cũ dù hạng bác sĩ đổi. Khóa Reservation phải duy nhất toàn bảng.
             var rankId = await resolveRankAsync(ct);
             request = r with { DoctorRankId = rankId ?? Guid.Empty, IdempotencyKey = operationId.ToString("N") };
         }

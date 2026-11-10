@@ -89,6 +89,22 @@ public sealed class BookingProgressEndpointTests
     }
 
     [Fact]
+    public async Task Persisted_reselection_allows_another_hold()
+    {
+        var state = new State();
+        state.Progress = new(state.PatientId, BookingAttemptStatus.NeedsReselection, CurrentStep.DoctorSelection,
+            new ReservationProgress(ReservationStatus.Expired, state.NowUtc.AddSeconds(-1)));
+        await using var app = await StartAsync(state);
+        using var client = OwnerClient(app, state);
+
+        var progress = await client.GetFromJsonAsync<BookingProgress>(state.AttemptPath, Ct);
+        Assert.NotNull(progress);
+        Assert.Equal("NeedsReselection", progress.Status);
+        Assert.Equal("DoctorSelection", progress.CurrentStep);
+        Assert.Equal(["Hold"], progress.AllowedActions);
+    }
+
+    [Fact]
     public async Task Replay_after_lost_response_keeps_operation_id_even_when_catalog_changes()
     {
         var state = new State();

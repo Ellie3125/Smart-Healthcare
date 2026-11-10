@@ -83,6 +83,7 @@ internal static class BookingProgressEndpoints
         if (body is null)
             return InvalidInput();
 
+        // shortcut: Quyền Booking có thể bị thu hồi giữa kiểm tra và ghi, kiểm lại dưới khóa trong UoW khi cần thu hồi nguyên tử.
         var attempt = await progress.GetOwnedAttemptAsync(bookingAttemptId, userId, ct);
         if (attempt is null)
             return AttemptNotFound();
