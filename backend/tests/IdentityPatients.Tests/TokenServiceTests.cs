@@ -27,67 +27,48 @@ public sealed class TokenServiceTests
     }
 
     [Fact]
-    public void GenerateAccessToken_ForDoctor_ContainsDoctorIdClaimAndStaffChannel()
+    public void GenerateAccessToken_ForDoctor_ContainsDoctorIdClaim()
     {
         var doctorId = Guid.NewGuid();
-        var user = new ApplicationUser
+        var user = new AppUser
         {
             Id = Guid.NewGuid(),
             UserName = "dr.smith",
+            Role = Roles.Doctor,
+            DoctorId = doctorId,
             IsActive = true
         };
 
-        var tokenStr = _tokenService.GenerateAccessToken(user, Roles.Doctor, Channels.Staff, doctorId: doctorId);
+        var tokenStr = _tokenService.GenerateAccessToken(user);
         var handler = new JwtSecurityTokenHandler();
         var jwt = handler.ReadJwtToken(tokenStr);
 
         Assert.Equal(user.Id.ToString(), jwt.Claims.First(c => c.Type == JwtRegisteredClaimNames.Sub).Value);
         Assert.Equal(Roles.Doctor, jwt.Claims.First(c => c.Type == ClaimTypes.Role).Value);
-        Assert.Equal(Channels.Staff, jwt.Claims.First(c => c.Type == AppClaims.Channel).Value);
         Assert.Equal(doctorId.ToString(), jwt.Claims.First(c => c.Type == AppClaims.DoctorId).Value);
         Assert.DoesNotContain(jwt.Claims, c => c.Type == AppClaims.RoomId);
     }
 
     [Fact]
-    public void GenerateAccessToken_ForRoomAccount_ContainsRoomIdClaimAndStaffChannel()
+    public void GenerateAccessToken_ForRoomAccount_ContainsRoomIdClaim()
     {
         var roomId = Guid.NewGuid();
-        var user = new ApplicationUser
+        var user = new AppUser
         {
             Id = Guid.NewGuid(),
             UserName = "room_xq",
+            Role = Roles.RoomAccount,
+            RoomId = roomId,
             IsActive = true
         };
 
-        var tokenStr = _tokenService.GenerateAccessToken(user, Roles.RoomAccount, Channels.Staff, roomId: roomId);
+        var tokenStr = _tokenService.GenerateAccessToken(user);
         var handler = new JwtSecurityTokenHandler();
         var jwt = handler.ReadJwtToken(tokenStr);
 
         Assert.Equal(user.Id.ToString(), jwt.Claims.First(c => c.Type == JwtRegisteredClaimNames.Sub).Value);
         Assert.Equal(Roles.RoomAccount, jwt.Claims.First(c => c.Type == ClaimTypes.Role).Value);
-        Assert.Equal(Channels.Staff, jwt.Claims.First(c => c.Type == AppClaims.Channel).Value);
         Assert.Equal(roomId.ToString(), jwt.Claims.First(c => c.Type == AppClaims.RoomId).Value);
         Assert.DoesNotContain(jwt.Claims, c => c.Type == AppClaims.DoctorId);
-    }
-
-    [Fact]
-    public void GenerateAccessToken_ForPatient_ContainsPatientChannel()
-    {
-        var user = new ApplicationUser
-        {
-            Id = Guid.NewGuid(),
-            UserName = "patient.smith",
-            IsActive = true
-        };
-
-        var tokenStr = _tokenService.GenerateAccessToken(user, Roles.Patient, Channels.Patient);
-        var handler = new JwtSecurityTokenHandler();
-        var jwt = handler.ReadJwtToken(tokenStr);
-
-        Assert.Equal(user.Id.ToString(), jwt.Claims.First(c => c.Type == JwtRegisteredClaimNames.Sub).Value);
-        Assert.Equal(Roles.Patient, jwt.Claims.First(c => c.Type == ClaimTypes.Role).Value);
-        Assert.Equal(Channels.Patient, jwt.Claims.First(c => c.Type == AppClaims.Channel).Value);
-        Assert.DoesNotContain(jwt.Claims, c => c.Type == AppClaims.DoctorId);
-        Assert.DoesNotContain(jwt.Claims, c => c.Type == AppClaims.RoomId);
     }
 }

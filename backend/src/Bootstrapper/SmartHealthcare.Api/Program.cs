@@ -83,6 +83,7 @@ string[] moduleTags =
     DocumentsReporting.Api.DependencyInjection.Tag,
 ];
 
+builder.Services.AddProblemDetails();
 builder.Services.AddOpenApi(options => options.AddDocumentTransformer((document, _, _) =>
 {
     // Route group chưa có endpoint thì OpenAPI không sinh tag; khai sẵn tag của 7 module.
@@ -91,25 +92,6 @@ builder.Services.AddOpenApi(options => options.AddDocumentTransformer((document,
     {
         document.Tags.Add(new OpenApiTag { Name = tag });
     }
-
-    // Cấu hình nút Authorize JWT Bearer cho Swagger UI
-    var securityScheme = new OpenApiSecurityScheme
-    {
-        Name = "Authorization",
-        Description = "Nhập token JWT theo định dạng: Bearer {token}",
-        In = ParameterLocation.Header,
-        Type = SecuritySchemeType.Http,
-        Scheme = "Bearer",
-        BearerFormat = "JWT"
-    };
-
-    document.Components ??= new OpenApiComponents();
-    if (document.Components.SecuritySchemes == null)
-    {
-        document.Components.SecuritySchemes = new Dictionary<string, IOpenApiSecurityScheme>();
-    }
-    document.Components.SecuritySchemes["Bearer"] = securityScheme;
-
     return Task.CompletedTask;
 }));
 
@@ -125,16 +107,8 @@ app.MapControllers();
 if (app.Environment.IsDevelopment() || app.Configuration.GetValue<bool>("Seed:Enabled"))
 {
     using var scope = app.Services.CreateScope();
-    try
-    {
-        var seedService = scope.ServiceProvider.GetRequiredService<IdentityPatientsSeedService>();
-        await seedService.SeedAsync();
-    }
-    catch (Exception ex)
-    {
-        var logger = scope.ServiceProvider.GetRequiredService<ILoggerFactory>().CreateLogger("Seed");
-        logger.LogWarning(ex, "Chưa thể seed dữ liệu IdentityPatients lúc khởi động (có thể DB chưa chạy migration hoặc SQL Server chưa sẵn sàng).");
-    }
+    var seedService = scope.ServiceProvider.GetRequiredService<IdentityPatientsSeedService>();
+    await seedService.SeedAsync();
 }
 
 app.UseExceptionHandler();
@@ -143,12 +117,7 @@ app.UseStatusCodePages();
 if (app.Environment.IsDevelopment())
 {
     app.MapOpenApi();
-    app.UseSwaggerUI(options =>
-    {
-        options.SwaggerEndpoint("/openapi/v1.json", "Smart Healthcare v1");
-        options.RoutePrefix = "swagger";
-    });
-    app.MapGet("/", () => Results.Redirect("/swagger"));
+    app.UseSwaggerUI(options => options.SwaggerEndpoint("/openapi/v1.json", "Smart Healthcare v1"));
 }
 
 app.MapIdentityPatientsEndpoints();
