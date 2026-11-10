@@ -32,7 +32,7 @@ public sealed class SchedulingModuleTests
 
     public static TheoryData<DoctorSearchQuery?> InvalidQueries => new()
     {
-        null,
+        null!,
         new DoctorSearchQuery(default),
         new DoctorSearchQuery(ServiceDate, DoctorRankId: Guid.Empty),
         new DoctorSearchQuery(ServiceDate, SpecialtyId: Guid.Empty),
