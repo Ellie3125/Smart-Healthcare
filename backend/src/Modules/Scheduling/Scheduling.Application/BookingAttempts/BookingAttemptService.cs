@@ -61,4 +61,6 @@ public sealed record CreateAttemptOutcome(CreateAttemptResult Result, Guid? Book
 public interface IBookingAttemptStore
 {
     Task AddAsync(BookingAttempt attempt, CancellationToken ct);
+
+    Task<BookingProgressSnapshot?> GetOwnedAsync(Guid bookingAttemptId, Guid appUserId, CancellationToken ct);
 }

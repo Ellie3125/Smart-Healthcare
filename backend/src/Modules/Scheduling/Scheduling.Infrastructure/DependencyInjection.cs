@@ -25,10 +25,11 @@ public static class DependencyInjection
             .AddScoped<IDoctorSearchQuotaReader, SqlDoctorSearchQuotaReader>()
             .AddScoped<IHoldStore, SqlHoldStore>()
             .AddScoped<IBookingAttemptStore, SqlBookingAttemptStore>()
-            // Hai service cần IUnitOfWork/IIdempotencyStore (Shared.Infrastructure) và IOperationTracker (Notifications.Infrastructure)
+            // Các service cần IUnitOfWork/IIdempotencyStore (Shared.Infrastructure) và IOperationTracker (Notifications.Infrastructure)
             // nên đăng ký cùng store, không ở AddSchedulingApplication (host test endpoint chỉ có Application).
             .AddScoped<HoldService>()
             .AddScoped<BookingAttemptService>()
+            .AddScoped<BookingProgressService>()
             // PaymentVerifiedHandler (cần IBillingModule) đăng ký cùng dispatcher Outbox ở W3-00.
             .AddScoped<IConfirmationStore, SqlConfirmationStore>()
             // AppointmentChangeService (cần IBillingModule) đăng ký cùng endpoint đổi/hủy khi contract được duyệt.

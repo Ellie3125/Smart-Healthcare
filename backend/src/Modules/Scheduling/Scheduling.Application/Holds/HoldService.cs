@@ -16,14 +16,28 @@ public sealed class HoldService(IHoldStore store, IUnitOfWork uow, IIdempotencyS
     public const string OperationType = "Scheduling.HoldSlot";
 
     public Task<HoldOutcome> HoldAsync(HoldRequest request, CancellationToken ct) =>
-        IsValid(request)
-            ? uow.ExecuteAsync(t => HoldOnceAsync(request, t), ct)
+        IsValid(request) && request.DoctorRankId != Guid.Empty
+            ? uow.ExecuteAsync(t => HoldOnceAsync(request, null, t), ct)
             : Task.FromResult(new HoldOutcome(HoldResult.InvalidInput));
 
-    private async Task<HoldOutcome> HoldOnceAsync(HoldRequest r, CancellationToken ct)
+    public Task<HoldOutcome> HoldFromWebAsync(WebHoldRequest request,
+        Func<CancellationToken, Task<Guid?>> resolveRankAsync, CancellationToken ct)
+    {
+        var hold = new HoldRequest(request.BookingAttemptId, request.PatientId, request.AppUserId,
+            request.DoctorId, Guid.Empty, request.ServiceDate, BookingChannel.Web, request.IdempotencyKey);
+        return IsValid(hold)
+            ? uow.ExecuteAsync(t => HoldOnceAsync(hold, resolveRankAsync, t), ct)
+            : Task.FromResult(new HoldOutcome(HoldResult.InvalidInput));
+    }
+
+    private async Task<HoldOutcome> HoldOnceAsync(HoldRequest r,
+        Func<CancellationToken, Task<Guid?>>? resolveRankAsync, CancellationToken ct)
     {
         var scope = Idempotent.Scope(r.AppUserId);
-        var hash = Idempotent.Hash(r.BookingAttemptId, r.PatientId, r.DoctorId, r.DoctorRankId, r.ServiceDate.ToString("yyyy-MM-dd"), r.Channel);
+        var day = r.ServiceDate.ToString("yyyy-MM-dd");
+        var hash = resolveRankAsync is null
+            ? Idempotent.Hash(r.BookingAttemptId, r.PatientId, r.DoctorId, r.DoctorRankId, day, r.Channel)
+            : Idempotent.Hash(r.BookingAttemptId, r.PatientId, r.DoctorId, day, r.Channel);
         var operationId = Guid.CreateVersion7();
         switch (await idempotency.BeginAsync(scope, OperationType, r.IdempotencyKey, hash, Idempotent.Retention, operationId, ct))
         {
@@ -37,7 +51,17 @@ public sealed class HoldService(IHoldStore store, IUnitOfWork uow, IIdempotencyS
 
         await operations.StartAsync(new StartOperation(operationId, r.AppUserId, Notifications.Contracts.OperationType.HoldSlot,
             TargetEntityType.BookingAttempt, r.BookingAttemptId, r.BookingAttemptId), ct);
-        var outcome = await store.HoldAsync(r, HoldDuration, ct) with { OperationId = operationId };
+        var request = r;
+        if (resolveRankAsync is not null)
+        {
+            // Replay uses the original result even if the doctor's rank changes. Reservation keys are globally unique.
+            var rankId = await resolveRankAsync(ct);
+            request = r with { DoctorRankId = rankId ?? Guid.Empty, IdempotencyKey = operationId.ToString("N") };
+        }
+
+        var outcome = request.DoctorRankId == Guid.Empty
+            ? new HoldOutcome(HoldResult.DoctorNotFound, OperationId: operationId)
+            : await store.HoldAsync(request, HoldDuration, ct) with { OperationId = operationId };
         var held = outcome.Result == HoldResult.Held;
         await operations.CompleteAsync(operationId, held ? OperationStatus.Succeeded : OperationStatus.NeedsAction,
             held ? null : outcome.Result.ToString(), ct);
@@ -51,7 +75,7 @@ public sealed class HoldService(IHoldStore store, IUnitOfWork uow, IIdempotencyS
     {
         HoldResult.Held => 201,
         HoldResult.InvalidInput => 400,
-        HoldResult.AttemptNotFound or HoldResult.DayNotFound => 404,
+        HoldResult.AttemptNotFound or HoldResult.DoctorNotFound or HoldResult.DayNotFound => 404,
         _ => 409,
     };
 
@@ -70,7 +94,7 @@ public sealed class HoldService(IHoldStore store, IUnitOfWork uow, IIdempotencyS
 
     private static bool IsValid(HoldRequest r) =>
         r.BookingAttemptId != Guid.Empty && r.PatientId != Guid.Empty && r.AppUserId != Guid.Empty
-        && r.DoctorId != Guid.Empty && r.DoctorRankId != Guid.Empty && r.ServiceDate > DateOnly.MinValue && Enum.IsDefined(r.Channel)
+        && r.DoctorId != Guid.Empty && r.ServiceDate > DateOnly.MinValue && Enum.IsDefined(r.Channel)
         && Idempotent.IsValidKey(r.IdempotencyKey);
 }
 
@@ -94,11 +118,15 @@ public enum HoldResult
     InProgress,
     /// <summary>Cùng Idempotency-Key nhưng khác nội dung.</summary>
     IdempotencyConflict,
+    DoctorNotFound,
 }
 
 /// <param name="DoctorRankId">Hạng bác sĩ lấy từ danh mục phía server (không tin client); dùng tính phí khám áp dụng khi xác nhận (W2-06).</param>
 public sealed record HoldRequest(Guid BookingAttemptId, Guid PatientId, Guid AppUserId, Guid DoctorId, Guid DoctorRankId,
     DateOnly ServiceDate, BookingChannel Channel, string IdempotencyKey);
+
+public sealed record WebHoldRequest(Guid BookingAttemptId, Guid PatientId, Guid AppUserId, Guid DoctorId,
+    DateOnly ServiceDate, string IdempotencyKey);
 
 public sealed record HoldOutcome(HoldResult Result, Guid? ReservationId = null, DateTime? ExpiresAtUtc = null, Guid? OperationId = null);
 
