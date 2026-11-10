@@ -9,4 +9,9 @@
     <PackageReference Include="Microsoft.Data.SqlClient" />
     <PackageReference Include="Microsoft.Extensions.Hosting" />
   </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\..\Modules\Scheduling\Scheduling.Application\Scheduling.Application.csproj" />
+    <ProjectReference Include="..\..\Modules\Scheduling\Scheduling.Infrastructure\Scheduling.Infrastructure.csproj" />
+    <ProjectReference Include="..\..\Shared\Shared.Infrastructure\Shared.Infrastructure.csproj" />
+  </ItemGroup>
 </Project>
