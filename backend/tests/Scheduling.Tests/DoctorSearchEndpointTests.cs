@@ -5,6 +5,7 @@ using Microsoft.AspNetCore.Builder;
 using Microsoft.Extensions.DependencyInjection;
 using Scheduling.Api;
 using Scheduling.Application.DoctorSearch;
+using Scheduling.Contracts;
 using Xunit;
 
 namespace Scheduling.Tests;
