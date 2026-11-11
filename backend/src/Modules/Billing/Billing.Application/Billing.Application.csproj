@@ -5,6 +5,8 @@
   <ItemGroup>
     <ProjectReference Include="..\Billing.Domain\Billing.Domain.csproj" />
     <ProjectReference Include="..\Billing.Contracts\Billing.Contracts.csproj" />
+    <!-- Kiểm quyền của người trả trên hồ sơ bệnh nhân (MED-05). -->
+    <ProjectReference Include="..\..\IdentityPatients\IdentityPatients.Contracts\IdentityPatients.Contracts.csproj" />
   </ItemGroup>
   <ItemGroup>
     <InternalsVisibleTo Include="Billing.Tests" />
