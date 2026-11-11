@@ -24,6 +24,7 @@ using Scheduling.Application;
 using Scheduling.Infrastructure;
 using Scheduling.Infrastructure.Persistence;
 using Shared.Infrastructure;
+using SmartHealthcare.Api;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -77,6 +78,11 @@ builder.Services
     .AddBillingApplication().AddBillingApi()
     .AddNotificationsApplication().AddNotificationsApi()
     .AddDocumentsReportingApplication().AddDocumentsReportingApi();
+
+if (DemoData.IsEnabled(builder.Configuration, builder.Environment))
+{
+    builder.AddDemoData();
+}
 
 string[] moduleTags =
 [
@@ -134,6 +140,11 @@ if (app.Environment.IsDevelopment() || app.Configuration.GetValue<bool>("Seed:En
     using var scope = app.Services.CreateScope();
     var seedService = scope.ServiceProvider.GetRequiredService<IdentityPatientsSeedService>();
     await seedService.SeedAsync();
+}
+
+if (DemoData.IsEnabled(app.Configuration, app.Environment))
+{
+    await app.SeedDemoDataAsync();
 }
 
 app.UseExceptionHandler();
