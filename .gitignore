@@ -23,3 +23,6 @@ docs/evidence/
 .env.*
 !.env.example
 !.env.*.example
+
+# ===== Node =====
+node_modules/
