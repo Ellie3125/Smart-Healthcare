@@ -409,6 +409,111 @@ public sealed class IdentityPatientsSeedService(
             });
         }
 
+        // Hồ sơ 5 & 6: Bệnh nhân patient03 (Rejected và Revoked để kiểm thử đủ 4 trạng thái)
+        var userPatient03 = await EnsureUserAsync(SeedConstants.UserPatient03Id, SeedConstants.UserPatient03UserName, "patient03@example.com", "0901000005", defaultPassword);
+        
+        var patient05 = await _dbContext.Patients.FirstOrDefaultAsync(p => p.Id == SeedConstants.Patient05Id, ct);
+        if (patient05 is null)
+        {
+            patient05 = new Patient
+            {
+                Id = SeedConstants.Patient05Id,
+                FullName = "Lê Văn Bị Từ Chối",
+                DateOfBirth = new DateOnly(1988, 3, 10),
+                Gender = Gender.Male,
+                NationalId = "001088000005",
+                PhoneNumber = "0901000005",
+                Address = "789 Đường Thất Bại, Quận 5, TP.HCM",
+                CreatedAtUtc = DateTime.UtcNow
+            };
+            _dbContext.Patients.Add(patient05);
+        }
+
+        var rep05 = await _dbContext.PatientRepresentatives.FirstOrDefaultAsync(r => r.AppUserId == userPatient03.Id && r.PatientId == SeedConstants.Patient05Id, ct);
+        if (rep05 is null)
+        {
+            _dbContext.PatientRepresentatives.Add(new PatientRepresentative
+            {
+                Id = Guid.NewGuid(),
+                AppUserId = userPatient03.Id,
+                PatientId = SeedConstants.Patient05Id,
+                Relationship = Relationship.Self,
+                VerificationStatus = VerificationStatus.Rejected,
+                IsActive = false,
+                CreatedAtUtc = DateTime.UtcNow.AddDays(-5),
+                RevokedAtUtc = DateTime.UtcNow.AddDays(-2)
+            });
+        }
+
+        var patient06 = await _dbContext.Patients.FirstOrDefaultAsync(p => p.Id == SeedConstants.Patient06Id, ct);
+        if (patient06 is null)
+        {
+            patient06 = new Patient
+            {
+                Id = SeedConstants.Patient06Id,
+                FullName = "Hoàng Thị Bị Thu Hồi",
+                DateOfBirth = new DateOnly(1992, 11, 25),
+                Gender = Gender.Female,
+                NationalId = "001092000006",
+                PhoneNumber = "0901000006",
+                Address = "101 Đường Thu Hồi, Quận 7, TP.HCM",
+                CreatedAtUtc = DateTime.UtcNow
+            };
+            _dbContext.Patients.Add(patient06);
+        }
+
+        var rep06 = await _dbContext.PatientRepresentatives.FirstOrDefaultAsync(r => r.AppUserId == userPatient03.Id && r.PatientId == SeedConstants.Patient06Id, ct);
+        if (rep06 is null)
+        {
+            _dbContext.PatientRepresentatives.Add(new PatientRepresentative
+            {
+                Id = Guid.NewGuid(),
+                AppUserId = userPatient03.Id,
+                PatientId = SeedConstants.Patient06Id,
+                Relationship = Relationship.Other,
+                VerificationStatus = VerificationStatus.Revoked,
+                IsActive = false,
+                CreatedAtUtc = DateTime.UtcNow.AddDays(-10),
+                RevokedAtUtc = DateTime.UtcNow.AddDays(-1)
+            });
+        }
+
+        // 9. Phân công ca trực mẫu (StaffShiftAssignment) cho tuần hiện tại
+        await _dbContext.SaveChangesAsync(ct);
+
+        var today = DateOnly.FromDateTime(DateTime.UtcNow.AddHours(7));
+        var sampleShifts = new (Guid StaffId, Guid RoomId, DateOnly Date, ShiftName Shift, TimeOnly StartLocal, TimeOnly EndLocal, bool IsLeader)[]
+        {
+            (SeedConstants.StaffDoctor01Id, SeedConstants.RoomXQ01Id, today, ShiftName.Morning, new TimeOnly(7, 0), new TimeOnly(12, 0), true),
+            (SeedConstants.StaffDoctor02Id, SeedConstants.RoomPK01Id, today, ShiftName.Morning, new TimeOnly(7, 0), new TimeOnly(12, 0), true),
+            (SeedConstants.StaffNurse01Id, SeedConstants.RoomPK01Id, today, ShiftName.Afternoon, new TimeOnly(13, 0), new TimeOnly(17, 30), true),
+            (SeedConstants.StaffDoctor03Id, SeedConstants.RoomPK02Id, today.AddDays(1), ShiftName.FullDay, new TimeOnly(7, 0), new TimeOnly(17, 30), true),
+            (SeedConstants.StaffDoctor05Id, SeedConstants.RoomXN01Id, today, ShiftName.FullDay, new TimeOnly(7, 0), new TimeOnly(17, 30), true),
+            (SeedConstants.StaffDoctor06Id, SeedConstants.RoomNS01Id, today, ShiftName.Morning, new TimeOnly(7, 0), new TimeOnly(12, 0), true)
+        };
+
+        foreach (var sh in sampleShifts)
+        {
+            var exists = await _dbContext.StaffShiftAssignments.AnyAsync(
+                a => a.StaffId == sh.StaffId && a.ShiftDate == sh.Date, ct);
+            if (!exists)
+            {
+                var startsUtc = sh.Date.ToDateTime(sh.StartLocal, DateTimeKind.Unspecified).AddHours(-7);
+                var endsUtc = sh.Date.ToDateTime(sh.EndLocal, DateTimeKind.Unspecified).AddHours(-7);
+                _dbContext.StaffShiftAssignments.Add(new StaffShiftAssignment
+                {
+                    Id = Guid.NewGuid(),
+                    StaffId = sh.StaffId,
+                    RoomId = sh.RoomId,
+                    ShiftDate = sh.Date,
+                    ShiftName = sh.Shift,
+                    StartsAtUtc = DateTime.SpecifyKind(startsUtc, DateTimeKind.Utc),
+                    EndsAtUtc = DateTime.SpecifyKind(endsUtc, DateTimeKind.Utc),
+                    IsShiftLeader = sh.IsLeader
+                });
+            }
+        }
+
         await _dbContext.SaveChangesAsync(ct);
         _logger.LogInformation("Hoàn tất Seed dữ liệu demo cho module IdentityPatients thành công.");
     }

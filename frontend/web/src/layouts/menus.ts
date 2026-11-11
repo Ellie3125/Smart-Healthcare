@@ -23,6 +23,7 @@ export const ROLE_MENUS: Record<string, MenuItem[]> = {
   ],
   Admin: [
     { title: 'Quản trị hệ thống', path: '/admin', icon: 'admin_panel_settings' },
+    { title: 'Xác minh hồ sơ', path: '/reception', icon: 'verified_user' },
     { title: 'Nhật ký & Vận hành', path: '/admin/logs', icon: 'terminal' },
   ],
 };

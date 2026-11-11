@@ -1,5 +1,6 @@
 import React from 'react';
 import { Link, Outlet, useLocation, useNavigate } from 'react-router-dom';
+import { apiClient } from '../api/client';
 import { useAuth } from '../hooks/useAuth';
 import { ROLE_MENUS } from './menus';
 
@@ -10,7 +11,14 @@ export const StaffLayout: React.FC = () => {
 
   const menus = user?.role ? ROLE_MENUS[user.role] || [] : [];
 
-  const handleLogout = () => {
+  const handleLogout = async () => {
+    if (user?.role === 'RoomAccount') {
+      try {
+        await apiClient.post('/auth/room/logout');
+      } catch {
+        // Bỏ qua lỗi mạng khi đóng phiên phía server để luôn xóa phiên client sạch sẽ
+      }
+    }
     logout();
     navigate('/login');
   };

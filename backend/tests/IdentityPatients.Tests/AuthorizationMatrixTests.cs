@@ -38,15 +38,15 @@ public sealed class AuthorizationMatrixTests
     public static TheoryData<string, string, string> PolicyMatrix()
     {
         var data = new TheoryData<string, string, string>();
-        foreach (var policy in Policies.RoleOf.Keys.Append(Policies.AnyChannel))
+        foreach (var policy in Policies.RoleOf.Keys.Append(Policies.AnyChannel).Append(Policies.ReceptionistOrAdmin))
         foreach (var role in AllRoles)
         foreach (var channel in AllChannels)
             data.Add(policy, role, channel);
         return data;
     }
 
-    // Đủ 6 vai trò × 2 kênh × 7 policy: chỉ đúng vai trò của policy với đúng kênh của vai trò đó được qua.
-    // Gồm cả khu vực chưa có endpoint (DoctorOnly, NurseOnly, RoomAccountOnly): Admin bị chặn ở mọi policy ngoài AdminOnly.
+    // Đủ 6 vai trò × 2 kênh × 8 policy: chỉ đúng vai trò của policy với đúng kênh của vai trò đó được qua.
+    // Gồm cả khu vực chưa có endpoint (DoctorOnly, NurseOnly, RoomAccountOnly): Admin chỉ thêm ReceptionistOrAdmin và AdminOnly.
     [Theory]
     [MemberData(nameof(PolicyMatrix))]
     public async Task Policy_AllowsOnlyItsRoleOnItsChannel(string policy, string role, string channel)
@@ -57,7 +57,10 @@ public sealed class AuthorizationMatrixTests
 
         var allowed = (await authorization.AuthorizeAsync(Principal(role, channel), policy)).Succeeded;
 
-        var expected = channel == Policies.ChannelOf(role) && (policy == Policies.AnyChannel || Policies.RoleOf[policy] == role);
+        var expected = channel == Policies.ChannelOf(role)
+            && (policy == Policies.AnyChannel
+                || (policy == Policies.ReceptionistOrAdmin && role is Roles.Receptionist or Roles.Admin)
+                || (Policies.RoleOf.TryGetValue(policy, out var requiredRole) && requiredRole == role));
         Assert.Equal(expected, allowed);
     }
 
@@ -112,32 +115,35 @@ public sealed class AuthorizationMatrixTests
             return response.StatusCode;
         }
 
-        var areas = new (HttpMethod Method, string Url, string Role)[]
+        var areas = new (HttpMethod Method, string Url, string[] AllowedRoles)[]
         {
-            (HttpMethod.Get, "/api/staff/admin/specialties", Roles.Admin),
-            (HttpMethod.Get, "/api/staff/admin/rooms/" + Guid.NewGuid() + "/sessions", Roles.Admin),
-            (HttpMethod.Post, "/api/scheduling/admin/doctor-days/" + Guid.NewGuid() + "/2099-01-01", Roles.Admin),
-            (HttpMethod.Get, "/api/staff/verifications", Roles.Receptionist),
-            (HttpMethod.Get, "/api/patient/profiles", Roles.Patient),
-            (HttpMethod.Get, "/api/scheduling/patient/doctors?serviceDate=2099-01-01", Roles.Patient),
+            (HttpMethod.Get, "/api/staff/admin/specialties", [Roles.Admin]),
+            (HttpMethod.Get, "/api/staff/admin/rooms/" + Guid.NewGuid() + "/sessions", [Roles.Admin]),
+            (HttpMethod.Post, "/api/scheduling/admin/doctor-days/" + Guid.NewGuid() + "/2099-01-01", [Roles.Admin]),
+            (HttpMethod.Get, "/api/staff/verifications", [Roles.Receptionist, Roles.Admin]),
+            (HttpMethod.Put, "/api/staff/patients/" + Guid.NewGuid(), [Roles.Receptionist, Roles.Admin]),
+            (HttpMethod.Get, "/api/patient/profiles", [Roles.Patient]),
+            (HttpMethod.Get, "/api/scheduling/patient/doctors?serviceDate=2099-01-01", [Roles.Patient]),
         };
 
-        foreach (var (method, url, owner) in areas)
+        foreach (var (method, url, allowedRoles) in areas)
         {
             Assert.Equal(HttpStatusCode.Unauthorized, await Call(method, url, null));
-            foreach (var role in AllRoles.Where(r => r != owner))
+            foreach (var role in AllRoles.Where(r => !allowedRoles.Contains(r)))
             {
                 Assert.True(HttpStatusCode.Forbidden == await Call(method, url, role), $"{role} gọi {url} phải bị 403");
             }
 
             // Đúng vai trò nhưng token sai kênh cũng bị chặn.
-            var wrongChannel = Policies.ChannelOf(owner) == Channels.Staff ? Channels.Patient : Channels.Staff;
-            Assert.True(HttpStatusCode.Forbidden == await Call(method, url, owner, wrongChannel), $"{owner} kênh {wrongChannel} gọi {url} phải bị 403");
+            var primaryRole = allowedRoles[0];
+            var wrongChannel = Policies.ChannelOf(primaryRole) == Channels.Staff ? Channels.Patient : Channels.Staff;
+            Assert.True(HttpStatusCode.Forbidden == await Call(method, url, primaryRole, wrongChannel), $"{primaryRole} kênh {wrongChannel} gọi {url} phải bị 403");
         }
 
         // Đúng vai trò, đúng kênh: qua được phân quyền (các endpoint GET chỉ đọc DB test).
         Assert.Equal(HttpStatusCode.OK, await Call(HttpMethod.Get, "/api/staff/admin/specialties", Roles.Admin));
         Assert.Equal(HttpStatusCode.OK, await Call(HttpMethod.Get, "/api/staff/verifications", Roles.Receptionist));
+        Assert.Equal(HttpStatusCode.OK, await Call(HttpMethod.Get, "/api/staff/verifications", Roles.Admin));
         Assert.Equal(HttpStatusCode.OK, await Call(HttpMethod.Get, "/api/patient/profiles", Roles.Patient));
 
         // /me: mọi vai trò với đúng kênh; token Patient mang kênh Staff bị 403.
