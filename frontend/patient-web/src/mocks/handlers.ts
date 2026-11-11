@@ -196,7 +196,7 @@ export const patientHandlers = [
       purpose: 'InitialConsultation',
       amount: 150000,
       currency: 'VND',
-      status: paid ? 'Succeeded' : 'Pending',
+      status: paid ? 2 : 0, // PaymentState dạng số như Billing thật: 0 Pending, 2 Succeeded
       expiresAtUtc: new Date(Date.now() + 5 * 60 * 1000).toISOString(),
       paidAtUtc: paid ? new Date().toISOString() : null,
       canPay: !paid,

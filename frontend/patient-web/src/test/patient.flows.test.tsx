@@ -93,6 +93,11 @@ describe('Patient Web critical workflows (P06–P26 & TV01)', () => {
     expect(screen.queryByRole('button', { name: /Đánh dấu đã trả/i })).not.toBeInTheDocument();
   });
 
+  it('P10b: maps the numeric payment state of Billing (0 pending, 2 succeeded)', async () => {
+    expect((await bookingApi.verifyVnpayReturn('pi-so-01')).state).toBe('Verifying');
+    expect(await bookingApi.verifyVnpayReturn('pi-so-01')).toMatchObject({ state: 'Paid', amount: 150000 });
+  });
+
   it('P14: reschedule disables different-fee doctors', async () => {
     renderWithProviders(<RescheduleAppointmentPage />, ['/appointments/apt-2/reschedule'], '/appointments/:id/reschedule');
     expect(await screen.findByText(/BS\.CKI Trần Quốc Khánh/i)).toBeInTheDocument();
