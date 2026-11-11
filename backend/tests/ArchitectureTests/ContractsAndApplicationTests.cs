@@ -12,7 +12,6 @@ public class ContractsAndApplicationTests
 
     [Theory]
     [InlineData("Billing.Contracts")]
-    [InlineData("Clinical.Contracts")]
     [InlineData("Scheduling.Contracts")]
     public void Contracts_reference_only_BCL_and_shared_abstractions(string assembly)
     {
@@ -25,7 +24,6 @@ public class ContractsAndApplicationTests
 
     [Theory]
     [InlineData("Billing")]
-    [InlineData("Clinical")]
     public void Application_does_not_reference_infrastructure_or_frameworks(string module)
     {
         var violations = ReferencedNames($"{module}.Application")

@@ -1,4 +1,5 @@
 using Microsoft.AspNetCore.Builder;
+using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Routing;
 using Microsoft.Extensions.DependencyInjection;
 
@@ -11,5 +12,5 @@ public static class DependencyInjection
     public static IServiceCollection AddClinicalApi(this IServiceCollection services) => services;
 
     public static RouteGroupBuilder MapClinicalEndpoints(this IEndpointRouteBuilder app) =>
-        ClinicalEndpoints.MapEndpoints(app);
+        app.MapGroup("/api/clinical").WithTags(Tag);
 }

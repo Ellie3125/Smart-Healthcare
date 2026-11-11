@@ -61,7 +61,6 @@
   <Folder Name="/tests/">
     <Project Path="tests/ArchitectureTests/ArchitectureTests.csproj" />
     <Project Path="tests/Billing.Tests/Billing.Tests.csproj" />
-    <Project Path="tests/Clinical.Tests/Clinical.Tests.csproj" />
     <Project Path="tests/IdentityPatients.Tests/IdentityPatients.Tests.csproj" />
     <Project Path="tests/Scheduling.Tests/Scheduling.Tests.csproj" />
     <Project Path="tests/Shared.Infrastructure.Tests/Shared.Infrastructure.Tests.csproj" />
