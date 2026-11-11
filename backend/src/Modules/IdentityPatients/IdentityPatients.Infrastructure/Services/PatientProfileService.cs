@@ -4,20 +4,28 @@ using IdentityPatients.Application.Patients;
 using IdentityPatients.Contracts;
 using IdentityPatients.Domain.Entities;
 using IdentityPatients.Domain.Enums;
+using IdentityPatients.Domain.StateMachines;
 using IdentityPatients.Infrastructure.Persistence;
 using Microsoft.Data.SqlClient;
 using Microsoft.EntityFrameworkCore;
 using Shared.Abstractions;
+using Shared.Infrastructure.Persistence;
+using Shared.Infrastructure.Persistence.Entities;
+using Shared.Infrastructure.Persistence.Enums;
 
 namespace IdentityPatients.Infrastructure.Services;
 
 public sealed class PatientProfileService(
     IdentityPatientsDbContext dbContext,
     IIdentityPatientsModule identityModule,
-    IUnitOfWork unitOfWork) : IPatientProfileService
+    IUnitOfWork unitOfWork,
+    AuditLogWriter auditLog) : IPatientProfileService
 {
     public const string ProfileNotFoundCode = "ProfileNotFound";
     public const string SelfProfileExistsCode = "SelfProfileExists";
+    public const string DuplicateNationalIdCode = "DuplicateNationalId";
+    public const string VerifiedProfileIdentityLockedCode = "VerifiedProfileIdentityLocked";
+    public const string MissingAuditReasonCode = "MissingAuditReason";
 
     // Hồ sơ không thuộc tài khoản trả cùng lỗi với hồ sơ không có, để không lộ sự tồn tại (D8).
     private static ServiceResult<PatientProfileDto> NotFound() =>
@@ -31,38 +39,47 @@ public sealed class PatientProfileService(
         CreatePatientProfileRequest request,
         CancellationToken ct = default)
     {
-        if (string.IsNullOrWhiteSpace(request.FullName))
+        var (fields, validationError) = PatientInputValidator.ValidatePatientFields(
+            request.FullName,
+            request.DateOfBirth,
+            request.Gender,
+            request.NationalId,
+            request.PhoneNumber,
+            request.Address);
+
+        if (validationError is { } err)
         {
-            return ServiceResult<PatientProfileDto>.Failure(400, "Dữ liệu không hợp lệ", "Họ và tên bệnh nhân không được để trống.");
+            return ServiceResult<PatientProfileDto>.Failure(400, err.Title, err.Detail, code: err.Code);
         }
 
-        if (string.IsNullOrWhiteSpace(request.PhoneNumber))
-        {
-            return ServiceResult<PatientProfileDto>.Failure(400, "Dữ liệu không hợp lệ", "Số điện thoại không được để trống.");
-        }
-
-        if (!Enum.TryParse<Gender>(request.Gender, ignoreCase: true, out var gender))
-        {
-            return ServiceResult<PatientProfileDto>.Failure(400, "Dữ liệu không hợp lệ", "Giới tính không hợp lệ (Male, Female, Other).");
-        }
-
-        if (!Enum.TryParse<Relationship>(request.Relationship, ignoreCase: true, out var relationship))
+        if (string.IsNullOrWhiteSpace(request.Relationship)
+            || !Enum.TryParse<Relationship>(request.Relationship.Trim(), ignoreCase: true, out var relationship)
+            || !Enum.IsDefined(relationship))
         {
             return ServiceResult<PatientProfileDto>.Failure(400, "Dữ liệu không hợp lệ", "Mối quan hệ không hợp lệ (Self, Child, Parent, Spouse, Other).");
         }
 
-        var normalizedNationalId = string.IsNullOrWhiteSpace(request.NationalId) ? null : request.NationalId.Trim();
+        var validated = fields!;
+        if (validated.NationalId is not null)
+        {
+            var nationalIdExists = await _dbContext.Patients.AsNoTracking()
+                .AnyAsync(p => p.NationalId == validated.NationalId, ct);
+            if (nationalIdExists)
+            {
+                return DuplicateNationalIdFailure<PatientProfileDto>();
+            }
+        }
 
         var now = DateTime.UtcNow;
         var patient = new Patient
         {
             Id = Guid.NewGuid(),
-            FullName = request.FullName.Trim(),
-            DateOfBirth = request.DateOfBirth,
-            Gender = gender,
-            NationalId = normalizedNationalId,
-            PhoneNumber = request.PhoneNumber.Trim(),
-            Address = request.Address.Trim(),
+            FullName = validated.FullName,
+            DateOfBirth = validated.DateOfBirth,
+            Gender = validated.Gender,
+            NationalId = validated.NationalId,
+            PhoneNumber = validated.PhoneNumber,
+            Address = validated.Address,
             CreatedAtUtc = now
         };
 
@@ -115,10 +132,7 @@ public sealed class PatientProfileService(
             _dbContext.ChangeTracker.Clear();
             if (IsUniqueViolation(ex, "NationalId"))
             {
-                return ServiceResult<PatientProfileDto>.Failure(
-                    409,
-                    "Trùng lặp dữ liệu",
-                    "Số định danh công dân (CCCD) đã được đăng ký trong hệ thống. Vui lòng kiểm tra lại thông tin.");
+                return DuplicateNationalIdFailure<PatientProfileDto>();
             }
 
             return ServiceResult<PatientProfileDto>.Failure(
@@ -127,27 +141,14 @@ public sealed class PatientProfileService(
                 "Không thể tạo hồ sơ do xung đột dữ liệu.");
         }
 
-        var dto = new PatientProfileDto(
-            patient.Id,
-            rep.Id,
-            patient.FullName,
-            patient.DateOfBirth,
-            patient.Gender.ToString(),
-            patient.NationalId,
-            patient.PhoneNumber,
-            patient.Address,
-            rep.Relationship.ToString(),
-            rep.VerificationStatus.ToString(),
-            rep.IsActive);
-
-        return ServiceResult<PatientProfileDto>.Success(dto, 201);
+        return ServiceResult<PatientProfileDto>.Success(MapDto(patient, rep), 201);
     }
 
     public async Task<ServiceResult<IReadOnlyList<PatientProfileDto>>> GetUserProfilesAsync(Guid userId, CancellationToken ct = default)
     {
         var list = await (from r in _dbContext.PatientRepresentatives.AsNoTracking()
                           join p in _dbContext.Patients.AsNoTracking() on r.PatientId equals p.Id
-                          where r.AppUserId == userId && r.IsActive
+                          where r.AppUserId == userId && (r.IsActive || r.VerificationStatus == VerificationStatus.Rejected)
                           orderby r.CreatedAtUtc ascending
                           select new PatientProfileDto(
                               p.Id,
@@ -211,19 +212,17 @@ public sealed class PatientProfileService(
             return NotFound();
         }
 
-        if (string.IsNullOrWhiteSpace(request.FullName))
-        {
-            return ServiceResult<PatientProfileDto>.Failure(400, "Dữ liệu không hợp lệ", "Họ và tên bệnh nhân không được để trống.");
-        }
+        var (fields, validationError) = PatientInputValidator.ValidatePatientFields(
+            request.FullName,
+            request.DateOfBirth,
+            request.Gender,
+            request.NationalId,
+            request.PhoneNumber,
+            request.Address);
 
-        if (string.IsNullOrWhiteSpace(request.PhoneNumber))
+        if (validationError is { } err)
         {
-            return ServiceResult<PatientProfileDto>.Failure(400, "Dữ liệu không hợp lệ", "Số điện thoại không được để trống.");
-        }
-
-        if (!Enum.TryParse<Gender>(request.Gender, ignoreCase: true, out var gender))
-        {
-            return ServiceResult<PatientProfileDto>.Failure(400, "Dữ liệu không hợp lệ", "Giới tính không hợp lệ (Male, Female, Other).");
+            return ServiceResult<PatientProfileDto>.Failure(400, err.Title, err.Detail, code: err.Code);
         }
 
         var patient = await _dbContext.Patients.FirstOrDefaultAsync(p => p.Id == patientId, ct);
@@ -239,12 +238,43 @@ public sealed class PatientProfileService(
             return NotFound();
         }
 
-        patient.FullName = request.FullName.Trim();
-        patient.DateOfBirth = request.DateOfBirth;
-        patient.Gender = gender;
-        patient.NationalId = string.IsNullOrWhiteSpace(request.NationalId) ? null : request.NationalId.Trim();
-        patient.PhoneNumber = request.PhoneNumber.Trim();
-        patient.Address = request.Address.Trim();
+        var validated = fields!;
+
+        if (rep.VerificationStatus == VerificationStatus.Verified)
+        {
+            var identityChanged =
+                !string.Equals(patient.FullName, validated.FullName, StringComparison.Ordinal) ||
+                patient.DateOfBirth != validated.DateOfBirth ||
+                patient.Gender != validated.Gender ||
+                !string.Equals(patient.NationalId, validated.NationalId, StringComparison.Ordinal);
+
+            if (identityChanged)
+            {
+                return ServiceResult<PatientProfileDto>.Failure(
+                    403,
+                    "Không được phép sửa thông tin định danh",
+                    "Hồ sơ đã được xác minh. Chỉ tiếp tân hoặc quản trị viên mới được sửa họ tên, ngày sinh, giới tính hoặc số CCCD.",
+                    code: VerifiedProfileIdentityLockedCode);
+            }
+        }
+
+        if (validated.NationalId is not null
+            && !string.Equals(patient.NationalId, validated.NationalId, StringComparison.Ordinal)
+            && await _dbContext.Patients.AsNoTracking().AnyAsync(p => p.Id != patientId && p.NationalId == validated.NationalId, ct))
+        {
+            return DuplicateNationalIdFailure<PatientProfileDto>();
+        }
+
+        if (rep.VerificationStatus != VerificationStatus.Verified)
+        {
+            patient.FullName = validated.FullName;
+            patient.DateOfBirth = validated.DateOfBirth;
+            patient.Gender = validated.Gender;
+            patient.NationalId = validated.NationalId;
+        }
+
+        patient.PhoneNumber = validated.PhoneNumber;
+        patient.Address = validated.Address;
 
         try
         {
@@ -252,31 +282,207 @@ public sealed class PatientProfileService(
         }
         catch (DbUpdateException ex)
         {
+            _dbContext.ChangeTracker.Clear();
             if (IsUniqueViolation(ex, "NationalId"))
             {
-                return ServiceResult<PatientProfileDto>.Failure(
-                    409,
-                    "Trùng lặp dữ liệu",
-                    "Số định danh công dân (CCCD) đã được đăng ký trong hệ thống. Vui lòng kiểm tra lại thông tin.");
+                return DuplicateNationalIdFailure<PatientProfileDto>();
             }
 
             return ServiceResult<PatientProfileDto>.Failure(409, "Xung đột dữ liệu", "Không thể cập nhật hồ sơ do xung đột dữ liệu.");
         }
 
-        var dto = new PatientProfileDto(
-            patient.Id,
-            rep.Id,
-            patient.FullName,
-            patient.DateOfBirth,
-            patient.Gender.ToString(),
-            patient.NationalId,
-            patient.PhoneNumber,
-            patient.Address,
-            rep.Relationship.ToString(),
-            rep.VerificationStatus.ToString(),
-            rep.IsActive);
+        return ServiceResult<PatientProfileDto>.Success(MapDto(patient, rep));
+    }
 
-        return ServiceResult<PatientProfileDto>.Success(dto);
+    public async Task<ServiceResult<PatientProfileDto>> ResubmitProfileAsync(
+        Guid userId,
+        Guid patientId,
+        CancellationToken ct = default)
+    {
+        return await unitOfWork.ExecuteAsync(async token =>
+        {
+            var repExists = await _dbContext.PatientRepresentatives
+                .FromSql($"SELECT * FROM [identity].[PatientRepresentative] WITH (UPDLOCK, HOLDLOCK) WHERE [AppUserId] = {userId} AND [PatientId] = {patientId}")
+                .AsNoTracking()
+                .AnyAsync(token);
+
+            if (!repExists)
+            {
+                return NotFound();
+            }
+
+            var rep = await _dbContext.PatientRepresentatives
+                .FirstOrDefaultAsync(r => r.AppUserId == userId && r.PatientId == patientId, token);
+
+            if (rep is null || (!rep.IsActive && rep.VerificationStatus != VerificationStatus.Rejected))
+            {
+                return NotFound();
+            }
+
+            var now = DateTime.UtcNow;
+            var outcome = VerificationStateMachine.ApplyTransition(rep, VerificationStatus.Pending, now);
+            if (!outcome.Succeeded)
+            {
+                var extensions = new Dictionary<string, object?>
+                {
+                    ["currentStatus"] = outcome.OldStatus.ToString(),
+                    ["allowedTransitions"] = outcome.AllowedTransitions ?? []
+                };
+
+                return ServiceResult<PatientProfileDto>.Failure(
+                    409,
+                    "Chuyển trạng thái không hợp lệ",
+                    outcome.ErrorDetail!,
+                    extensions,
+                    outcome.ErrorCode);
+            }
+
+            var patient = await _dbContext.Patients.AsNoTracking().FirstOrDefaultAsync(p => p.Id == patientId, token);
+            if (patient is null)
+            {
+                return NotFound();
+            }
+
+            if (!outcome.IsIdempotent)
+            {
+                await _dbContext.SaveChangesAsync(token);
+                await auditLog.WriteAsync(new AuditLog
+                {
+                    Id = Guid.NewGuid(),
+                    PerformedByUserId = userId,
+                    TableName = "identity.PatientRepresentative",
+                    RecordId = rep.Id,
+                    ActionType = ActionType.UPDATE,
+                    ChangedColumns = "VerificationStatus,IsActive,RevokedAtUtc",
+                    OldValuesJson = JsonSerializer.Serialize(new { VerificationStatus = outcome.OldStatus.ToString(), IsActive = outcome.OldIsActive }),
+                    NewValuesJson = JsonSerializer.Serialize(new { VerificationStatus = outcome.NewStatus.ToString(), IsActive = outcome.NewIsActive }),
+                    ChangeReason = "Người đại diện gửi lại yêu cầu xác minh hồ sơ",
+                    TimestampUtc = now
+                }, token);
+            }
+
+            return ServiceResult<PatientProfileDto>.Success(MapDto(patient, rep));
+        }, ct);
+    }
+
+    public async Task<ServiceResult<StaffPatientDto>> UpdateProfileByStaffAsync(
+        Guid staffUserId,
+        Guid patientId,
+        StaffUpdatePatientProfileRequest request,
+        CancellationToken ct = default)
+    {
+        if (string.IsNullOrWhiteSpace(request.Reason))
+        {
+            return ServiceResult<StaffPatientDto>.Failure(
+                400,
+                "Thiếu lý do chỉnh sửa",
+                "Vui lòng nhập lý do khi chỉnh sửa hồ sơ bệnh nhân.",
+                code: MissingAuditReasonCode);
+        }
+
+        var (fields, validationError) = PatientInputValidator.ValidatePatientFields(
+            request.FullName,
+            request.DateOfBirth,
+            request.Gender,
+            request.NationalId,
+            request.PhoneNumber,
+            request.Address);
+
+        if (validationError is { } err)
+        {
+            return ServiceResult<StaffPatientDto>.Failure(400, err.Title, err.Detail, code: err.Code);
+        }
+
+        var validated = fields!;
+
+        try
+        {
+            return await unitOfWork.ExecuteAsync(async token =>
+            {
+                var patient = await _dbContext.Patients.FirstOrDefaultAsync(p => p.Id == patientId, token);
+                if (patient is null)
+                {
+                    return ServiceResult<StaffPatientDto>.Failure(404, "Không tìm thấy", "Không tìm thấy hồ sơ bệnh nhân.", code: ProfileNotFoundCode);
+                }
+
+                var targetNationalId = request.KeepExistingNationalId && validated.NationalId is null
+                    ? patient.NationalId
+                    : validated.NationalId;
+
+                if (targetNationalId is not null
+                    && !string.Equals(patient.NationalId, targetNationalId, StringComparison.Ordinal)
+                    && await _dbContext.Patients.AsNoTracking().AnyAsync(p => p.Id != patientId && p.NationalId == targetNationalId, token))
+                {
+                    return DuplicateNationalIdFailure<StaffPatientDto>();
+                }
+
+                var changedColumns = new List<string>();
+                if (!string.Equals(patient.FullName, validated.FullName, StringComparison.Ordinal)) changedColumns.Add("FullName");
+                if (patient.DateOfBirth != validated.DateOfBirth) changedColumns.Add("DateOfBirth");
+                if (patient.Gender != validated.Gender) changedColumns.Add("Gender");
+                if (!string.Equals(patient.NationalId, targetNationalId, StringComparison.Ordinal)) changedColumns.Add("NationalId");
+                if (!string.Equals(patient.PhoneNumber, validated.PhoneNumber, StringComparison.Ordinal)) changedColumns.Add("PhoneNumber");
+                if (!string.Equals(patient.Address, validated.Address, StringComparison.Ordinal)) changedColumns.Add("Address");
+
+                if (changedColumns.Count > 0)
+                {
+                    var oldSnapshot = new
+                    {
+                        patient.FullName,
+                        patient.DateOfBirth,
+                        Gender = patient.Gender.ToString(),
+                        NationalId = PatientInputValidator.MaskNationalId(patient.NationalId),
+                        patient.PhoneNumber,
+                        patient.Address
+                    };
+
+                    patient.FullName = validated.FullName;
+                    patient.DateOfBirth = validated.DateOfBirth;
+                    patient.Gender = validated.Gender;
+                    patient.NationalId = targetNationalId;
+                    patient.PhoneNumber = validated.PhoneNumber;
+                    patient.Address = validated.Address;
+
+                    var newSnapshot = new
+                    {
+                        patient.FullName,
+                        patient.DateOfBirth,
+                        Gender = patient.Gender.ToString(),
+                        NationalId = PatientInputValidator.MaskNationalId(patient.NationalId),
+                        patient.PhoneNumber,
+                        patient.Address
+                    };
+
+                    await _dbContext.SaveChangesAsync(token);
+
+                    await auditLog.WriteAsync(new AuditLog
+                    {
+                        Id = Guid.NewGuid(),
+                        PerformedByUserId = staffUserId,
+                        TableName = "identity.Patient",
+                        RecordId = patient.Id,
+                        ActionType = ActionType.UPDATE,
+                        ChangedColumns = string.Join(",", changedColumns),
+                        OldValuesJson = JsonSerializer.Serialize(oldSnapshot),
+                        NewValuesJson = JsonSerializer.Serialize(newSnapshot),
+                        ChangeReason = request.Reason.Trim(),
+                        TimestampUtc = DateTime.UtcNow
+                    }, token);
+                }
+
+                return ServiceResult<StaffPatientDto>.Success(MapStaffDto(patient));
+            }, ct);
+        }
+        catch (DbUpdateException ex)
+        {
+            _dbContext.ChangeTracker.Clear();
+            if (IsUniqueViolation(ex, "NationalId"))
+            {
+                return DuplicateNationalIdFailure<StaffPatientDto>();
+            }
+
+            return ServiceResult<StaffPatientDto>.Failure(409, "Xung đột dữ liệu", "Không thể cập nhật hồ sơ do xung đột dữ liệu.");
+        }
     }
 
     public async Task<ServiceResult> UnlinkProfileAsync(Guid userId, Guid patientId, CancellationToken ct = default)
@@ -295,6 +501,36 @@ public sealed class PatientProfileService(
         await _dbContext.SaveChangesAsync(ct);
         return ServiceResult.Success(204);
     }
+
+    private static ServiceResult<T> DuplicateNationalIdFailure<T>() =>
+        ServiceResult<T>.Failure(
+            409,
+            "Trùng lặp dữ liệu",
+            PatientInputValidator.DuplicateNationalIdMessage,
+            code: DuplicateNationalIdCode);
+
+    private static PatientProfileDto MapDto(Patient patient, PatientRepresentative rep) => new(
+        patient.Id,
+        rep.Id,
+        patient.FullName,
+        patient.DateOfBirth,
+        patient.Gender.ToString(),
+        patient.NationalId,
+        patient.PhoneNumber,
+        patient.Address,
+        rep.Relationship.ToString(),
+        rep.VerificationStatus.ToString(),
+        rep.IsActive);
+
+    private static StaffPatientDto MapStaffDto(Patient patient) => new(
+        patient.Id,
+        patient.FullName,
+        patient.DateOfBirth,
+        patient.Gender.ToString(),
+        PatientInputValidator.MaskNationalId(patient.NationalId),
+        patient.PhoneNumber,
+        patient.Address,
+        patient.CreatedAtUtc);
 
     private static bool IsUniqueViolation(DbUpdateException ex, string keyPart)
     {

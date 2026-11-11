@@ -49,7 +49,7 @@ public sealed class IdentityPatientsModule(IdentityPatientsDbContext dbContext) 
                     join s in _dbContext.Staffs.AsNoTracking() on d.StaffId equals s.Id
                     join spec in _dbContext.Specialties.AsNoTracking() on d.SpecialtyId equals spec.Id
                     join r in _dbContext.DoctorRanks.AsNoTracking() on d.DoctorRankId equals r.Id
-                    where d.Id == doctorId
+                    where d.Id == doctorId && d.IsActive && s.IsActive && spec.IsActive && r.IsActive
                     select new DoctorDto(
                         d.Id,
                         s.FullName,
@@ -57,7 +57,7 @@ public sealed class IdentityPatientsModule(IdentityPatientsDbContext dbContext) 
                         spec.SpecialtyCode,
                         r.Id,
                         r.RankName,
-                        d.IsActive && s.IsActive
+                        true
                     );
 
         return await query.FirstOrDefaultAsync(ct);
@@ -65,10 +65,16 @@ public sealed class IdentityPatientsModule(IdentityPatientsDbContext dbContext) 
 
     public async Task<IReadOnlyList<DoctorDto>> SearchDoctorsAsync(DoctorSearch query, CancellationToken ct = default)
     {
+        if (query.IsActive == false)
+        {
+            return [];
+        }
+
         var baseQuery = from d in _dbContext.Doctors.AsNoTracking()
                         join s in _dbContext.Staffs.AsNoTracking() on d.StaffId equals s.Id
                         join spec in _dbContext.Specialties.AsNoTracking() on d.SpecialtyId equals spec.Id
                         join r in _dbContext.DoctorRanks.AsNoTracking() on d.DoctorRankId equals r.Id
+                        where d.IsActive && s.IsActive && spec.IsActive && r.IsActive
                         select new { Doctor = d, Staff = s, Specialty = spec, Rank = r };
 
         if (query.SpecialtyId.HasValue)
@@ -81,12 +87,7 @@ public sealed class IdentityPatientsModule(IdentityPatientsDbContext dbContext) 
             baseQuery = baseQuery.Where(x => x.Rank.Id == query.RankId.Value);
         }
 
-        if (query.IsActive.HasValue)
-        {
-            baseQuery = baseQuery.Where(x => x.Doctor.IsActive == query.IsActive.Value && x.Staff.IsActive == query.IsActive.Value);
-        }
-
-        var results = await baseQuery
+        return await baseQuery
             .Select(x => new DoctorDto(
                 x.Doctor.Id,
                 x.Staff.FullName,
@@ -94,11 +95,9 @@ public sealed class IdentityPatientsModule(IdentityPatientsDbContext dbContext) 
                 x.Specialty.SpecialtyCode,
                 x.Rank.Id,
                 x.Rank.RankName,
-                x.Doctor.IsActive && x.Staff.IsActive
+                true
             ))
             .ToListAsync(ct);
-
-        return results;
     }
 
     public async Task<IReadOnlyList<SpecialtyDto>> GetSpecialtiesAsync(CancellationToken ct = default)
@@ -125,47 +124,53 @@ public sealed class IdentityPatientsModule(IdentityPatientsDbContext dbContext) 
     {
         return await _dbContext.Rooms
             .AsNoTracking()
-            .Where(r => r.Id == roomId)
+            .Where(r => r.Id == roomId && r.IsActive)
             .Select(r => new RoomDto(
                 r.Id,
                 r.RoomNumber,
                 r.RoomName,
                 r.RoomType.ToString(),
-                r.IsActive
+                true
             ))
             .FirstOrDefaultAsync(ct);
     }
 
     public async Task<IReadOnlyList<RoomDto>> GetRoomsAsync(string? roomType = null, bool? isActive = null, CancellationToken ct = default)
     {
-        var query = _dbContext.Rooms.AsNoTracking();
+        if (isActive == false)
+        {
+            return [];
+        }
 
-        if (!string.IsNullOrWhiteSpace(roomType) && Enum.TryParse<RoomType>(roomType, ignoreCase: true, out var parsedType))
+        var query = _dbContext.Rooms.AsNoTracking().Where(r => r.IsActive);
+
+        if (!string.IsNullOrWhiteSpace(roomType) && Enum.TryParse<RoomType>(roomType, ignoreCase: true, out var parsedType) && Enum.IsDefined(parsedType))
         {
             query = query.Where(r => r.RoomType == parsedType);
         }
 
-        if (isActive.HasValue)
-        {
-            query = query.Where(r => r.IsActive == isActive.Value);
-        }
-
         return await query
             .OrderBy(r => r.RoomNumber)
-            .Select(r => new RoomDto(r.Id, r.RoomNumber, r.RoomName, r.RoomType.ToString(), r.IsActive))
+            .Select(r => new RoomDto(r.Id, r.RoomNumber, r.RoomName, r.RoomType.ToString(), true))
             .ToListAsync(ct);
     }
 
     public async Task<StaffDutyLeaderDto?> GetRoomShiftLeaderAsync(Guid roomId, DateOnly date, string shiftName, CancellationToken ct = default)
     {
-        if (!Enum.TryParse<ShiftName>(shiftName, ignoreCase: true, out var parsedShift))
+        if (!Enum.TryParse<ShiftName>(shiftName, ignoreCase: true, out var parsedShift) || !Enum.IsDefined(parsedShift))
         {
             return null;
         }
 
         var query = from a in _dbContext.StaffShiftAssignments.AsNoTracking()
                     join s in _dbContext.Staffs.AsNoTracking() on a.StaffId equals s.Id
-                    where a.RoomId == roomId && a.ShiftDate == date && a.ShiftName == parsedShift && a.IsShiftLeader
+                    join r in _dbContext.Rooms.AsNoTracking() on a.RoomId equals r.Id
+                    where a.RoomId == roomId
+                          && a.ShiftDate == date
+                          && a.ShiftName == parsedShift
+                          && a.IsShiftLeader
+                          && s.IsActive
+                          && r.IsActive
                     select new StaffDutyLeaderDto(
                         s.Id,
                         s.FullName,

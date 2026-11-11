@@ -42,7 +42,7 @@ export const App: React.FC = () => {
         <Route
           path="/reception/*"
           element={
-            <RequireRole allow={['Receptionist']}>
+            <RequireRole allow={['Receptionist', 'Admin']}>
               <ReceptionPage />
             </RequireRole>
           }

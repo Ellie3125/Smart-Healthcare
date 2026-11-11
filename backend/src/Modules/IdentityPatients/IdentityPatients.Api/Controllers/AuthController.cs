@@ -45,6 +45,50 @@ public sealed class AuthController(IAuthService authService) : ControllerBase
         return Ok(result.Response);
     }
 
+    [Microsoft.AspNetCore.RateLimiting.EnableRateLimiting("patient-register")]
+    [HttpPost("auth/patient/register")]
+    [ProducesResponseType(typeof(LoginResponse), StatusCodes.Status201Created)]
+    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status409Conflict)]
+    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status429TooManyRequests)]
+    public async Task<IActionResult> PatientRegister([FromBody] RegisterPatientRequest request, CancellationToken ct)
+    {
+        var result = await _authService.RegisterPatientAsync(request, ct);
+        if (!result.IsSuccess)
+        {
+            var problem = ProblemDetailsFactory.CreateProblemDetails(HttpContext, result.StatusCode, result.ErrorTitle, detail: result.ErrorDetail);
+            problem.Extensions["code"] = result.ErrorCode;
+            return new ObjectResult(problem) { StatusCode = result.StatusCode };
+        }
+
+        return StatusCode(StatusCodes.Status201Created, result.Response);
+    }
+
+    [Authorize(Policy = Policies.RoomAccountOnly)]
+    [HttpPost("auth/room/logout")]
+    [ProducesResponseType(StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status404NotFound)]
+    public async Task<IActionResult> RoomLogout(CancellationToken ct)
+    {
+        var sub = User.FindFirstValue(ClaimTypes.NameIdentifier) ?? User.FindFirstValue("sub");
+        if (string.IsNullOrWhiteSpace(sub) || !Guid.TryParse(sub, out var userId))
+        {
+            return Unauthorized();
+        }
+
+        var rawSessionToken = User.FindFirstValue(ITokenService.RoomSessionClaim);
+        var result = await _authService.LogoutRoomAsync(userId, rawSessionToken, ct);
+        if (!result.IsSuccess)
+        {
+            var problem = ProblemDetailsFactory.CreateProblemDetails(HttpContext, result.StatusCode, result.ErrorTitle, detail: result.ErrorDetail);
+            problem.Extensions["code"] = result.ErrorCode;
+            return new ObjectResult(problem) { StatusCode = result.StatusCode };
+        }
+
+        return Ok();
+    }
+
     [Authorize(Policy = Policies.AnyChannel)]
     [HttpGet("me")]
     [ProducesResponseType(typeof(CurrentUserDto), StatusCodes.Status200OK)]

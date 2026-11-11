@@ -37,6 +37,7 @@ builder.Services.AddControllers()
     .AddIdentityPatientsApi();
 
 builder.Services.AddProblemDetails();
+builder.Services.AddPatientRegisterRateLimiter();
 
 builder.Services.AddCors(options =>
 {
@@ -86,7 +87,6 @@ string[] moduleTags =
     DocumentsReporting.Api.DependencyInjection.Tag,
 ];
 
-builder.Services.AddProblemDetails();
 builder.Services.AddOpenApi(options => options.AddDocumentTransformer((document, _, _) =>
 {
     // Route group chưa có endpoint thì OpenAPI không sinh tag; khai sẵn tag của 7 module.
@@ -122,6 +122,7 @@ var app = builder.Build();
 app.UseCors();
 app.UseAuthentication();
 app.UseAuthorization();
+app.UseRateLimiter();
 
 app.MapControllers();
 

@@ -36,10 +36,16 @@ public sealed class EndpointAuthorizationInventoryTests
     [
         "auth/staff/login",
         "auth/patient/login",
+        "auth/patient/register",
         "api/billing/payments/vnpay/ipn", // callback VNPAY, xác minh bằng chữ ký HMAC
     ];
 
-    private static readonly HashSet<string> KnownPolicies = [.. Policies.RoleOf.Keys, Policies.AnyChannel];
+    private static readonly HashSet<string> KnownPolicies =
+    [
+        .. Policies.RoleOf.Keys,
+        Policies.ReceptionistOrAdmin,
+        Policies.AnyChannel,
+    ];
 
     private static WebApplication BuildApp(string environment)
     {

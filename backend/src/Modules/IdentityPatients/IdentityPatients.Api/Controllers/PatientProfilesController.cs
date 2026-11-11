@@ -79,6 +79,22 @@ public sealed class PatientProfilesController(IPatientProfileService profileServ
         return HandleResult(result);
     }
 
+    [HttpPost("{patientId:guid}/resubmit")]
+    [ProducesResponseType(typeof(PatientProfileDto), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status404NotFound)]
+    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status409Conflict)]
+    public async Task<IActionResult> ResubmitProfile(Guid patientId, CancellationToken ct)
+    {
+        var userId = GetCurrentUserId();
+        if (userId is null)
+        {
+            return Unauthorized();
+        }
+
+        var result = await _profileService.ResubmitProfileAsync(userId.Value, patientId, ct);
+        return HandleResult(result);
+    }
+
     [HttpPost("{patientId:guid}/unlink")]
     [ProducesResponseType(StatusCodes.Status204NoContent)]
     [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status404NotFound)]

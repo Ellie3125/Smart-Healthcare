@@ -8,17 +8,31 @@ export const LoginPage: React.FC = () => {
   const navigate = useNavigate();
   const { login } = useAuth();
 
-  const [roleMode, setRoleMode] = useState<'patient' | 'staff'>('staff');
   const [identity, setIdentity] = useState('');
   const [password, setPassword] = useState('');
+  const [deviceIdInput, setDeviceIdInput] = useState(() => localStorage.getItem('shc_custom_device_id') || '');
   const [remember, setRemember] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
+  const [infoMsg, setInfoMsg] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  const handleRoleSwitch = (mode: 'patient' | 'staff') => {
-    setRoleMode(mode);
-    setErrorMsg(null);
+  const resolveDeviceId = () => {
+    const custom = deviceIdInput.trim();
+    if (custom) {
+      localStorage.setItem('shc_custom_device_id', custom);
+      return custom;
+    }
+    localStorage.removeItem('shc_custom_device_id');
+    const storedBrowserId = localStorage.getItem('shc_browser_device_id');
+    if (storedBrowserId) return storedBrowserId;
+    const randomPart =
+      typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function'
+        ? crypto.randomUUID().slice(0, 8).toUpperCase()
+        : Math.random().toString(36).slice(2, 10).toUpperCase();
+    const generated = `WEB-${randomPart}`;
+    localStorage.setItem('shc_browser_device_id', generated);
+    return generated;
   };
 
   const handleLogin = async (e: React.FormEvent) => {
@@ -30,18 +44,24 @@ export const LoginPage: React.FC = () => {
 
     setIsSubmitting(true);
     setErrorMsg(null);
+    setInfoMsg(null);
 
     try {
-      const endpoint = roleMode === 'staff' ? '/auth/staff/login' : '/auth/patient/login';
-      const response = await apiClient.post<LoginResponse>(endpoint, {
+      const response = await apiClient.post<LoginResponse>('/auth/staff/login', {
         userName: identity.trim(),
         password: password.trim(),
+        deviceId: resolveDeviceId(),
       });
+
+      const role = response.data.role;
+      if (role === 'Patient') {
+        setErrorMsg('Tài khoản bệnh nhân vui lòng đăng nhập tại Cổng bệnh nhân (smarthealthcare.io.vn).');
+        return;
+      }
 
       login(response.data);
 
       // Điều hướng theo vai trò nhân viên
-      const role = response.data.role;
       switch (role) {
         case 'Receptionist':
           navigate('/reception');
@@ -57,10 +77,6 @@ export const LoginPage: React.FC = () => {
           break;
         case 'Admin':
           navigate('/admin');
-          break;
-        case 'Patient':
-          // Cổng web là kênh nhân viên; bệnh nhân dùng app
-          setErrorMsg('Tài khoản bệnh nhân vui lòng sử dụng ứng dụng di động Smart Healthcare Mobile.');
           break;
         default:
           navigate('/reception');
@@ -271,48 +287,16 @@ export const LoginPage: React.FC = () => {
 
                 {/* Header */}
                 <div className="mb-5">
+                  <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-[#E8F5EE] border border-[#DDE7E1] text-[#006a41] text-[11px] font-semibold mb-2">
+                    <span className="material-symbols-outlined text-[15px]">medical_services</span>
+                    <span>Cổng Nhân viên Y tế &amp; Phòng CLS</span>
+                  </div>
                   <h1 className="font-headline-lg text-[24px] leading-[32px] font-semibold text-[#1C2B24] tracking-tight">
-                    Đăng nhập
+                    Đăng nhập hệ thống
                   </h1>
                   <p className="font-body-md text-body-md text-[#5E6F66] mt-1">
-                    Dành cho Bệnh nhân và Nhân viên y tế Smart Healthcare
+                    Dành cho Quản trị viên, Tiếp tân, Bác sĩ, Điều dưỡng &amp; Tài khoản phòng CLS
                   </p>
-                </div>
-
-                {/* Role Switcher Tabs */}
-                <div className="mb-5 bg-[#F1F4F2] p-1 rounded-lg flex items-center gap-1 border border-[#DDE7E1]">
-                  <button
-                    className={`flex-1 py-2 px-3 text-center rounded-[6px] font-label-md text-label-md font-medium transition-all duration-150 ${
-                      roleMode === 'patient'
-                        ? 'bg-white text-[#1C2B24] shadow-sm'
-                        : 'text-[#5E6F66] hover:text-[#1C2B24]'
-                    }`}
-                    onClick={() => handleRoleSwitch('patient')}
-                    type="button"
-                  >
-                    <span className="inline-flex items-center justify-center gap-1.5">
-                      <span className={`material-symbols-outlined text-[16px] ${roleMode === 'patient' ? 'text-[#006a41]' : ''}`}>
-                        person
-                      </span>
-                      Bệnh nhân
-                    </span>
-                  </button>
-                  <button
-                    className={`flex-1 py-2 px-3 text-center rounded-[6px] font-label-md text-label-md font-medium transition-all duration-150 ${
-                      roleMode === 'staff'
-                        ? 'bg-white text-[#1C2B24] shadow-sm'
-                        : 'text-[#5E6F66] hover:text-[#1C2B24]'
-                    }`}
-                    onClick={() => handleRoleSwitch('staff')}
-                    type="button"
-                  >
-                    <span className="inline-flex items-center justify-center gap-1.5">
-                      <span className={`material-symbols-outlined text-[16px] ${roleMode === 'staff' ? 'text-[#006a41]' : ''}`}>
-                        medical_services
-                      </span>
-                      Nhân viên y tế
-                    </span>
-                  </button>
                 </div>
 
                 {/* Error Banner */}
@@ -333,13 +317,29 @@ export const LoginPage: React.FC = () => {
                   </div>
                 )}
 
+                {infoMsg && (
+                  <div className="mb-5 p-3.5 rounded-lg bg-[#E8F5EE] border border-[#DDE7E1] flex items-start gap-3 text-[#006a41]">
+                    <span className="material-symbols-outlined text-[20px] shrink-0 mt-0.5">info</span>
+                    <div className="flex-1">
+                      <p className="font-body-md text-body-md font-medium leading-tight">{infoMsg}</p>
+                    </div>
+                    <button
+                      aria-label="Đóng thông báo"
+                      className="text-[#006a41] hover:opacity-80 p-0.5 rounded focus:outline-none"
+                      onClick={() => setInfoMsg(null)}
+                      type="button"
+                    >
+                      <span className="material-symbols-outlined text-[18px]">close</span>
+                    </button>
+                  </div>
+                )}
+
                 {/* Form Elements */}
                 <form className="space-y-4" onSubmit={handleLogin} noValidate>
-                  {/* Email / Username field */}
+                  {/* Username field */}
                   <div>
                     <label className="block font-label-md text-label-md font-medium text-[#1C2B24] mb-1.5" htmlFor="identity">
-                      {roleMode === 'staff' ? 'Mã nhân viên / Tên đăng nhập' : 'Email / Số điện thoại'}{' '}
-                      <span className="text-[#D32F2F]">*</span>
+                      Tên đăng nhập / Mã tài khoản <span className="text-[#D32F2F]">*</span>
                     </label>
                     <div className="relative">
                       <span className="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-[#006a41] text-[20px] pointer-events-none">
@@ -352,11 +352,7 @@ export const LoginPage: React.FC = () => {
                         name="identity"
                         value={identity}
                         onChange={(e) => setIdentity(e.target.value)}
-                        placeholder={
-                          roleMode === 'staff'
-                            ? 'letan01, bacsi01, phong_xq01, admin01...'
-                            : 'patient01 hoặc 0901 000 001'
-                        }
+                        placeholder="admin01, letan01, bacsi01, phong_xq01..."
                         required
                         type="text"
                       />
@@ -369,13 +365,15 @@ export const LoginPage: React.FC = () => {
                       <label className="block font-label-md text-label-md font-medium text-[#1C2B24]" htmlFor="password">
                         Mật khẩu <span className="text-[#D32F2F]">*</span>
                       </label>
-                      <a
+                      <button
                         className="font-label-sm text-label-sm font-semibold text-[#006a41] hover:underline focus:outline-none focus:ring-1 focus:ring-[#006a41]"
-                        href="#"
-                        onClick={(e) => e.preventDefault()}
+                        onClick={() =>
+                          setInfoMsg('Vui lòng liên hệ Quản trị viên hệ thống để được cấp hoặc đặt lại mật khẩu nhân sự.')
+                        }
+                        type="button"
                       >
                         Quên mật khẩu?
-                      </a>
+                      </button>
                     </div>
                     <div className="relative">
                       <span className="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-[#006a41] text-[20px] pointer-events-none">
@@ -405,6 +403,27 @@ export const LoginPage: React.FC = () => {
                     </div>
                   </div>
 
+                  {/* Device ID (for RoomAccount session tracking) */}
+                  <div>
+                    <label className="block font-label-md text-label-md font-medium text-[#1C2B24] mb-1.5" htmlFor="deviceId">
+                      Mã thiết bị / Máy trạm <span className="text-xs font-normal text-[#5E6F66]">(dành cho Phòng CLS)</span>
+                    </label>
+                    <div className="relative">
+                      <span className="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-[#006a41] text-[20px] pointer-events-none">
+                        computer
+                      </span>
+                      <input
+                        className="w-full h-[42px] pl-10 pr-3 rounded-[8px] border border-[#DDE7E1] bg-white text-[#1C2B24] font-body-md text-body-md placeholder:text-[#5E6F66]/60 focus:outline-none focus:border-[#006a41] focus:ring-2 focus:ring-[#006a41]/20 transition-all duration-150"
+                        id="deviceId"
+                        name="deviceId"
+                        value={deviceIdInput}
+                        onChange={(e) => setDeviceIdInput(e.target.value)}
+                        placeholder="Để trống để tự gán theo trình duyệt (VD: XQ01-PC01)"
+                        type="text"
+                      />
+                    </div>
+                  </div>
+
                   {/* Remember me checkbox */}
                   <div className="flex items-center justify-between pt-1">
                     <label className="flex items-center gap-2 cursor-pointer select-none">
@@ -418,9 +437,7 @@ export const LoginPage: React.FC = () => {
                       />
                       <span className="font-body-md text-body-md text-[#1C2B24]">Ghi nhớ đăng nhập</span>
                     </label>
-                    <span className="font-label-sm text-label-sm text-[#5E6F66]">
-                      Cổng: {roleMode === 'staff' ? 'Nhân viên y tế' : 'Bệnh nhân'}
-                    </span>
+                    <span className="font-label-sm text-label-sm text-[#5E6F66]">Kênh: Nhân viên (Staff)</span>
                   </div>
 
                   {/* Primary CTA Button */}
@@ -442,16 +459,15 @@ export const LoginPage: React.FC = () => {
                   </div>
                 </form>
 
-                {/* Register Link */}
+                {/* Patient Portal Link */}
                 <div className="mt-6 text-center">
                   <p className="font-body-md text-body-md text-[#5E6F66]">
-                    Chưa có tài khoản?{' '}
+                    Bạn là bệnh nhân hoặc người đại diện?{' '}
                     <a
                       className="font-semibold text-[#006a41] hover:underline focus:outline-none focus:ring-1 focus:ring-[#006a41] rounded ml-1"
-                      href="#"
-                      onClick={(e) => e.preventDefault()}
+                      href={import.meta.env.VITE_PATIENT_PORTAL_URL || 'http://localhost:3000'}
                     >
-                      Đăng ký khám ngay
+                      Chuyển sang Cổng bệnh nhân
                     </a>
                   </p>
                 </div>

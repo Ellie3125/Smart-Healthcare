@@ -112,9 +112,10 @@ public sealed class StaffAdminController(IStaffAdminService adminService) : ApiC
     public async Task<IActionResult> GetStaffList(
         [FromQuery] string? staffType,
         [FromQuery] bool? isActive,
+        [FromQuery] string? searchTerm,
         CancellationToken ct)
     {
-        var result = await _adminService.GetStaffListAsync(staffType, isActive, ct);
+        var result = await _adminService.GetStaffListAsync(staffType, isActive, searchTerm, ct);
         return HandleResult(result);
     }
 
@@ -144,6 +145,19 @@ public sealed class StaffAdminController(IStaffAdminService adminService) : ApiC
     public async Task<IActionResult> ToggleStaffActive(Guid id, [FromQuery] bool isActive, CancellationToken ct)
     {
         var result = await _adminService.ToggleStaffActiveAsync(GetCurrentUserId() ?? Guid.Empty, id, isActive, ct);
+        return HandleResult(result);
+    }
+
+    [HttpPost("staff/{id:guid}/reset-password")]
+    [ProducesResponseType(StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status404NotFound)]
+    public async Task<IActionResult> ResetStaffPassword(
+        Guid id,
+        [FromBody] ResetStaffPasswordRequest request,
+        CancellationToken ct)
+    {
+        var result = await _adminService.ResetStaffPasswordAsync(GetCurrentUserId() ?? Guid.Empty, id, request, ct);
         return HandleResult(result);
     }
 
@@ -199,9 +213,11 @@ public sealed class StaffAdminController(IStaffAdminService adminService) : ApiC
         [FromQuery] DateOnly? date,
         [FromQuery] Guid? roomId,
         [FromQuery] Guid? staffId,
+        [FromQuery] DateOnly? fromDate,
+        [FromQuery] DateOnly? toDate,
         CancellationToken ct)
     {
-        var result = await _adminService.GetShiftAssignmentsAsync(date, roomId, staffId, ct);
+        var result = await _adminService.GetShiftAssignmentsAsync(date, roomId, staffId, fromDate, toDate, ct);
         return HandleResult(result);
     }
 
