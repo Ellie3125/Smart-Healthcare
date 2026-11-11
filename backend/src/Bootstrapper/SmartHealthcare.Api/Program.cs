@@ -66,7 +66,9 @@ builder.Services
     // DbContext tham gia IUnitOfWork (W1-06). Module khác tự thêm khi cần ghi cùng transaction.
     .AddUnitOfWorkParticipant<SchedulingDbContext>()
     .AddUnitOfWorkParticipant<WorkflowDbContext>()
-    .AddUnitOfWorkParticipant<IdentityPatients.Infrastructure.Persistence.IdentityPatientsDbContext>();
+    .AddUnitOfWorkParticipant<IdentityPatients.Infrastructure.Persistence.IdentityPatientsDbContext>()
+    // Tạo khoản thu + yêu cầu thanh toán cùng transaction với BookingAttempt (BookingPaymentService).
+    .AddUnitOfWorkParticipant<Billing.Infrastructure.Persistence.BillingDbContext>();
 
 builder.Services
     .AddIdentityPatientsApplication().AddIdentityPatientsApi()
