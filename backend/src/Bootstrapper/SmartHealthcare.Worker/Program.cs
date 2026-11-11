@@ -1,17 +1,17 @@
 using Hangfire;
 using Scheduling.Application.Holds;
+using Shared.Infrastructure;
 using Shared.Infrastructure.Outbox;
 using SmartHealthcare.Worker;
 
-// Máy dev: backend/.env (mẫu: backend/.env.example) chọn DB đang dùng; không có file thì lấy từ user-secrets như cũ.
-Shared.Infrastructure.DotEnv.Load();
-
 var builder = Host.CreateApplicationBuilder(args);
 
-var connectionString = builder.Configuration.GetConnectionString("SmartHealthcare");
+// Máy dev: `dotnet run` dùng DB trên máy, `dotnet run -lp docker` dùng DB trong Docker Compose (xem DatabaseSource).
+var connectionName = DatabaseSource.ConnectionName(builder.Configuration[DatabaseSource.ConfigurationKey]);
+var connectionString = builder.Configuration.GetConnectionString(connectionName);
 if (string.IsNullOrWhiteSpace(connectionString))
 {
-    throw new InvalidOperationException("ConnectionStrings:SmartHealthcare chưa được cấu hình (dotnet user-secrets hoặc biến môi trường ConnectionStrings__SmartHealthcare).");
+    throw new InvalidOperationException($"ConnectionStrings:{connectionName} chưa được cấu hình (dotnet user-secrets hoặc biến môi trường ConnectionStrings__{connectionName}).");
 }
 
 builder.Services.AddWorkerServices(builder.Configuration, connectionString);
