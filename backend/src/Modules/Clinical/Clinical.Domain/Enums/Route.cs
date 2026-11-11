@@ -1,9 +1,9 @@
-namespace Clinical.Domain.Enums;
-
-public enum Route
-{
-    Oral,
-    Topical,
-    Injection,
-    Inhalation
-}
+namespace Clinical.Domain.Enums;
+
+public enum Route
+{
+    Oral,
+    Topical,
+    Injection,
+    Inhalation
+}

@@ -13,6 +13,7 @@ public class ContractsAndApplicationTests
     [Theory]
     [InlineData("Billing.Contracts")]
     [InlineData("Clinical.Contracts")]
+    [InlineData("Scheduling.Contracts")]
     public void Contracts_reference_only_BCL_and_shared_abstractions(string assembly)
     {
         var violations = ReferencedNames(assembly)

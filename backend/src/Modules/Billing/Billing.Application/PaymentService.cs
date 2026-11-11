@@ -1,3 +1,5 @@
+using System.Security.Cryptography;
+using System.Text;
 using Billing.Contracts;
 using Billing.Domain.Entities;
 using Billing.Domain.Enums;
@@ -5,9 +7,9 @@ using Billing.Domain.Enums;
 namespace Billing.Application;
 
 /// <summary>
-/// Tạo yêu cầu thanh toán và ghi nhận thanh toán đã xác minh (contract v0.2, đề xuất cho câu hỏi mở 1 và 2).
-/// Không gọi cổng thanh toán: adapter VNPAY/MoMo gọi cổng sau khi yêu cầu đã commit, và gọi ConfirmVerifiedAsync
-/// sau khi đã kiểm chữ ký IPN.
+/// Tạo yêu cầu thanh toán và ghi nhận kết quả cổng đã xác minh (contract v0.2).
+/// Không gọi cổng thanh toán: <see cref="PaymentCheckoutService"/> gọi cổng sau khi yêu cầu đã commit; adapter callback
+/// của cổng gọi <see cref="ConfirmVerifiedAsync"/> hoặc <see cref="RecordFailedAsync"/> sau khi đã kiểm chữ ký.
 /// </summary>
 public sealed class PaymentService(IPaymentStore store, TimeProvider clock)
 {
@@ -51,7 +53,7 @@ public sealed class PaymentService(IPaymentStore store, TimeProvider clock)
             };
             var transaction = new PaymentTransaction
             {
-                // Chỉ chữ và số: hợp lệ cho vnp_TxnRef của VNPAY và orderId của MoMo.
+                // Chỉ chữ và số, 32 ký tự: hợp lệ cho vnp_TxnRef của VNPAY và mã đơn hàng của các cổng thật phổ biến.
                 TransactionReference = Guid.NewGuid().ToString("N").ToUpperInvariant(),
                 TransactionAmount = amount,
                 Currency = BillingCurrency.Vnd,
@@ -70,40 +72,49 @@ public sealed class PaymentService(IPaymentStore store, TimeProvider clock)
     public Task<PaymentConfirmation> ConfirmVerifiedAsync(VerifiedPayment payment, CancellationToken ct)
     {
         ArgumentNullException.ThrowIfNull(payment);
-        if (string.IsNullOrWhiteSpace(payment.TransactionReference) || string.IsNullOrWhiteSpace(payment.ProviderTransactionId))
-            throw Invalid("Thiếu mã tham chiếu hoặc mã giao dịch của cổng thanh toán.");
+        RequireReferences(payment.TransactionReference, payment.ProviderTransactionId, payment.ProviderEventId);
         Guard.Utc(payment.VerifiedAtUtc, nameof(payment.VerifiedAtUtc));
 
         return store.InTransactionAsync(async token =>
         {
             var transaction = await store.LockTransactionAsync(payment.TransactionReference, token)
                 ?? throw new BillingException(BillingErrorCode.PaymentNotFound, $"Không có giao dịch {payment.TransactionReference}.");
+            var intent = await store.GetIntentAsync(transaction.PaymentIntentId, token);
+            var provider = EventProvider(intent);
+            var now = clock.GetUtcNow().UtcDateTime;
+            EnsureAmount(transaction, payment.Amount, payment.Currency);
+
+            // Cùng sự kiện của cổng gửi lại (bấm lại, gửi lại callback): đã xử lý, trả kết quả cũ.
+            if (await store.HasEventAsync(provider, payment.ProviderEventId, token))
+                return new PaymentConfirmation(intent.Id, AlreadyRecorded: true, []);
 
             if (transaction.PaymentStatus == PaymentStatus.Success)
             {
-                if (transaction.ProviderTransactionId == payment.ProviderTransactionId)
-                    return new PaymentConfirmation(transaction.PaymentIntentId, AlreadyRecorded: true, []);
-                throw new BillingException(BillingErrorCode.PaymentConflict,
-                    $"Giao dịch {payment.TransactionReference} đã được ghi nhận bằng mã cổng khác.");
+                if (transaction.ProviderTransactionId != payment.ProviderTransactionId)
+                    throw new BillingException(BillingErrorCode.PaymentConflict,
+                        $"Giao dịch {payment.TransactionReference} đã được ghi nhận bằng mã cổng khác.");
+                store.AddEvent(NewEvent(provider, payment.ProviderEventId, transaction.Id, payment.ProviderRawData, PaymentEventStatus.DuplicateIgnored, now));
+                await store.SaveChangesAsync(token);
+                return new PaymentConfirmation(intent.Id, AlreadyRecorded: true, []);
             }
 
-            if (payment.Amount != transaction.TransactionAmount
-                || !string.Equals(payment.Currency, transaction.Currency, StringComparison.Ordinal))
-                throw new BillingException(BillingErrorCode.AmountMismatch,
-                    $"Cổng báo {payment.Amount} {payment.Currency}, giao dịch {payment.TransactionReference} cần {transaction.TransactionAmount} {transaction.Currency}.");
+            if (transaction.PaymentStatus == PaymentStatus.Failed)
+                throw new BillingException(BillingErrorCode.PaymentConflict,
+                    $"Giao dịch {payment.TransactionReference} đã được cổng báo thất bại; không ghi nhận thành công cho cùng giao dịch.");
+
+            EnsureSameProviderTransaction(transaction, payment.ProviderTransactionId);
 
             if (await store.IsProviderTransactionIdTakenAsync(payment.ProviderTransactionId, transaction.Id, token))
                 throw new BillingException(BillingErrorCode.PaymentConflict,
                     $"Mã giao dịch cổng {payment.ProviderTransactionId} đã được ghi nhận cho giao dịch khác.");
 
-            var now = clock.GetUtcNow().UtcDateTime;
             transaction.PaymentStatus = PaymentStatus.Success;
             transaction.ProviderTransactionId = payment.ProviderTransactionId;
             transaction.VerifiedAtUtc = payment.VerifiedAtUtc;
             transaction.ProviderRawData = payment.ProviderRawData;
+            store.AddEvent(NewEvent(provider, payment.ProviderEventId, transaction.Id, payment.ProviderRawData, PaymentEventStatus.Processed, now));
 
             // Tiền đã thu thật nên vẫn ghi nhận khi yêu cầu đã hết hạn; Scheduling xử lý PaidUnallocated (BR-003).
-            var intent = await store.GetIntentAsync(transaction.PaymentIntentId, token);
             intent.Status = PaymentIntentStatus.Succeeded;
 
             var allocations = await store.GetAllocationsAsync(transaction.Id, token);
@@ -127,6 +138,100 @@ public sealed class PaymentService(IPaymentStore store, TimeProvider clock)
             return new PaymentConfirmation(intent.Id, AlreadyRecorded: false, paidChargeIds);
         }, ct);
     }
+
+    /// <summary>
+    /// Ghi nhận cổng báo thất bại. Không ghi đè giao dịch đã Paid (BR-002). Không phát sự kiện: lịch chưa xác nhận
+    /// thì giữ chỗ tự hết hạn; bệnh nhân tạo yêu cầu mới nếu muốn trả tiếp. PaymentEvent chỉ có loại PaymentSuccess và
+    /// PaymentRefund (ERD v2.4), nên kết quả thất bại lưu ở PaymentTransaction.ProviderRawData.
+    /// </summary>
+    public Task<PaymentFailure> RecordFailedAsync(FailedPayment failure, CancellationToken ct)
+    {
+        ArgumentNullException.ThrowIfNull(failure);
+        // Null nghĩa là cổng chưa phát sinh giao dịch; chuỗi rỗng vẫn là lỗi.
+        RequireReferences(failure.TransactionReference, failure.ProviderTransactionId ?? failure.ProviderEventId, failure.ProviderEventId);
+        Guard.Utc(failure.FailedAtUtc, nameof(failure.FailedAtUtc));
+
+        return store.InTransactionAsync(async token =>
+        {
+            var transaction = await store.LockTransactionAsync(failure.TransactionReference, token)
+                ?? throw new BillingException(BillingErrorCode.PaymentNotFound, $"Không có giao dịch {failure.TransactionReference}.");
+            EnsureAmount(transaction, failure.Amount, failure.Currency);
+
+            switch (transaction.PaymentStatus)
+            {
+                case PaymentStatus.Success:
+                    return new PaymentFailure(transaction.PaymentIntentId, PaymentFailureOutcome.IgnoredAlreadyPaid);
+                case PaymentStatus.Failed when transaction.ProviderTransactionId == failure.ProviderTransactionId:
+                    return new PaymentFailure(transaction.PaymentIntentId, PaymentFailureOutcome.AlreadyRecorded);
+                case PaymentStatus.Failed:
+                    throw new BillingException(BillingErrorCode.PaymentConflict,
+                        $"Giao dịch {failure.TransactionReference} đã ghi thất bại bằng mã cổng khác.");
+            }
+
+            if (failure.ProviderTransactionId is { } providerTransactionId)
+            {
+                EnsureSameProviderTransaction(transaction, providerTransactionId);
+                if (await store.IsProviderTransactionIdTakenAsync(providerTransactionId, transaction.Id, token))
+                    throw new BillingException(BillingErrorCode.PaymentConflict,
+                        $"Mã giao dịch cổng {providerTransactionId} đã được ghi nhận cho giao dịch khác.");
+            }
+
+            transaction.PaymentStatus = PaymentStatus.Failed;
+            transaction.ProviderTransactionId = failure.ProviderTransactionId;
+            transaction.ProviderRawData = failure.ProviderRawData;
+
+            var intent = await store.GetIntentAsync(transaction.PaymentIntentId, token);
+            if (intent.Status is PaymentIntentStatus.Pending or PaymentIntentStatus.Processing or PaymentIntentStatus.Unknown)
+                intent.Status = PaymentIntentStatus.Failed;
+
+            await store.SaveChangesAsync(token);
+            return new PaymentFailure(intent.Id, PaymentFailureOutcome.Recorded);
+        }, ct);
+    }
+
+    private static void RequireReferences(params ReadOnlySpan<string> references)
+    {
+        foreach (var reference in references)
+            if (string.IsNullOrWhiteSpace(reference))
+                throw Invalid("Thiếu mã tham chiếu, mã giao dịch hoặc mã sự kiện của cổng thanh toán.");
+    }
+
+    // Kiểm ngay sau khi tìm thấy giao dịch, trước khi xét đã xử lý chưa: kết quả sai số tiền bị từ chối (RspCode 04) kể cả khi
+    // gửi lại (Giải pháp kỹ thuật v2.13 mục 5.4 bước 4).
+    private static void EnsureAmount(PaymentTransaction transaction, decimal amount, string currency)
+    {
+        if (amount != transaction.TransactionAmount || !string.Equals(currency, transaction.Currency, StringComparison.Ordinal))
+            throw new BillingException(BillingErrorCode.AmountMismatch,
+                $"Cổng báo {amount} {currency}, giao dịch {transaction.TransactionReference} cần {transaction.TransactionAmount} {transaction.Currency}.");
+    }
+
+    // Mã giao dịch cổng đã ghi cho giao dịch phải khớp mã trong kết quả (BR-002: đúng giao dịch).
+    private static void EnsureSameProviderTransaction(PaymentTransaction transaction, string providerTransactionId)
+    {
+        if (transaction.ProviderTransactionId is { } attached && attached != providerTransactionId)
+            throw new BillingException(BillingErrorCode.PaymentConflict,
+                $"Giao dịch {transaction.TransactionReference} thuộc giao dịch cổng {attached}, không phải {providerTransactionId}.");
+    }
+
+    private static PaymentEventProvider EventProvider(PaymentIntent intent) => intent.Provider switch
+    {
+        PaymentIntentProvider.VNPAY => PaymentEventProvider.VNPAY,
+        _ => throw Invalid($"Yêu cầu {intent.IntentNumber} dùng {intent.Provider}, không nhận kết quả từ cổng thanh toán."),
+    };
+
+    private static PaymentEvent NewEvent(PaymentEventProvider provider, string eventId, Guid transactionId, string? rawData,
+        PaymentEventStatus status, DateTime now) => new()
+    {
+        PaymentTransactionId = transactionId,
+        Provider = provider,
+        EventId = eventId,
+        EventType = EventType.PaymentSuccess,
+        PayloadHash = Convert.ToHexStringLower(SHA256.HashData(Encoding.UTF8.GetBytes(rawData ?? ""))),
+        PayloadJson = rawData ?? "{}",
+        ReceivedAtUtc = now,
+        Status = status,
+        ProcessedAtUtc = now,
+    };
 
     private static void Validate(CreatePayment c, DateTime now)
     {
@@ -170,7 +275,6 @@ public sealed class PaymentService(IPaymentStore store, TimeProvider clock)
     private static PaymentIntentProvider ToDomain(PaymentProvider provider) => provider switch
     {
         PaymentProvider.VNPAY => PaymentIntentProvider.VNPAY,
-        PaymentProvider.MoMo => PaymentIntentProvider.MoMo,
         _ => throw Invalid($"Cổng thanh toán {provider} không hỗ trợ."),
     };
 
@@ -179,7 +283,11 @@ public sealed class PaymentService(IPaymentStore store, TimeProvider clock)
         i.IntentNumber,
         t.TransactionReference,
         i.PaymentType == PaymentType.InitialConsultation ? PaymentPurpose.InitialConsultation : PaymentPurpose.CLSOrderBatch,
-        i.Provider == PaymentIntentProvider.MoMo ? PaymentProvider.MoMo : PaymentProvider.VNPAY,
+        i.Provider switch
+        {
+            PaymentIntentProvider.VNPAY => PaymentProvider.VNPAY,
+            _ => throw new InvalidOperationException($"Yêu cầu {i.IntentNumber} dùng {i.Provider}, không phải cổng thanh toán trên app."),
+        },
         t.TransactionAmount,
         t.Currency,
         i.Status switch

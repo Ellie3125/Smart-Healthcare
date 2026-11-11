@@ -1,7 +1,7 @@
-namespace Billing.Domain.Enums;
-
-public enum EventType
-{
-    PaymentSuccess,
-    PaymentRefund
-}
+namespace Billing.Domain.Enums;
+
+public enum EventType
+{
+    PaymentSuccess,
+    PaymentRefund
+}
