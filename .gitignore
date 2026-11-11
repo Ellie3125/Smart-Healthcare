@@ -26,3 +26,7 @@ docs/evidence/
 
 # ===== Node =====
 node_modules/
+
+# ===== Frontend build =====
+dist/
+*.tsbuildinfo
