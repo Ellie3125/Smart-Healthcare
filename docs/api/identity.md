@@ -28,14 +28,16 @@
 |---|---|---|---|
 | `AdminOnly` | `Admin` | `Staff` | `/admin` |
 | `ReceptionistOnly` | `Receptionist` | `Staff` | `/reception` |
+| `ReceptionistOrAdmin` | `Receptionist`, `Admin` | `Staff` | `/reception` |
 | `NurseOnly` | `Nurse` | `Staff` | `/nurse` (chưa có endpoint) |
 | `DoctorOnly` | `Doctor` | `Staff` | `/doctor` (chưa có endpoint) |
-| `RoomAccountOnly` | `RoomAccount` | `Staff` | `/room` (chưa có endpoint) |
+| `RoomAccountOnly` | `RoomAccount` | `Staff` | `/room`, `POST /auth/room/logout` |
 | `PatientOnly` | `Patient` | `Patient` | web bệnh nhân |
 | `AnyChannel` | mọi vai trò | kênh phải khớp loại vai trò | `/me` |
 
 - **Mọi endpoint có policy**, trừ danh sách công khai:
   - `POST /auth/staff/login`, `POST /auth/patient/login`;
+  - `POST /auth/patient/register` (công khai để bệnh nhân tự đăng ký tài khoản trên cổng `smarthealthcare.io.vn`, giới hạn tần suất fixed-window 10 request/phút/IP);
   - `GET /api/billing/payments/vnpay/ipn` (callback VNPAY, xác minh bằng chữ ký);
   - `/`, `/openapi/v1.json`, `/swagger` (chỉ Development).
 
@@ -50,10 +52,11 @@
 
 | Endpoint | Policy | Được phép | Mọi vai trò khác |
 |---|---|---|---|
-| `POST /auth/staff/login`, `POST /auth/patient/login` | công khai | — | — |
+| `POST /auth/staff/login`, `POST /auth/patient/login`, `POST /auth/patient/register` | công khai | — | — |
+| `POST /auth/room/logout` | `RoomAccountOnly` | `RoomAccount` (kênh Staff) | 403 |
 | `GET /me` | `AnyChannel` | mọi vai trò, đúng kênh | 403 khi sai kênh |
 | `/api/patient/profiles/**` | `PatientOnly` | Patient (kênh Patient) | 403 |
-| `/api/staff/verifications/**` | `ReceptionistOnly` | Receptionist (kênh Staff) | 403, kể cả Admin |
+| `/api/staff/verifications/**`, `/api/staff/patients/**` | `ReceptionistOrAdmin` | Receptionist, Admin (kênh Staff) | 403 |
 | `/api/staff/admin/**`, `/api/staff/admin/rooms/**` | `AdminOnly` | Admin (kênh Staff) | 403 |
 | `/api/scheduling/admin/doctor-days/**` | `AdminOnly` | Admin (kênh Staff) | 403 |
 
@@ -76,7 +79,7 @@ Request:
 |---|---|---|
 | 401 | `InvalidCredentials` | Sai mật khẩu, tài khoản không tồn tại, bị vô hiệu hóa, Technician, hoặc tài khoản `Patient` đăng nhập kênh này. Mọi trường hợp cùng `title` và `detail`; vẫn chạy PBKDF2 khi tên không tồn tại để không lộ thông tin qua thời gian phản hồi |
 
-**Tài khoản phòng:** đăng nhập chạy trong một unit of work có khóa hàng `RoomAccount`. Mọi phiên `RoomDeviceSession` đang hoạt động bị đóng rồi tạo phiên mới (lưu SHA-256 hex của token phiên); khi có phiên cũ bị đóng thì ghi `AuditLog`. Quy tắc mỗi phòng tối đa một phiên hoạt động do Backend kiểm (ERD v2.4), không có unique trong DB.
+**Tài khoản phòng:** đăng nhập chạy trong một unit of work có khóa hàng `RoomAccount`. Mọi phiên `RoomDeviceSession` đang hoạt động bị đóng rồi tạo phiên mới (lưu SHA-256 hex của token phiên) và ghi `AuditLog` (`RoomAccountId`, `RoomDeviceSessionId`, `DeviceId`, `ClientIpAddress`). JWT mang claim `room_session` chứa token phiên gốc; ở mọi request tiếp theo, `RoomSessionTokenValidator` đối chiếu SHA-256 của `room_session` với phiên `IsActive` trong DB — phiên cũ đã đóng/bị buộc đăng xuất bị từ chối `401`. Quy tắc mỗi phòng tối đa một phiên hoạt động do Backend kiểm (ERD v2.4), không có unique trong DB.
 
 ### POST `/auth/patient/login` (công khai)
 
@@ -85,6 +88,14 @@ Request và response như trên, `role` là `Patient`.
 | Status | `code` | Khi nào |
 |---|---|---|
 | 401 | `InvalidCredentials` | Như kênh nhân viên, kể cả tài khoản nhân viên hay tài khoản phòng đăng nhập kênh này |
+
+### POST `/auth/patient/register` (công khai, rate-limit `patient-register`)
+
+Tạo `AppUser` bệnh nhân (`Patient`, không có `Staff`/`RoomAccount`), tùy chọn kèm hồ sơ `Self` (`Pending`) trong cùng transaction. Trùng `userName` / `email` / `phoneNumber` → 409; trùng CCCD ở hồ sơ `Self` → 409 thông điệp chung; vượt ngưỡng rate-limit → 429 `TooManyRequests`.
+
+### POST `/auth/room/logout` (`RoomAccountOnly`)
+
+Đóng phiên `RoomDeviceSession` hiện tại (`LogoutAtUtc`, `IsActive = false`) và ghi `AuditLog`, trả `200`.
 
 ### GET `/me` (`AnyChannel`)
 
@@ -102,7 +113,8 @@ Một tài khoản quản lý nhiều hồ sơ qua `PatientRepresentative`. Mỗ
 | POST | `/api/patient/profiles` | `CreatePatientProfileRequest` | 201 `PatientProfileDto` | 400 `InvalidInput`; 409 `SelfProfileExists`; 409 `Conflict` trùng CCCD |
 | GET | `/api/patient/profiles` | — | 200 `PatientProfileDto[]` | — |
 | GET | `/api/patient/profiles/{patientId}` | — | 200 `PatientProfileDto` | 404 `ProfileNotFound` khi không có hoặc không thuộc tài khoản |
-| PUT | `/api/patient/profiles/{patientId}` | `UpdatePatientProfileRequest` | 200 `PatientProfileDto` | 400 `InvalidInput`; 404 `ProfileNotFound`; 409 `Conflict` trùng CCCD |
+| PUT | `/api/patient/profiles/{patientId}` | `UpdatePatientProfileRequest` | 200 `PatientProfileDto` | 400 `InvalidInput`; 403 `VerifiedProfileIdentityLocked` (sửa họ tên/ngày sinh/giới tính/CCCD khi đã `Verified`); 404 `ProfileNotFound`; 409 `Conflict` trùng CCCD |
+| POST | `/api/patient/profiles/{patientId}/resubmit` | `UpdatePatientProfileRequest?` | 200 `PatientProfileDto` | 400 `InvalidInput`; 404 `ProfileNotFound`; 409 `InvalidStatusTransition` |
 | POST | `/api/patient/profiles/{patientId}/unlink` | — | 204 | 404 `NotFound` |
 
 Hồ sơ không thuộc tài khoản trả cùng 404 và cùng nội dung như hồ sơ không có, để không lộ việc hồ sơ tồn tại.
@@ -113,25 +125,29 @@ Hồ sơ không thuộc tài khoản trả cùng 404 và cùng nội dung như h
 ```
 - `gender`: `Male`, `Female` hoặc `Other`.
 - `relationship`: `Self`, `Child`, `Parent`, `Spouse` hoặc `Other`.
-- `nationalId` để trống được (trẻ em). Khi có giá trị thì unique.
+- `nationalId` để trống được (trẻ em). Khi có giá trị thì phải đúng 12 chữ số và unique (trùng trả 409 thông điệp chung).
 
 **`UpdatePatientProfileRequest`:** giống request tạo, không có `relationship`.
 
-**`PatientProfileDto`:** `patientId`, `representativeId`, `fullName`, `dateOfBirth`, `gender`, `nationalId`, `phoneNumber`, `address`, `relationship`, `verificationStatus` (`Pending`, `Verified`, `Rejected` hoặc `Revoked`), `isActive`.
+**`PatientProfileDto`:** `patientId`, `representativeId`, `fullName`, `dateOfBirth`, `gender`, `nationalId`, `phoneNumber`, `address`, `relationship`, `verificationStatus` (`Pending`, `Verified`, `Rejected` hoặc `Revoked`), `isActive`, `rejectionReason`.
 
-## 4. Xác minh người đại diện — `api/staff/verifications` (`ReceptionistOnly`)
+## 4. Xác minh người đại diện và sửa hồ sơ đã xác minh — `ReceptionistOrAdmin`
 
 | Method | Route | Body | Thành công | Lỗi |
 |---|---|---|---|---|
 | GET | `/api/staff/verifications?searchTerm=&status=&page=1&pageSize=20` | — | 200 `PagedResult<VerificationItemDto>` | — |
-| POST | `/api/staff/verifications/{representativeId}/verify` | — | 200 `VerificationItemDto` | 404; 409 khi không ở `Pending` (kèm extension `allowedTransitions`) |
-| POST | `/api/staff/verifications/{representativeId}/reject` | `{ "reason": "..." }` | 200 | 400 thiếu lý do; 404; 409 |
-| POST | `/api/staff/verifications/{representativeId}/revoke` | `{ "reason": "..." }` | 200 | 400 thiếu lý do; 404; 409 khi không ở `Verified` |
+| GET | `/api/staff/verifications/{representativeId}` | — | 200 `VerificationDetailDto` | 404 |
+| POST | `/api/staff/verifications/{representativeId}/verify` | — | 200 `VerificationItemDto` | 404; 409 `InvalidStatusTransition` (kèm extension `allowedTransitions`) |
+| POST | `/api/staff/verifications/{representativeId}/reject` | `{ "reason": "..." }` | 200 `VerificationItemDto` | 400 thiếu lý do; 404; 409 `InvalidStatusTransition` |
+| POST | `/api/staff/verifications/{representativeId}/revoke` | `{ "reason": "..." }` | 200 `VerificationItemDto` | 400 thiếu lý do; 404; 409 `InvalidStatusTransition` |
+| PUT | `/api/staff/patients/{patientId}` | `{ fullName, dateOfBirth, gender, nationalId, phoneNumber, address, reason }` | 200 `StaffPatientDto` | 400 thiếu lý do / nhập liệu sai; 404; 409 trùng CCCD |
 
-- **Chuyển trạng thái hợp lệ:**
-  - `Pending` → `Verified`;
-  - `Pending` → `Rejected`;
-  - `Verified` → `Revoked`.
+- **Chuyển trạng thái hợp lệ (`VerificationStateMachine`):**
+  - `Pending` → `Verified` (tiếp tân/admin);
+  - `Pending` → `Rejected` (tiếp tân/admin, bắt buộc lý do);
+  - `Verified` → `Revoked` (tiếp tân/admin, bắt buộc lý do);
+  - `Rejected` → `Pending` (người đại diện gửi lại qua `/resubmit`, khôi phục `IsActive = true`, `RevokedAtUtc = null`).
+  - Lặp lại cùng chuyển trạng thái đích là **idempotent** (trả `200`, không đổi dữ liệu, không tạo thêm `AuditLog`).
 
   `Rejected` và `Revoked` đặt `IsActive = false` và ghi `RevokedAtUtc`.
 - **AuditLog:** mỗi lần chuyển trạng thái ghi một dòng `AuditLog` (bảng `identity.PatientRepresentative`) có người thực hiện và lý do, trong cùng unit of work với thay đổi trạng thái. Hàng `PatientRepresentative` được khóa, nên hai tiếp tân thao tác cùng hồ sơ thì người sau thấy trạng thái mới.
@@ -157,23 +173,24 @@ Kiểu enum hợp lệ:
 |---|---|---|---|---|
 | GET | `/specialties` | — | 200 `SpecialtyAdminDto[]` | — |
 | POST | `/specialties` | `{ code, name, description? }` | 201 | 400; 409 trùng mã |
-| PUT | `/specialties/{id}` | `{ name, description?, isActive }` | 200 (không đổi được `code`) | 400; 404 |
+| PUT | `/specialties/{id}` | `{ name, description?, isActive }` | 200 (không đổi được `code`) | 400; 404; 409 `SpecialtyHasActiveDoctors` khi tắt chuyên khoa còn bác sĩ hoạt động |
 | GET | `/doctor-ranks` | — | 200 `DoctorRankAdminDto[]` | — |
 | POST | `/doctor-ranks` | `{ code, name, displayOrder }` | 201 | 400; 409 |
 | PUT | `/doctor-ranks/{id}` | `{ name, displayOrder, isActive }` | 200 | 400; 404 |
 | GET | `/rooms?roomType=&isActive=` | — | 200 `RoomAdminDto[]` | — |
 | POST | `/rooms` | `{ roomNumber, roomName, roomType, departmentName }` | 201 | 400; 409 trùng số phòng |
 | PUT | `/rooms/{id}` | `{ roomName, roomType, departmentName, isActive }` | 200 | 400; 404 |
-| GET | `/staff?staffType=&isActive=` | — | 200 `StaffAdminDto[]` | — |
+| GET | `/staff?staffType=&isActive=&searchTerm=&page=&pageSize=` | — | 200 `StaffAdminDto[]` | — |
 | POST | `/staff` | `{ userName, email, phoneNumber, password, staffCode, fullName, staffType }` | 201 `StaffAdminDto` | 400 `InvalidInput`; 403 `AdminManagedByAdmin`; 409 `UserNameTaken`, `ContactTaken`, `StaffCodeTaken` |
 | PUT | `/staff/{id}` | `{ fullName, isActive }` | 200 (đồng bộ `AppUser.IsActive`) | 400; 403 `AdminManagedByAdmin`; 404; 409 `LastActiveAdmin` |
 | POST | `/staff/{id}/toggle-active?isActive=` | — | 200 (đồng bộ `AppUser` và `Doctor`) | 403 `AdminManagedByAdmin`; 404; 409 `LastActiveAdmin` |
-| GET | `/doctors?specialtyId=&rankId=&isActive=` | — | 200 `DoctorAdminDto[]` | — |
+| POST | `/staff/{id}/reset-password` | `{ newPassword }` | 200 | 400; 403 `AdminManagedByAdmin`; 404 |
+| GET | `/doctors?specialtyId=&rankId=&isActive=&searchTerm=` | — | 200 `DoctorAdminDto[]` | — |
 | POST | `/doctors` | `{ staffId, specialtyId, doctorRankId, biography? }` | 201 | 400 nhân sự không phải `Doctor`; 404; 409 đã có bác sĩ |
 | PUT | `/doctors/{id}` | `{ specialtyId, doctorRankId, biography?, isActive }` | 200 | 404 |
 | POST | `/doctors/{id}/toggle-active?isActive=` | — | 200 | 404 |
-| GET | `/shift-assignments?date=&roomId=&staffId=` | — | 200 `ShiftAssignmentDto[]` | — |
-| POST | `/shift-assignments` | `{ staffId, roomId, shiftDate, shiftName, startsAtUtc, endsAtUtc, isShiftLeader }` | 201 | 400 sai ca hoặc giờ kết thúc ≤ giờ bắt đầu; 404; 409 `ShiftAlreadyAssigned` (nhân viên đã có ca trong ngày); 409 `ShiftLeaderExists` (phòng đã có trưởng ca cho ca đó) |
+| GET | `/shift-assignments?date=&fromDate=&toDate=&roomId=&staffId=` | — | 200 `ShiftAssignmentDto[]` | — |
+| POST | `/shift-assignments` | `{ staffId, roomId, shiftDate, shiftName, startsAtUtc, endsAtUtc, isShiftLeader }` | 201 | 400 sai ca, giờ kết thúc ≤ giờ bắt đầu, hoặc nhân viên/phòng ngừng hoạt động; 404; 409 `ShiftAlreadyAssigned` / `ShiftOverlap`; 409 `ShiftLeaderExists` (phòng đã có trưởng ca cho ca đó) |
 | DELETE | `/shift-assignments/{id}` | — | 204 | 404 |
 
 Phòng làm việc của bác sĩ theo ngày lấy từ `StaffShiftAssignment.RoomId`; không có phòng mặc định của bác sĩ. Hai quy tắc phân ca do Backend kiểm trong unit of work có khóa hàng `Staff` và `Room` (ERD v2.4 không có unique).
@@ -190,9 +207,12 @@ Phòng làm việc của bác sĩ theo ngày lấy từ `StaffShiftAssignment.Ro
 
 | Method | Route | Body | Thành công | Lỗi |
 |---|---|---|---|---|
+| GET | `/api/staff/admin/rooms/{roomId}/account` | — | 200 `RoomAccountDto` | 404 chưa có tài khoản phòng |
 | POST | `/api/staff/admin/rooms/{roomId}/account` | `{ userName, email, password, accountCode }` | 201 `RoomAccountDto` | 400; 404 không có phòng; 409 phòng đã có tài khoản, hoặc trùng mã, tên đăng nhập, email |
-| GET | `/api/staff/admin/rooms/{roomId}/sessions` | — | 200 `RoomSessionDto[]` (phiên đang hoạt động) | 404 |
+| GET | `/api/staff/admin/rooms/{roomId}/sessions?activeOnly=false` | — | 200 `RoomSessionDto[]` | 404 |
 | POST | `/api/staff/admin/rooms/accounts/{roomAccountId}/toggle-active?isActive=` | — | 200 `RoomAccountDto`; khi tắt thì đóng mọi phiên | 404 |
+| POST | `/api/staff/admin/rooms/accounts/{roomAccountId}/reset-password` | `{ newPassword }` | 200 | 400; 404 |
+| POST | `/api/staff/admin/rooms/sessions/{sessionId}/revoke` | `{ reason? }` | 200; buộc đăng xuất phiên và ghi `AuditLog` | 404 |
 
 **DTO trả về:**
 - `RoomAccountDto`: `roomAccountId`, `roomId`, `appUserId`, `accountCode`, `userName`, `email`, `isActive`, `createdAtUtc`.
