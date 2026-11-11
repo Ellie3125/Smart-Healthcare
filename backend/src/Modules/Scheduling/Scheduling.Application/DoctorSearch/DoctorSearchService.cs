@@ -31,7 +31,7 @@ public sealed class DoctorSearchService(IDoctorSearchDirectory directory, IDocto
             var fee = await billing.QuoteExamFeeAsync(new QuoteExamFee(doctor.DoctorId, doctor.DoctorRankId, nowUtc), ct);
             var available = (int)Math.Max(0L, (long)row.Capacity - row.HeldCount - row.AdmittedCount - row.LockedCancelledCount);
             items.Add(new DoctorSearchItem(doctor.DoctorId, doctor.FullName, doctor.DoctorRankId, doctor.SpecialtyId,
-                available, fee.UnitPrice, fee.Currency));
+                available, fee.UnitPrice, fee.Currency, row.Capacity, doctor.DoctorRankName, doctor.SpecialtyName));
         }
 
         return new DoctorSearchPage(query.ServiceDate, query.Page, query.PageSize, rows.Count > query.PageSize, items);
@@ -41,7 +41,8 @@ public sealed class DoctorSearchService(IDoctorSearchDirectory directory, IDocto
         new(query.ServiceDate, query.Page, query.PageSize, false, []);
 }
 
-public sealed record DoctorSearchProfile(Guid DoctorId, string FullName, Guid DoctorRankId, Guid SpecialtyId);
+public sealed record DoctorSearchProfile(Guid DoctorId, string FullName, Guid DoctorRankId, Guid SpecialtyId,
+    string? DoctorRankName = null, string? SpecialtyName = null);
 
 public sealed record DoctorSearchQuota(Guid DoctorId, int Capacity, int HeldCount, int AdmittedCount, int LockedCancelledCount);
 

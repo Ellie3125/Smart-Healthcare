@@ -6,21 +6,38 @@ import {
   MOCK_RANKS,
   MOCK_SPECIALTIES,
 } from './patientData';
-import type {
-  BookingAttemptDetail,
-  HoldBookingRequest,
-  ReturnVerifyState,
-} from '../types/booking';
+import type { BookingAttemptDetail, HoldBookingRequest } from '../types/booking';
 import type { ChatMessageDto } from '../types/assistant';
 
 let store = createInitialPatientStore();
+// Tiến trình đã tạo nhưng chưa giữ chỗ: attemptId -> hồ sơ được chọn.
+let pendingAttempts: Record<string, string> = {};
 
 export function resetPatientMockStore() {
   store = createInitialPatientStore();
+  pendingAttempts = {};
 }
 
 export const patientHandlers = [
   http.get('/api/identity/patient/profiles', () => HttpResponse.json(MOCK_PROFILES)),
+
+  // Dạng thật của `GET /api/patient/profiles` (PatientProfileDto).
+  http.get('/api/patient/profiles', () =>
+    HttpResponse.json(
+      MOCK_PROFILES.map((p) => ({
+        patientId: p.id,
+        fullName: p.fullName,
+        dateOfBirth: p.dateOfBirth,
+        gender: 'Male',
+        nationalId: null,
+        phoneNumber: p.phone,
+        address: 'Hà Nội',
+        relationship: p.relationship,
+        verificationStatus: p.verificationStatus,
+        isActive: true,
+      })),
+    ),
+  ),
 
   http.get('/api/identity/public/specialties', () => HttpResponse.json(MOCK_SPECIALTIES)),
   http.get('/api/identity/public/doctor-ranks', () => HttpResponse.json(MOCK_RANKS)),
@@ -38,35 +55,32 @@ export const patientHandlers = [
       return true;
     });
 
+    // Dạng thật của Backend (`docs/api/scheduling.md` §4.3).
     return HttpResponse.json({
-      items: filtered,
+      serviceDate,
       page: 1,
       pageSize: 20,
       hasMore: false,
+      items: filtered.map((d) => ({
+        doctorId: d.doctorId,
+        fullName: d.fullName,
+        doctorRankId: d.doctorRankId,
+        specialtyId: d.specialtyId,
+        availableSlots: d.remainingSlots,
+        examFee: d.consultationFee,
+        currency: 'VND',
+        totalSlots: d.totalSlots,
+        doctorRankName: d.doctorRankName,
+        specialtyName: d.specialtyName,
+      })),
     });
   }),
 
-  http.get('/api/scheduling/patient/doctors/:doctorId/:serviceDate', ({ params }) => {
-    const doctor = MOCK_DOCTORS.find((d) => d.doctorId === params.doctorId) ?? MOCK_DOCTORS[0];
-    const bookedProfiles = store.appointments
-      .filter((a) => a.serviceDate === params.serviceDate && a.status !== 'Cancelled')
-      .map((a) => a.patientProfileId);
-
-    return HttpResponse.json({
-      doctorId: doctor.doctorId,
-      fullName: doctor.fullName,
-      doctorRankName: doctor.doctorRankName,
-      specialtyName: doctor.specialtyName,
-      serviceDate: String(params.serviceDate),
-      roomName: doctor.roomName,
-      consultationFee: doctor.consultationFee,
-      totalSlots: doctor.totalSlots,
-      remainingSlots: doctor.remainingSlots,
-      onlineBookedCount: doctor.totalSlots - doctor.remainingSlots,
-      walkInReservedNote: '30 suất/ngày dùng chung cho đặt online và đăng ký trực tiếp tại quầy.',
-      status: doctor.status,
-      sameDayBookedByProfileIds: bookedProfiles,
-    });
+  http.post('/api/scheduling/patient/booking-attempts', async ({ request }) => {
+    const body = (await request.json()) as { patientId: string; serviceDate: string };
+    const attemptId = `attempt-${Date.now()}`;
+    pendingAttempts[attemptId] = body.patientId;
+    return HttpResponse.json({ bookingAttemptId: attemptId }, { status: 201 });
   }),
 
   http.post('/api/scheduling/patient/booking-attempts/:attemptId/hold', async ({ params, request }) => {
@@ -78,7 +92,7 @@ export const patientHandlers = [
         { status: 409 },
       );
     }
-    const profileId = body.patientProfileId || 'prof-self';
+    const profileId = pendingAttempts[String(params.attemptId)] || 'prof-self';
     const profile = MOCK_PROFILES.find((p) => p.id === profileId) ?? MOCK_PROFILES[0];
 
     const duplicate = store.appointments.find(
@@ -112,19 +126,7 @@ export const patientHandlers = [
     store.attempts[attemptId] = attempt;
 
     return HttpResponse.json(
-      {
-        bookingAttemptId: attemptId,
-        doctorId: doctor.doctorId,
-        doctorName: doctor.fullName,
-        specialtyName: doctor.specialtyName,
-        roomName: doctor.roomName,
-        serviceDate: body.serviceDate,
-        patientProfileId: profile.id,
-        patientName: profile.fullName,
-        amount: doctor.consultationFee,
-        expiresAt,
-        status: 'Hold',
-      },
+      { operationId: `op-${attemptId}`, reservationId: `res-${attemptId}`, expiresAtUtc: expiresAt },
       { status: 201 },
     );
   }),
@@ -140,65 +142,64 @@ export const patientHandlers = [
     if (!attempt) {
       return HttpResponse.json({ code: 'NOT_FOUND', detail: 'Không tìm thấy phiên giữ chỗ.' }, { status: 404 });
     }
-    return HttpResponse.json(attempt);
-  }),
-
-  http.post('/api/billing/patient/booking-attempts/:attemptId/vnpay-checkout', ({ params }) => {
-    const attemptId = String(params.attemptId);
-    const attempt = store.attempts[attemptId];
-    if (!attempt) {
-      return HttpResponse.json({ code: 'HOLD_EXPIRED', detail: 'Phiên giữ chỗ đã hết hạn.' }, { status: 410 });
-    }
-    const txnRef = `VNP-${attemptId.slice(0, 8)}-${Date.now()}`;
-    attempt.status = 'PendingPayment';
-    attempt.vnpayTxnRef = txnRef;
+    // Dạng thật của Backend (`docs/api/scheduling.md` §4.2).
     return HttpResponse.json({
-      paymentUrl: `/payment/vnpay-return?vnp_TxnRef=${encodeURIComponent(txnRef)}&vnp_ResponseCode=00&mockState=Paid`,
-      vnpTxnRef: txnRef,
-      expiresAt: attempt.expiresAt,
+      bookingAttemptId: attempt.bookingAttemptId,
+      status:
+        attempt.status === 'Hold'
+          ? 'Held'
+          : attempt.status === 'PendingPayment'
+            ? 'WaitingPayment'
+            : attempt.status === 'Confirmed'
+              ? 'Confirmed'
+              : 'Cancelled',
+      currentStep: attempt.status,
+      expiresAtUtc: attempt.expiresAt,
+      allowedActions: [],
     });
   }),
 
-  http.get('/api/billing/patient/payments/vnpay/return-status', ({ request }) => {
-    const url = new URL(request.url);
-    const txnRef = url.searchParams.get('vnp_TxnRef') || 'VNP-UNKNOWN';
-    const forced = url.searchParams.get('mockState') as ReturnVerifyState | null;
-    const poll = (store.vnpayVerifyPollCount[txnRef] ?? 0) + 1;
-    store.vnpayVerifyPollCount[txnRef] = poll;
-
-    if (poll === 1 && !forced) {
-      return HttpResponse.json({
-        state: 'Verifying',
-        vnpTxnRef: txnRef,
-        message: 'Hệ thống đang xác minh giao dịch với cổng thanh toán VNPAY...',
-      });
+  http.post('/api/scheduling/patient/booking-attempts/:attemptId/payment', ({ params }) => {
+    const attemptId = String(params.attemptId);
+    const attempt = store.attempts[attemptId];
+    if (!attempt) {
+      return HttpResponse.json({ code: 'AttemptNotFound', title: 'Không tìm thấy phiên giữ chỗ.' }, { status: 404 });
     }
-
-    const finalState: ReturnVerifyState = forced || 'Paid';
-    if (finalState === 'Verifying') {
-      return HttpResponse.json({
-        state: 'Verifying',
-        vnpTxnRef: txnRef,
-        message: 'Đang chờ xác nhận từ VNPAY...',
-      });
-    }
+    attempt.status = 'PendingPayment';
     return HttpResponse.json({
-      state: finalState,
-      vnpTxnRef: txnRef,
-      appointmentId: finalState === 'Paid' || finalState === 'AlreadyProcessed' ? 'apt-2' : undefined,
+      paymentIntentId: `pi-${attemptId}`,
+      amount: attempt.amount,
+      currency: 'VND',
+      expiresAtUtc: attempt.expiresAt,
+    });
+  }),
+
+  http.post('/api/billing/patient/payments/:paymentIntentId/checkout', ({ params }) =>
+    HttpResponse.json({
+      paymentIntentId: String(params.paymentIntentId),
+      paymentUrl: '/payment/vnpay-return?vnp_ResponseCode=00',
       amount: 150000,
-      paidAt: finalState === 'Paid' || finalState === 'AlreadyProcessed' ? new Date().toISOString() : undefined,
-      message:
-        finalState === 'Paid'
-          ? 'Thanh toán thành công và lịch khám đã được xác nhận.'
-          : finalState === 'AlreadyProcessed'
-            ? 'Giao dịch này đã được ghi nhận trước đó.'
-            : finalState === 'Expired'
-              ? 'Giao dịch đã quá thời gian thanh toán.'
-              : finalState === 'Failed'
-                ? 'Giao dịch thanh toán không thành công.'
-                : 'Chưa xác định được trạng thái giao dịch. Vui lòng kiểm tra lại sau ít phút.',
-      retryAllowed: finalState === 'Failed' || finalState === 'Unknown',
+      currency: 'VND',
+      expiresAtUtc: new Date(Date.now() + 5 * 60 * 1000).toISOString(),
+    }),
+  ),
+
+  // Lần hỏi đầu trả Pending, từ lần hai trả Succeeded (mô phỏng IPN về sau Return URL).
+  http.get('/api/billing/patient/payments/:paymentIntentId', ({ params }) => {
+    const id = String(params.paymentIntentId);
+    const poll = (store.vnpayVerifyPollCount[id] ?? 0) + 1;
+    store.vnpayVerifyPollCount[id] = poll;
+    const paid = poll > 1;
+    return HttpResponse.json({
+      paymentIntentId: id,
+      intentNumber: `PI-${id.slice(-8).toUpperCase()}`,
+      purpose: 'InitialConsultation',
+      amount: 150000,
+      currency: 'VND',
+      status: paid ? 'Succeeded' : 'Pending',
+      expiresAtUtc: new Date(Date.now() + 5 * 60 * 1000).toISOString(),
+      paidAtUtc: paid ? new Date().toISOString() : null,
+      canPay: !paid,
     });
   }),
 

@@ -171,10 +171,12 @@ export const BookingDoctorsPage: React.FC = () => {
                     <div className="space-y-2">
                       <div className="flex items-start justify-between gap-3">
                         <div>
-                          <span className="inline-flex items-center gap-1 rounded-full bg-[#e5f8ed] px-2.5 py-0.5 text-xs font-medium text-[#005231]">
-                            <Stethoscope className="h-3.5 w-3.5" aria-hidden="true" />
-                            {doc.specialtyName}
-                          </span>
+                          {doc.specialtyName ? (
+                            <span className="inline-flex items-center gap-1 rounded-full bg-[#e5f8ed] px-2.5 py-0.5 text-xs font-medium text-[#005231]">
+                              <Stethoscope className="h-3.5 w-3.5" aria-hidden="true" />
+                              {doc.specialtyName}
+                            </span>
+                          ) : null}
                           <h3 className="mt-1.5 text-lg font-semibold text-[#0f1f18]">{doc.fullName}</h3>
                           <p className="text-sm text-[#3e4941]">{doc.doctorRankName}</p>
                         </div>
@@ -192,10 +194,12 @@ export const BookingDoctorsPage: React.FC = () => {
                           <Calendar className="h-4 w-4 text-[#006a41]" aria-hidden="true" />
                           <DateTimeText value={doc.serviceDate} mode="date" />
                         </span>
-                        <span className="inline-flex items-center gap-1.5">
-                          <Clock className="h-4 w-4 text-[#006a41]" aria-hidden="true" />
-                          {doc.roomName}
-                        </span>
+                        {doc.roomName ? (
+                          <span className="inline-flex items-center gap-1.5">
+                            <Clock className="h-4 w-4 text-[#006a41]" aria-hidden="true" />
+                            {doc.roomName}
+                          </span>
+                        ) : null}
                       </div>
                     </div>
 

@@ -1,9 +1,10 @@
-import React, { useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import { useMutation, useQuery } from '@tanstack/react-query';
 import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { ArrowLeft, ShieldAlert, UserCheck } from 'lucide-react';
 import { bookingApi } from '../../api/bookingApi';
 import { patientGet } from '../../shared/lib/http';
+import type { BookingSummary } from '../../types/booking';
 import {
   Banner,
   Button,
@@ -22,7 +23,7 @@ import { createIdempotencyKey } from '../../shared/lib/money';
 import { useToast } from '../../shared/ui';
 
 interface SimpleProfile {
-  id: string;
+  patientId: string;
   fullName: string;
   relationship: string;
   verificationStatus?: string;
@@ -35,8 +36,6 @@ export const DoctorDayPage: React.FC = () => {
   const navigate = useNavigate();
   const { pushToast } = useToast();
   const [selectedProfileId, setSelectedProfileId] = useState<string>('');
-  const [idemKey] = useState(() => createIdempotencyKey('hold'));
-  const [bookingAttemptId] = useState(() => createIdempotencyKey('attempt'));
 
   const detailQuery = useQuery({
     queryKey: ['patient', 'doctor-day', doctorId, serviceDate],
@@ -46,25 +45,36 @@ export const DoctorDayPage: React.FC = () => {
 
   const profilesQuery = useQuery({
     queryKey: ['patient', 'profiles'],
-    queryFn: () => patientGet<SimpleProfile[]>('/api/identity/patient/profiles'),
+    queryFn: () => patientGet<SimpleProfile[]>('/api/patient/profiles'),
   });
 
   const profiles = profilesQuery.data ?? [];
-  const activeProfileId = selectedProfileId || profiles[0]?.id || 'prof-self';
+  const activeProfileId = selectedProfileId || profiles[0]?.patientId || '';
+  // Khóa chống lặp gắn với hồ sơ đang chọn: bấm lại không tạo tiến trình thứ hai, đổi hồ sơ thì là yêu cầu mới.
+  const keys = useMemo(
+    () => ({ attempt: createIdempotencyKey(), hold: createIdempotencyKey() }),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [activeProfileId],
+  );
 
   const detail = detailQuery.data;
   const isDuplicateSameDay = Boolean(detail?.sameDayBookedByProfileIds.includes(activeProfileId));
 
   const holdMutation = useMutation({
-    mutationFn: () =>
-      bookingApi.createHold(
-        bookingAttemptId,
-        { doctorId, serviceDate, patientProfileId: activeProfileId },
-        idemKey,
-      ),
-    onSuccess: (res) => {
-      const targetAttemptId = res.bookingAttemptId || bookingAttemptId;
-      navigate(`/booking/attempt/${targetAttemptId}`);
+    mutationFn: async () => {
+      const attempt = await bookingApi.createAttempt(activeProfileId, serviceDate, keys.attempt);
+      await bookingApi.createHold(attempt.bookingAttemptId, { doctorId, serviceDate }, keys.hold);
+      return attempt.bookingAttemptId;
+    },
+    onSuccess: (bookingAttemptId) => {
+      const summary: BookingSummary = {
+        doctorName: detail?.fullName ?? '',
+        specialtyName: detail?.specialtyName ?? '',
+        patientName: profiles.find((p) => p.patientId === activeProfileId)?.fullName ?? '',
+        serviceDate,
+        amount: detail?.consultationFee ?? 0,
+      };
+      navigate(`/booking/attempt/${bookingAttemptId}`, { state: summary });
     },
     onError: (err) => {
       pushToast(extractPatientError(err).message, 'danger');
@@ -97,7 +107,7 @@ export const DoctorDayPage: React.FC = () => {
 
       <Card
         title={detail.fullName}
-        subtitle={`${detail.doctorRankName} • Chuyên khoa ${detail.specialtyName}`}
+        subtitle={[detail.doctorRankName, detail.specialtyName ? `Chuyên khoa ${detail.specialtyName}` : ''].filter(Boolean).join(' • ')}
         actions={<StatusPill status={detail.remainingSlots > 0 ? 'Open' : 'Closed'} />}
       >
         <div className="grid gap-4 sm:grid-cols-3">
@@ -107,10 +117,12 @@ export const DoctorDayPage: React.FC = () => {
               <DateTimeText value={detail.serviceDate} mode="date" />
             </p>
           </div>
-          <div className="rounded-xl bg-[#e5f8ed] p-4">
-            <p className="text-xs text-[#3e4941]">Phòng khám</p>
-            <p className="mt-1 text-base font-semibold text-[#0f1f18]">{detail.roomName}</p>
-          </div>
+          {detail.roomName ? (
+            <div className="rounded-xl bg-[#e5f8ed] p-4">
+              <p className="text-xs text-[#3e4941]">Phòng khám</p>
+              <p className="mt-1 text-base font-semibold text-[#0f1f18]">{detail.roomName}</p>
+            </div>
+          ) : null}
           <div className="rounded-xl bg-[#e5f8ed] p-4">
             <p className="text-xs text-[#3e4941]">Phí khám</p>
             <p className="mt-1 text-base font-semibold text-[#006a41]">
@@ -138,7 +150,7 @@ export const DoctorDayPage: React.FC = () => {
                 value={activeProfileId}
                 onChange={(e) => setSelectedProfileId(e.target.value)}
                 options={profiles.map((p) => ({
-                  value: p.id,
+                  value: p.patientId,
                   label: `${p.fullName} (${p.relationship})${p.verificationStatus === 'Pending' ? ' - Chờ xác minh' : ''}`,
                 }))}
               />
@@ -166,7 +178,7 @@ export const DoctorDayPage: React.FC = () => {
               variant="primary"
               size="lg"
               loading={holdMutation.isPending}
-              disabled={detail.remainingSlots <= 0 || isDuplicateSameDay}
+              disabled={detail.remainingSlots <= 0 || isDuplicateSameDay || !activeProfileId}
               onClick={() => holdMutation.mutate()}
             >
               Giữ chỗ 5 phút & Tiếp tục
