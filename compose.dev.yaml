@@ -4,6 +4,11 @@
 # Api ở Development tự seed Identity (cấp bậc, phòng, tài khoản demo); db-seed chờ dữ liệu đó rồi thêm dịch vụ CLS và bảng giá giả lập.
 # Migration ở Staging/Prod là bước release có kiểm soát (DB-03), không nằm trong compose base.
 services:
+  sqlserver:
+    # Chỉ bind loopback (OPS-01): để Api/Worker chạy bằng dotnet run trên máy nối được DB trong Docker (backend/.env).
+    ports:
+      - "127.0.0.1:${SQL_HOST_PORT:-14333}:1433"
+
   db-init:
     image: mcr.microsoft.com/mssql/server:2022-CU27-ubuntu-22.04
     entrypoint:
