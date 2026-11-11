@@ -1,6 +1,6 @@
 # Contract module Scheduling
 
-- contract_version: **v0.2** (Approved; §4.4 trưởng nhóm duyệt 10/11/2026)
+- contract_version: **v0.3** (§1–§4.4 Approved 10/11/2026; §4.5 thêm 12/11/2026, chờ trưởng nhóm duyệt)
 - Trạng thái: **Approved** (H-02, trưởng nhóm duyệt 10/11/2026). Câu hỏi Q1–Q5 ở §6 vẫn là đề xuất cho tới khi trưởng nhóm chốt từng câu.
 - Người giữ: theo ownership.md mục 1. Task: W1-04.
 - Mã nguồn: `backend/src/Modules/Scheduling/Scheduling.Contracts/` (in-process), `Scheduling.Api/` (HTTP).
@@ -152,19 +152,48 @@ Theo đề nghị OWN-14 trong mô tả PR #55 (HEAD 6b9e776). Ba route chỉ ma
 - Gửi lại cùng người gọi, khóa và nội dung trả kết quả đã lưu với cùng `operationId`, không tạo lệnh mới.
 - Lỗi: 400 `InvalidInput` · 415 `UnsupportedMediaType` (body không phải JSON) · 404 `AttemptNotFound`, `DoctorNotFound`, `DayNotFound` · 409 `IdempotencyConflict`, `RequestInProgress` (đang xử lý, chưa có OperationId), `InvalidAttemptState`, `DayClosed`, `CutoffPassed`, `Full`, `AlreadyClaimed`.
 
+### 4.5 Đặt khám lần đầu: tạo tiến trình, tạo thanh toán, xem lịch hẹn (12/11/2026)
+
+Bốn route chỉ map ở Development; policy `PatientOnly`. Thứ tự gọi của web bệnh nhân: tìm bác sĩ (§4.3) → tạo tiến trình → giữ chỗ (§4.4) → tạo thanh toán → `POST /api/billing/patient/payments/{paymentIntentId}/checkout` (Billing) lấy liên kết VNPAY → sau IPN, worker xác nhận lịch → xem lịch hẹn.
+
+`POST /api/scheduling/patient/booking-attempts`
+
+- Header `Idempotency-Key` bắt buộc. Body JSON `{ "patientId": "<uuid>", "serviceDate": "yyyy-MM-dd" }`.
+- 201 `{ "bookingAttemptId" }`, header `Location: /api/scheduling/patient/booking-attempts/{bookingAttemptId}`. Gửi lại cùng khóa và nội dung trả cùng `bookingAttemptId`.
+- Lỗi: 400 `InvalidInput` · 415 `UnsupportedMediaType` · 404 `PatientNotFound` (hồ sơ không tồn tại hoặc người gọi không có quyền Booking, cùng một mã) · 409 `IdempotencyConflict`, `RequestInProgress`.
+
+`POST /api/scheduling/patient/booking-attempts/{bookingAttemptId:guid}/payment`
+
+- Không body, không `Idempotency-Key`: khóa chống lặp là lần giữ chỗ hiện tại (ReservationId) phía server. Mỗi lần giữ chỗ chỉ có một khoản thu phí khám và một yêu cầu thanh toán; gọi lại trả đúng yêu cầu đã tạo.
+- 200 `{ "paymentIntentId", "amount", "currency", "expiresAtUtc" }`. `expiresAtUtc` bằng hạn giữ chỗ. Phí áp tại thời điểm giữ chỗ, do Billing tra bảng giá; không nhận số tiền từ client.
+- Khoản thu, yêu cầu thanh toán của Billing và trạng thái tiến trình (`WaitingPayment`, `PaymentInitiated`) commit cùng một transaction (host đăng ký `BillingDbContext` làm participant của unit of work).
+- Route không trả liên kết VNPAY: client gọi tiếp route checkout của Billing với `paymentIntentId`.
+- Lỗi: 404 `AttemptNotFound` (không có, không thuộc người gọi, mất quyền Booking, hoặc chưa giữ chỗ lần nào), `DoctorNotFound` · 409 `HoldExpired` (giữ chỗ không còn `Held` hoặc `expiresAtUtc <= giờ DB`), `InvalidAttemptState`, `RequestInProgress`, và mã của Billing `PriceNotConfigured`, `AmbiguousPrice`, `PaymentConflict`, `ChargeNotPayable`.
+
+`GET /api/scheduling/patient/appointments?page=1&pageSize=20`
+
+- Lịch hẹn do chính người gọi đặt (`Reservation.AppUserId`), ngày khám mới nhất trước. Lịch tiếp tân đặt hộ tại quầy chưa hiện (bổ sung khi Identity có API liệt kê hồ sơ được đại diện). Lịch của hồ sơ mà người gọi đã mất quyền Booking bị loại khỏi trang.
+- 200 `{ "page", "pageSize", "hasMore", "items": [ { "appointmentId", "appointmentNumber", "status", "patientId", "doctorId", "doctorName" (nullable), "serviceDate", "assignedRoomId", "appliedConsultationFee", "currency", "confirmedAtUtc", "checkInDeadlineUtc" (nullable), "cancelledAtUtc" (nullable) } ] }`. `pageSize` tối đa 50.
+- Lỗi: 400 `InvalidInput`.
+
+`GET /api/scheduling/patient/appointments/{appointmentId:guid}`
+
+- 200: một phần tử như trên. Số thứ tự hàng đợi chưa có trong phản hồi (cấp lúc check in, W3-02).
+- Lỗi: 404 `AppointmentNotFound` (không có, không do người gọi đặt, hoặc mất quyền Booking).
+
 ## 5. HTTP dự kiến của W2 — chưa chốt
 
 Chỉ route và mục đích, để UI (W2-09) mock trước. Body, mã lỗi và quyền chốt trong bản contract sau. Route có tiền tố kênh `/patient/`, `/staff/`, `/admin/` (Q7, đã chốt 09/11/2026); Backend kiểm vai trò theo kênh. Mọi lệnh thay đổi nhận `Idempotency-Key`. Danh sách trả `items, page, pageSize, hasMore` (Q6, đã chốt).
 
 | Method + route | Mục đích | Task |
 |---|---|---|
-| `POST /api/scheduling/patient/booking-attempts` | Tạo tiến trình đặt lịch (BookingAttempt) cho một hồ sơ bệnh nhân được đại diện | W2-03 |
+| `POST /api/scheduling/patient/booking-attempts` | Đã có, chi tiết §4.5 | W2-03 |
 | `GET /api/scheduling/patient/booking-attempts/{bookingAttemptId}` | Khôi phục tiến trình: trạng thái, bước đã xong, `expiresAtUtc`, `allowedActions` (Giải pháp §2.3); chi tiết §4.4 | W2-04 |
 | `POST /api/scheduling/patient/booking-attempts/{bookingAttemptId}/hold` | Giữ chỗ bác sĩ + ngày (5 phút); chi tiết §4.4 | W2-02, W2-04 |
-| `POST /api/scheduling/patient/booking-attempts/{bookingAttemptId}/payment` | Tạo yêu cầu thanh toán phí khám (gọi `IBillingModule.CreatePaymentAsync`), trả liên kết VNPAY | W2-02/W2-06 |
+| `POST /api/scheduling/patient/booking-attempts/{bookingAttemptId}/payment` | Đã có, chi tiết §4.5 (trả `paymentIntentId`, liên kết VNPAY lấy ở route checkout của Billing) | W2-02/W2-06 |
 | `GET /api/scheduling/patient/operations/{operationId}` | Tra lệnh dài (202 + `operationId`); chi tiết §4.4 | W2-03, W2-04 |
-| `GET /api/scheduling/patient/appointments` | Lịch hẹn của các hồ sơ người dùng được đại diện | W2-07 |
-| `GET /api/scheduling/patient/appointments/{appointmentId}` | Chi tiết lịch hẹn, mã lịch hẹn, số thứ tự (sau check in) | W2-07 |
+| `GET /api/scheduling/patient/appointments` | Đã có, chi tiết §4.5 | W2-07 |
+| `GET /api/scheduling/patient/appointments/{appointmentId}` | Đã có, chi tiết §4.5; số thứ tự bổ sung ở W3-02 | W2-07 |
 | `POST /api/scheduling/patient/appointments/{appointmentId}/reschedule` | Đổi lịch trước 05:00 sang bác sĩ cùng mức phí | W2-07 |
 | `GET /api/scheduling/patient/appointments/{appointmentId}/cancellation-preview` | Số tiền được hoàn / không hoàn trước khi xác nhận hủy | W2-07 |
 | `POST /api/scheduling/patient/appointments/{appointmentId}/cancel` | Bệnh nhân hủy lịch (chỉ Scheduled) | W2-07 |
@@ -193,3 +222,4 @@ Chỉ route và mục đích, để UI (W2-09) mock trước. Body, mã lỗi v�
 | v0.1 Approved | 10/11/2026 | H-02 duyệt; §4.1–4.3 đối chiếu `dev` sau FIX-013 (policy vai trò + kênh) và W2-05 phần 1 (đã merge, `PatientOnly`, bỏ 503 không còn trong code); Phạm vi v2.12, Giải pháp v2.14 |
 | v0.2 | 10/11/2026 | Thêm §4.4 (W2-04: khôi phục tiến trình, tra Operation, giữ chỗ qua web) theo đề nghị OWN-14 của PR #55; thêm mã 415 `UnsupportedMediaType` |
 | v0.2 Approved | 10/11/2026 | Trưởng nhóm duyệt §4.4; `allowedActions` theo PR #55 đã merge (`NeedsReselection` đã lưu → `["Hold"]`, hết hạn tính lúc đọc → `[]`) |
+| v0.3 | 12/11/2026 | Thêm §4.5: tạo tiến trình đặt lịch, tạo thanh toán phí khám sau giữ chỗ, danh sách và chi tiết lịch hẹn của bệnh nhân; §5 đánh dấu 4 route đã có. Chờ trưởng nhóm duyệt |
