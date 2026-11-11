@@ -16,7 +16,9 @@ public static class DependencyInjection
     /// <summary>Đường dẫn khai làm IPN URL trong trang quản trị merchant của VNPAY.</summary>
     public const string VnpayIpnPath = "/api/billing/payments/vnpay/ipn";
 
-    public static IServiceCollection AddBillingApi(this IServiceCollection services) => services;
+    // Chỉ Api dùng (cần IIdentityPatientsModule để kiểm quyền); Worker không đăng ký.
+    public static IServiceCollection AddBillingApi(this IServiceCollection services) =>
+        services.AddScoped<PatientPaymentService>();
 
     public static RouteGroupBuilder MapBillingEndpoints(this IEndpointRouteBuilder app)
     {
@@ -28,6 +30,7 @@ public static class DependencyInjection
             .WithSummary("Nhận kết quả thanh toán từ VNPAY (IPN). Luôn trả HTTP 200 kèm RspCode theo tài liệu VNPAY.")
             .Produces<VnpayIpnResponse>();
 
+        group.MapPatientPaymentEndpoints();
         return group;
     }
 

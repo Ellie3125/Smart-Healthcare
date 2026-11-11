@@ -282,7 +282,7 @@ public sealed class PaymentService(IPaymentStore store, TimeProvider clock)
         i.Id,
         i.IntentNumber,
         t.TransactionReference,
-        i.PaymentType == PaymentType.InitialConsultation ? PaymentPurpose.InitialConsultation : PaymentPurpose.CLSOrderBatch,
+        PurposeOf(i),
         i.Provider switch
         {
             PaymentIntentProvider.VNPAY => PaymentProvider.VNPAY,
@@ -290,19 +290,24 @@ public sealed class PaymentService(IPaymentStore store, TimeProvider clock)
         },
         t.TransactionAmount,
         t.Currency,
-        i.Status switch
-        {
-            PaymentIntentStatus.Pending => PaymentState.Pending,
-            PaymentIntentStatus.Processing => PaymentState.Processing,
-            PaymentIntentStatus.Succeeded => PaymentState.Succeeded,
-            PaymentIntentStatus.Failed => PaymentState.Failed,
-            PaymentIntentStatus.Unknown => PaymentState.Unknown,
-            PaymentIntentStatus.Expired => PaymentState.Expired,
-            PaymentIntentStatus.Cancelled => PaymentState.Cancelled,
-            _ => throw new ArgumentOutOfRangeException(nameof(i), i.Status, null),
-        },
+        StateOf(i),
         i.ExpiresAtUtc,
         chargeIds.Order().ToList());
+
+    internal static PaymentPurpose PurposeOf(PaymentIntent i) =>
+        i.PaymentType == PaymentType.InitialConsultation ? PaymentPurpose.InitialConsultation : PaymentPurpose.CLSOrderBatch;
+
+    internal static PaymentState StateOf(PaymentIntent i) => i.Status switch
+    {
+        PaymentIntentStatus.Pending => PaymentState.Pending,
+        PaymentIntentStatus.Processing => PaymentState.Processing,
+        PaymentIntentStatus.Succeeded => PaymentState.Succeeded,
+        PaymentIntentStatus.Failed => PaymentState.Failed,
+        PaymentIntentStatus.Unknown => PaymentState.Unknown,
+        PaymentIntentStatus.Expired => PaymentState.Expired,
+        PaymentIntentStatus.Cancelled => PaymentState.Cancelled,
+        _ => throw new ArgumentOutOfRangeException(nameof(i), i.Status, null),
+    };
 
     private static BillingException Invalid(string message) => new(BillingErrorCode.InvalidRequest, message);
 
