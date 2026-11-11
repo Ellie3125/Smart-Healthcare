@@ -13,13 +13,16 @@ namespace SmartHealthcare.Api;
 
 /// <summary>
 /// Dữ liệu demo để đặt thử trên máy dev: bảng giá phí khám theo cấp bậc và lịch khám các ngày tới
-/// cho bác sĩ phòng khám đã seed ở IdentityPatients. Chỉ chạy ở Development khi bật <c>Seed:DemoData</c>
-/// (launchSettings.json đã bật sẵn); test và Staging/Prod không chạy.
+/// cho bác sĩ phòng khám đã seed ở IdentityPatients. Chỉ chạy ở Development (kể cả Api trong Docker Compose dev);
+/// tắt bằng <c>Seed:DemoData=false</c>. Staging/Prod không chạy.
 /// </summary>
 public static class DemoData
 {
     public const string Flag = "Seed:DemoData";
-    public const string PriceListCode = "DEMO-PHI-KHAM";
+    // Cùng mã, Id và giá với infrastructure/sqlserver/seed-dev.sql (db-seed của Docker Compose dev) để hai nguồn seed
+    // không sinh hai bảng giá cùng hiệu lực: báo giá lỗi khi một cấp bậc có hai mức phí.
+    public const string PriceListCode = "DEV-2026";
+    private static readonly Guid PriceListId = Guid.Parse("0a1f0004-0000-4000-8000-000000000001");
     public const int DaysAhead = 7;
 
     // Identity chưa lưu phòng cố định của bác sĩ (chỉ có ca trực theo ngày) nên phòng khám demo khai ở đây.
@@ -34,19 +37,19 @@ public static class DemoData
         (SeedConstants.Doctor10Id, SeedConstants.RoomPK10Id),
     ];
 
-    // Giá demo, không phải bảng giá đã duyệt.
+    // Giá giả lập, không phải bảng giá đã duyệt.
     private static readonly (Guid RankId, decimal Fee)[] ExamFees =
     [
-        (SeedConstants.RankDoctorId, 150_000m),
-        (SeedConstants.RankSpecialistIId, 200_000m),
-        (SeedConstants.RankMasterId, 200_000m),
-        (SeedConstants.RankSpecialistIIId, 250_000m),
+        (SeedConstants.RankSpecialistIId, 150_000m),
+        (SeedConstants.RankSpecialistIIId, 200_000m),
+        (SeedConstants.RankMasterId, 180_000m),
+        (SeedConstants.RankDoctorId, 250_000m),
         (SeedConstants.RankAssociateProfId, 350_000m),
         (SeedConstants.RankProfessorId, 500_000m),
     ];
 
     public static bool IsEnabled(IConfiguration configuration, IHostEnvironment environment) =>
-        environment.IsDevelopment() && configuration.GetValue<bool>(Flag);
+        environment.IsDevelopment() && configuration.GetValue(Flag, true);
 
     /// <summary>Cho Scheduling thấy bác sĩ thật của Identity thay cho danh sách khai tay trong cấu hình.</summary>
     public static void AddDemoData(this WebApplicationBuilder builder)
@@ -68,29 +71,35 @@ public static class DemoData
     public static async Task SeedAsync(BillingDbContext billing, SchedulingDbContext scheduling, DoctorDayService days,
         DateOnly today, CancellationToken ct)
     {
-        if (!await billing.Set<PriceList>().AnyAsync(x => x.PriceListCode == PriceListCode, ct))
+        var priceList = await billing.Set<PriceList>().FirstOrDefaultAsync(x => x.PriceListCode == PriceListCode, ct);
+        if (priceList is null)
         {
-            var priceList = new PriceList
+            priceList = new PriceList
             {
-                Id = Guid.NewGuid(),
+                Id = PriceListId,
                 PriceListCode = PriceListCode,
-                PriceListName = "Bảng giá phí khám demo",
+                PriceListName = "Bảng giá giả lập dev 2026",
                 Currency = "VND",
-                EffectiveFromUtc = new DateTime(2026, 1, 1, 0, 0, 0, DateTimeKind.Utc),
+                EffectiveFromUtc = new DateTime(2025, 12, 31, 17, 0, 0, DateTimeKind.Utc),
                 IsActive = true
             };
             billing.Add(priceList);
-            billing.AddRange(ExamFees.Select(x => new PriceListItem
-            {
-                Id = Guid.NewGuid(),
-                PriceListId = priceList.Id,
-                ItemType = ItemType.ConsultationFee,
-                DoctorRankId = x.RankId,
-                UnitPrice = x.Fee,
-                IsActive = true
-            }));
-            await billing.SaveChangesAsync(ct);
         }
+
+        var pricedRanks = await billing.Set<PriceListItem>()
+            .Where(x => x.PriceListId == priceList.Id && x.ItemType == ItemType.ConsultationFee && x.DoctorId == null)
+            .Select(x => x.DoctorRankId)
+            .ToListAsync(ct);
+        billing.AddRange(ExamFees.Where(x => !pricedRanks.Contains(x.RankId)).Select(x => new PriceListItem
+        {
+            Id = Guid.NewGuid(),
+            PriceListId = priceList.Id,
+            ItemType = ItemType.ConsultationFee,
+            DoctorRankId = x.RankId,
+            UnitPrice = x.Fee,
+            IsActive = true
+        }));
+        await billing.SaveChangesAsync(ct);
 
         var lastDate = today.AddDays(DaysAhead - 1);
         var doctorIds = DoctorRooms.Select(x => x.DoctorId).ToArray();
