@@ -18,8 +18,12 @@ public sealed record DoctorSearchQuery(DateOnly ServiceDate, Guid? DoctorRankId 
 /// <param name="AvailableSlots">max(0, Capacity − AdmittedCount − HeldCount − LockedCancelledCount); 0 là hết suất.</param>
 /// <param name="ExamFee">Phí khám ban đầu do Billing báo giá (không lấy từ client).</param>
 /// <param name="Currency">"VND".</param>
+/// <param name="TotalSlots">Capacity của phiên (tổng suất trong ngày).</param>
+/// <param name="DoctorRankName">Tên cấp bậc để hiển thị; null khi danh bạ bác sĩ không cung cấp.</param>
+/// <param name="SpecialtyName">Tên chuyên khoa để hiển thị; null khi danh bạ bác sĩ không cung cấp.</param>
 public sealed record DoctorSearchItem(Guid DoctorId, string FullName, Guid DoctorRankId, Guid SpecialtyId,
-    int AvailableSlots, decimal ExamFee, string Currency);
+    int AvailableSlots, decimal ExamFee, string Currency, int TotalSlots = 0, string? DoctorRankName = null,
+    string? SpecialtyName = null);
 
 /// <param name="HasMore">Còn trang sau.</param>
 public sealed record DoctorSearchPage(DateOnly ServiceDate, int Page, int PageSize, bool HasMore,

@@ -126,8 +126,12 @@ public static class DemoData
 
 internal sealed class IdentityDoctorSearchDirectory(IIdentityPatientsModule identity) : IDoctorSearchDirectory
 {
-    public async Task<IReadOnlyList<DoctorSearchProfile>> GetActiveDoctorsAsync(CancellationToken ct) =>
-        (await identity.SearchDoctorsAsync(new DoctorSearch(IsActive: true), ct))
-        .Select(x => new DoctorSearchProfile(x.DoctorId, x.FullName, x.RankId, x.SpecialtyId))
-        .ToList();
+    public async Task<IReadOnlyList<DoctorSearchProfile>> GetActiveDoctorsAsync(CancellationToken ct)
+    {
+        var specialties = (await identity.GetSpecialtiesAsync(ct)).ToDictionary(x => x.Id, x => x.Name);
+        return (await identity.SearchDoctorsAsync(new DoctorSearch(IsActive: true), ct))
+            .Select(x => new DoctorSearchProfile(x.DoctorId, x.FullName, x.RankId, x.SpecialtyId, x.RankName,
+                specialties.GetValueOrDefault(x.SpecialtyId)))
+            .ToList();
+    }
 }

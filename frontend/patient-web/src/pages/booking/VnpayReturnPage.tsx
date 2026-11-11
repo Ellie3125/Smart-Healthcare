@@ -1,8 +1,8 @@
 import React from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { Link, useSearchParams } from 'react-router-dom';
+import { Link } from 'react-router-dom';
 import { AlertCircle, CheckCircle2, Clock, RefreshCw } from 'lucide-react';
-import { bookingApi } from '../../api/bookingApi';
+import { bookingApi, PENDING_PAYMENT_KEY } from '../../api/bookingApi';
 import {
   Banner,
   Button,
@@ -19,15 +19,13 @@ import { extractPatientError } from '../../shared/lib/errors';
  * Tuyệt đối KHÔNG khẳng định thành công từ query string trình duyệt và KHÔNG có nút đánh dấu đã trả.
  */
 export const VnpayReturnPage: React.FC = () => {
-  const [searchParams] = useSearchParams();
-  const paramsObj: Record<string, string> = {};
-  searchParams.forEach((value, key) => {
-    paramsObj[key] = value;
-  });
+  // Yêu cầu thanh toán được ghi lại trước khi chuyển sang VNPAY; query string của Return URL không được dùng làm kết quả.
+  const paymentIntentId = sessionStorage.getItem(PENDING_PAYMENT_KEY) ?? '';
 
   const verifyQuery = useQuery({
-    queryKey: ['patient', 'vnpay-return', paramsObj],
-    queryFn: () => bookingApi.verifyVnpayReturn(paramsObj),
+    queryKey: ['patient', 'vnpay-return', paymentIntentId],
+    queryFn: () => bookingApi.verifyVnpayReturn(paymentIntentId),
+    enabled: Boolean(paymentIntentId),
     refetchInterval: (query) => {
       const state = query.state.data?.state;
       return !state || state === 'Verifying' ? 2000 : false;
@@ -35,18 +33,34 @@ export const VnpayReturnPage: React.FC = () => {
   });
 
   const result = verifyQuery.data;
-  const currentState = result?.state ?? 'Verifying';
+  const currentState = result?.state ?? (paymentIntentId ? 'Verifying' : 'Unknown');
 
   return (
     <div className="mx-auto max-w-2xl space-y-5">
       <Card
         title="Kết quả giao dịch thanh toán"
-        subtitle={`Mã tham chiếu: ${result?.vnpTxnRef || paramsObj.vnp_TxnRef || 'Đang kiểm tra'}`}
+        subtitle={`Mã tham chiếu: ${result?.vnpTxnRef || 'Đang kiểm tra'}`}
         actions={<StatusPill status={currentState} />}
       >
         {verifyQuery.isError ? (
           <Banner tone="danger" title="Không thể xác minh giao dịch lúc này">
             {extractPatientError(verifyQuery.error).message}
+          </Banner>
+        ) : null}
+
+        {!paymentIntentId ? (
+          <Banner
+            tone="warning"
+            title="Không tìm thấy giao dịch đang chờ trên trình duyệt này"
+            action={
+              <Link to="/appointments">
+                <Button size="sm" variant="primary">
+                  Về lịch khám của tôi
+                </Button>
+              </Link>
+            }
+          >
+            Nếu bạn đã thanh toán, lịch khám sẽ hiện trong mục Lịch của tôi sau khi hệ thống xác nhận.
           </Banner>
         ) : null}
 

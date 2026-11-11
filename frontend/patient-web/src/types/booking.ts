@@ -54,7 +54,39 @@ export interface DoctorDaySlotSummary {
 export interface HoldBookingRequest {
   doctorId: string;
   serviceDate: string;
-  patientProfileId?: string;
+}
+
+/** Phản hồi giữ chỗ của Backend (`docs/api/scheduling.md` §4.4). */
+export interface HoldResult {
+  operationId: string;
+  reservationId: string;
+  expiresAtUtc: string;
+}
+
+/** Tiến trình đặt lịch của Backend (`docs/api/scheduling.md` §4.2). */
+export interface BookingProgress {
+  bookingAttemptId: string;
+  status: 'Draft' | 'Held' | 'WaitingPayment' | 'Confirming' | 'Confirmed' | 'NeedsReselection' | 'PaidUnallocated' | 'Cancelled';
+  currentStep: string;
+  expiresAtUtc: string | null;
+  allowedActions: string[];
+}
+
+/** Yêu cầu thanh toán phí khám (`docs/api/scheduling.md` §4.5). */
+export interface PaymentStarted {
+  paymentIntentId: string;
+  amount: number;
+  currency: string;
+  expiresAtUtc: string;
+}
+
+/** Thông tin đã chọn, truyền qua router state từ màn chọn bác sĩ sang màn xác nhận (Backend chưa trả trong tiến trình). */
+export interface BookingSummary {
+  doctorName: string;
+  specialtyName: string;
+  patientName: string;
+  serviceDate: string;
+  amount: number;
 }
 
 export interface HoldResponse {

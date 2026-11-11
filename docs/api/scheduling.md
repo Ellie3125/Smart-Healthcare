@@ -1,6 +1,6 @@
 # Contract module Scheduling
 
-- contract_version: **v0.3** (Approved; §4.5 trưởng nhóm duyệt 12/11/2026)
+- contract_version: **v0.4** (v0.3 Approved 12/11/2026; phần thêm của v0.4 ở §2.1 và §4.3 chờ trưởng nhóm duyệt)
 - Trạng thái: **Approved** (H-02, trưởng nhóm duyệt 10/11/2026). Câu hỏi Q1–Q5 ở §6 vẫn là đề xuất cho tới khi trưởng nhóm chốt từng câu.
 - Người giữ: theo ownership.md mục 1. Task: W1-04.
 - Mã nguồn: `backend/src/Modules/Scheduling/Scheduling.Contracts/` (in-process), `Scheduling.Api/` (HTTP).
@@ -30,7 +30,7 @@ Lỗi nghiệp vụ ném `SchedulingException` với `SchedulingErrorCode`. Ba m
 DTO trùng tên trường và kiểu với DTO tạm của W2-05 (PR #44, `Scheduling.Application/DoctorSearch/DoctorSearchDtos.cs`); W2-05 phần 2 chuyển sang dùng bản trong `Scheduling.Contracts`.
 
 - Vào: `DoctorSearchQuery(DateOnly ServiceDate, Guid? DoctorRankId = null, Guid? SpecialtyId = null, int Page = 1, int PageSize = 20)`; `Page` 1..1000 (`MaxPage`), `PageSize` 1..50 (`MaxPageSize`).
-- Ra: `DoctorSearchPage(ServiceDate, Page, PageSize, HasMore, Items)`, `Items` là `DoctorSearchItem(DoctorId, FullName, DoctorRankId, SpecialtyId, AvailableSlots, ExamFee, Currency)`, sắp theo `DoctorId`.
+- Ra: `DoctorSearchPage(ServiceDate, Page, PageSize, HasMore, Items)`, `Items` là `DoctorSearchItem(DoctorId, FullName, DoctorRankId, SpecialtyId, AvailableSlots, ExamFee, Currency, TotalSlots, DoctorRankName, SpecialtyName)`, sắp theo `DoctorId`. `TotalSlots` là `Capacity` của phiên; `DoctorRankName`, `SpecialtyName` để hiển thị, null khi danh bạ bác sĩ không cung cấp (v0.4).
 - Chỉ phiên còn nhận đặt (§1); `AvailableSlots` ≥ 0. `ExamFee` do `IBillingModule` báo giá theo lô tại thời điểm tra; `Currency = "VND"`.
 - Lỗi: `InvalidInput`. Billing chưa báo giá theo lô được thì endpoint trả 503 `ExamFeeBatchUnavailable` (§4.3).
 
@@ -120,7 +120,8 @@ Theo code trên `dev` (PR #44 merge 80a563a, policy sửa trong PR #54), `Schedu
   ```json
   { "serviceDate": "2026-11-12", "page": 1, "pageSize": 20, "hasMore": false,
     "items": [ { "doctorId": "…", "fullName": "…", "doctorRankId": "…", "specialtyId": "…",
-                 "availableSlots": 12, "examFee": 150000, "currency": "VND" } ] }
+                 "availableSlots": 12, "examFee": 150000, "currency": "VND",
+                 "totalSlots": 30, "doctorRankName": "Bác sĩ Chuyên khoa I", "specialtyName": "Khoa Hô hấp" } ] }
   ```
 
 - Lỗi: 400 `InvalidInput` (ngày, bộ lọc hoặc phân trang không hợp lệ) · 401/403.
@@ -224,3 +225,4 @@ Chỉ route và mục đích, để UI (W2-09) mock trước. Body, mã lỗi v�
 | v0.2 Approved | 10/11/2026 | Trưởng nhóm duyệt §4.4; `allowedActions` theo PR #55 đã merge (`NeedsReselection` đã lưu → `["Hold"]`, hết hạn tính lúc đọc → `[]`) |
 | v0.3 | 12/11/2026 | Thêm §4.5: tạo tiến trình đặt lịch, tạo thanh toán phí khám sau giữ chỗ, danh sách và chi tiết lịch hẹn của bệnh nhân; §5 đánh dấu 4 route đã có |
 | v0.3 Approved | 12/11/2026 | Trưởng nhóm duyệt §4.5 |
+| v0.4 | 12/11/2026 | `DoctorSearchItem` thêm `TotalSlots`, `DoctorRankName`, `SpecialtyName` (chỉ thêm trường, không đổi trường cũ) để web bệnh nhân hiện "còn x/y suất" và tên chuyên khoa, cấp bậc |

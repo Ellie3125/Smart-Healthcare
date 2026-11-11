@@ -6,6 +6,7 @@ import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import { http, HttpResponse } from 'msw';
 import { server } from '../mocks/server';
 import { resetPatientMockStore } from '../mocks/handlers';
+import { bookingApi, PENDING_PAYMENT_KEY } from '../api/bookingApi';
 import { ToastProvider } from '../shared/ui';
 import { BookingConfirmPage } from '../pages/booking/BookingConfirmPage';
 import { VnpayReturnPage } from '../pages/booking/VnpayReturnPage';
@@ -19,7 +20,11 @@ import { PrescriptionDetailPage } from '../pages/records/PrescriptionDetailPage'
 import { ChatbotPage } from '../pages/assistant/ChatbotPage';
 import { PublicDisplayPage } from '../pages/public/PublicDisplayPage';
 
-function renderWithProviders(ui: React.ReactElement, initialEntries: string[] = ['/'], pathPattern = '/') {
+function renderWithProviders(
+  ui: React.ReactElement,
+  initialEntries: (string | { pathname: string; state?: unknown })[] = ['/'],
+  pathPattern = '/',
+) {
   const client = new QueryClient({
     defaultOptions: { queries: { retry: false }, mutations: { retry: false } },
   });
@@ -40,12 +45,35 @@ function renderWithProviders(ui: React.ReactElement, initialEntries: string[] = 
 describe('Patient Web critical workflows (P06–P26 & TV01)', () => {
   beforeEach(() => {
     resetPatientMockStore();
+    sessionStorage.clear();
+  });
+
+  it('P06: maps the real doctor search response and derives the doctor day from it', async () => {
+    const date = new Date(Date.now() + 7 * 3600_000).toISOString().slice(0, 10);
+    const page = await bookingApi.searchDoctors({ serviceDate: date });
+    const first = page.items.find((x) => x.doctorId === 'doc-1');
+    expect(first).toMatchObject({ remainingSlots: 8, totalSlots: 30, consultationFee: 150000, status: 'Open', serviceDate: date });
+
+    const detail = await bookingApi.getDoctorDayDetail('doc-1', date);
+    expect(detail).toMatchObject({ remainingSlots: 8, consultationFee: 150000, specialtyName: 'Nội tổng quát' });
+    await expect(bookingApi.getDoctorDayDetail('doc-khong-co', date)).rejects.toMatchObject({ status: 404 });
+  });
+
+  it('P09: creates the payment then the VNPAY checkout for the same PaymentIntent', async () => {
+    const res = await bookingApi.createVnpayCheckout('attempt-recover-1');
+    expect(res.paymentIntentId).toBe('pi-attempt-recover-1');
+    expect(res.paymentUrl).toContain('/payment/vnpay-return');
   });
 
   it('P08: renders booking hold details and 5-minute countdown', async () => {
     renderWithProviders(
       <BookingConfirmPage />,
-      ['/booking/attempt/attempt-recover-1'],
+      [
+        {
+          pathname: '/booking/attempt/attempt-recover-1',
+          state: { doctorName: 'ThS.BS Phạm Thu Hà', specialtyName: 'Tim mạch', patientName: 'Nguyễn Minh Tâm', serviceDate: '2026-11-13', amount: 200000 },
+        },
+      ],
       '/booking/attempt/:bookingAttemptId',
     );
     expect(await screen.findByText(/ThS\.BS Phạm Thu Hà/i)).toBeInTheDocument();
@@ -54,13 +82,10 @@ describe('Patient Web critical workflows (P06–P26 & TV01)', () => {
   });
 
   it('P10: starts VNPAY return in Verifying state without any mark-paid button', async () => {
+    sessionStorage.setItem(PENDING_PAYMENT_KEY, 'pi-test-01');
     server.use(
-      http.get('/api/billing/patient/payments/vnpay/return-status', () =>
-        HttpResponse.json({
-          state: 'Verifying',
-          vnpTxnRef: 'VNP-TEST-01',
-          message: 'Đang xác minh giao dịch...',
-        }),
+      http.get('/api/billing/patient/payments/:paymentIntentId', () =>
+        HttpResponse.json({ paymentIntentId: 'pi-test-01', intentNumber: 'PI-TEST-01', amount: 150000, status: 'Pending', paidAtUtc: null }),
       ),
     );
     renderWithProviders(<VnpayReturnPage />, ['/payment/vnpay-return?vnp_TxnRef=VNP-TEST-01'], '/payment/vnpay-return');
