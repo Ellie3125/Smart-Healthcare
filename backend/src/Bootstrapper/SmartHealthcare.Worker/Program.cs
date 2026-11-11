@@ -3,6 +3,9 @@ using Scheduling.Application.Holds;
 using Shared.Infrastructure.Outbox;
 using SmartHealthcare.Worker;
 
+// Máy dev: backend/.env (mẫu: backend/.env.example) chọn DB đang dùng; không có file thì lấy từ user-secrets như cũ.
+Shared.Infrastructure.DotEnv.Load();
+
 var builder = Host.CreateApplicationBuilder(args);
 
 var connectionString = builder.Configuration.GetConnectionString("SmartHealthcare");

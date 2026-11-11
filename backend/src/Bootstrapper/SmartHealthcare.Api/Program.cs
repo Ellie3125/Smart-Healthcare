@@ -25,6 +25,9 @@ using Scheduling.Infrastructure;
 using Scheduling.Infrastructure.Persistence;
 using Shared.Infrastructure;
 
+// Máy dev: backend/.env (mẫu: backend/.env.example) chọn DB đang dùng; không có file thì lấy từ user-secrets như cũ.
+DotEnv.Load();
+
 var builder = WebApplication.CreateBuilder(args);
 
 var connectionString = builder.Configuration.GetConnectionString("SmartHealthcare");
