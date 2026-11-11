@@ -22,3 +22,4 @@ docs/evidence/
 .env
 .env.*
 !.env.example
+!.env.*.example

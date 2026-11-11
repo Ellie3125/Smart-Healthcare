@@ -1,0 +1,104 @@
+# Override cho laptop dev (CTR-03). Build image từ source; Staging/Prod pull image theo digest, không build (OPS-02).
+#   docker compose --env-file .env.dev -f compose.yaml -f compose.dev.yaml up -d --build
+# Thứ tự: sqlserver healthy → db-init (tạo DB, login runtime) → migrator (8 migration bundle) → api, worker.
+# Api ở Development tự seed Identity (cấp bậc, phòng, tài khoản demo); db-seed chờ dữ liệu đó rồi thêm dịch vụ CLS và bảng giá giả lập.
+# Migration ở Staging/Prod là bước release có kiểm soát (DB-03), không nằm trong compose base.
+services:
+  db-init:
+    image: mcr.microsoft.com/mssql/server:2022-CU27-ubuntu-22.04
+    entrypoint:
+      - /opt/mssql-tools18/bin/sqlcmd
+      - -C
+      - -b
+      - -f
+      - "65001"
+      - -S
+      - sqlserver
+      - -U
+      - sa
+      - -i
+      - /init/init-dev.sql
+      - -v
+      - DB_NAME=SmartHealthcare
+      - APP_LOGIN=${SQL_APP_LOGIN:?Thiếu SQL_APP_LOGIN}
+    # Mật khẩu không truyền qua tham số dòng lệnh (tiến trình khác đọc được qua ps, /proc/*/cmdline).
+    # sqlcmd tự nhận biến môi trường làm scripting variable, nên init-dev.sql vẫn dùng $(APP_PASSWORD).
+    environment:
+      SQLCMDPASSWORD: ${MSSQL_SA_PASSWORD:?Thiếu MSSQL_SA_PASSWORD}
+      APP_PASSWORD: ${SQL_APP_PASSWORD:?Thiếu SQL_APP_PASSWORD}
+    volumes:
+      - ./infrastructure/sqlserver/init-dev.sql:/init/init-dev.sql:ro
+    depends_on:
+      sqlserver:
+        condition: service_healthy
+    restart: "no"
+    networks: [backend]
+
+  migrator:
+    build:
+      context: ./backend
+      dockerfile: ../infrastructure/docker/backend.Dockerfile
+      target: migrator
+    image: smart-healthcare/migrator:dev
+    environment:
+      MIGRATION_CONNECTION: ${MIGRATION_DB_CONNECTION:?Thiếu MIGRATION_DB_CONNECTION}
+      ConnectionStrings__SmartHealthcare: ${MIGRATION_DB_CONNECTION:?Thiếu MIGRATION_DB_CONNECTION}
+    depends_on:
+      db-init:
+        condition: service_completed_successfully
+    restart: "no"
+    networks: [backend]
+
+  db-seed:
+    # Danh mục và bảng giá GIẢ LẬP cho dev; chạy lại được nhiều lần.
+    image: mcr.microsoft.com/mssql/server:2022-CU27-ubuntu-22.04
+    entrypoint:
+      - /opt/mssql-tools18/bin/sqlcmd
+      - -C
+      - -b
+      - -f
+      - "65001"
+      - -S
+      - sqlserver
+      - -U
+      - sa
+      - -d
+      - SmartHealthcare
+      - -i
+      - /init/seed-dev.sql
+    environment:
+      SQLCMDPASSWORD: ${MSSQL_SA_PASSWORD:?Thiếu MSSQL_SA_PASSWORD}
+    volumes:
+      - ./infrastructure/sqlserver/seed-dev.sql:/init/seed-dev.sql:ro
+    depends_on:
+      migrator:
+        condition: service_completed_successfully
+      # seed-dev.sql tự chờ tối đa 5 phút cho tới khi Api seed xong cấp bậc và phòng CLS.
+      api:
+        condition: service_started
+    restart: "no"
+    networks: [backend]
+
+  api:
+    build:
+      context: ./backend
+      dockerfile: ../infrastructure/docker/backend.Dockerfile
+      target: api
+    environment:
+      # Mật khẩu chung của tài khoản demo do IdentityPatientsSeedService tạo (chỉ Development).
+      Seed__DefaultPassword: ${SEED_DEFAULT_PASSWORD:?Thiếu SEED_DEFAULT_PASSWORD}
+    depends_on:
+      migrator:
+        condition: service_completed_successfully
+    # Chỉ bind loopback (OPS-01). Development: http://127.0.0.1:8080/swagger
+    ports:
+      - "127.0.0.1:${API_HOST_PORT:-8080}:8080"
+
+  worker:
+    build:
+      context: ./backend
+      dockerfile: ../infrastructure/docker/backend.Dockerfile
+      target: worker
+    depends_on:
+      migrator:
+        condition: service_completed_successfully
