@@ -27,8 +27,6 @@ public sealed class IdentityPatientsSeedService(
             throw new InvalidOperationException("Cấu hình Seed:DefaultPassword chưa được đặt trong User Secrets hoặc biến môi trường.");
         }
 
-        _logger.LogInformation("Bắt đầu thực hiện Seed dữ liệu cho module IdentityPatients. Lưu ý: Đây là dữ liệu giả định demo, không phải số liệu bệnh viện thật. ServiceStation không thuộc module này.");
-
         // 1. Vai trò không lưu cột: suy từ RoomAccount, Staff.StaffType, còn lại là Patient (ERD v2.4).
 
         // 2. Chuyên khoa (Specialties)
