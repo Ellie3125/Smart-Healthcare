@@ -4,8 +4,7 @@
       "commandName": "Project",
       "applicationUrl": "http://localhost:5000",
       "environmentVariables": {
-        "ASPNETCORE_ENVIRONMENT": "Development",
-        "Seed__DemoData": "true"
+        "ASPNETCORE_ENVIRONMENT": "Development"
       }
     },
     "docker": {
@@ -13,7 +12,6 @@
       "applicationUrl": "http://localhost:5000",
       "environmentVariables": {
         "ASPNETCORE_ENVIRONMENT": "Development",
-        "Seed__DemoData": "true",
         "Database__Source": "Docker"
       }
     }
