@@ -51,11 +51,15 @@ interface ApiDoctorPage {
   items: ApiDoctorItem[];
 }
 
+const PAYMENT_STATES = ['Pending', 'Processing', 'Succeeded', 'Failed', 'Unknown', 'Expired', 'Cancelled'] as const;
+type PaymentStateName = (typeof PAYMENT_STATES)[number];
+
 interface ApiPaymentStatus {
   paymentIntentId: string;
   intentNumber: string;
   amount: number;
-  status: 'Pending' | 'Processing' | 'Succeeded' | 'Failed' | 'Unknown' | 'Expired' | 'Cancelled';
+  // Billing đang ghi enum PaymentState ra JSON dạng số (0..6); nhận cả hai dạng.
+  status: PaymentStateName | number;
   paidAtUtc: string | null;
 }
 
@@ -76,7 +80,7 @@ const toDoctorItem = (x: ApiDoctorItem, serviceDate: string): DoctorSearchItem =
   status: x.availableSlots > 0 ? 'Open' : 'Full',
 });
 
-const RETURN_STATES: Record<ApiPaymentStatus['status'], { state: ReturnVerifyState; message: string }> = {
+const RETURN_STATES: Record<PaymentStateName, { state: ReturnVerifyState; message: string }> = {
   Pending: { state: 'Verifying', message: 'Hệ thống đang chờ kết quả từ cổng thanh toán VNPAY.' },
   Processing: { state: 'Verifying', message: 'Hệ thống đang xác minh giao dịch với cổng thanh toán VNPAY.' },
   Succeeded: { state: 'Paid', message: 'Thanh toán thành công. Lịch khám sẽ hiện trong mục Lịch của tôi sau khi được xác nhận.' },
@@ -175,7 +179,8 @@ export const bookingApi = {
   // Trạng thái thanh toán do Backend ghi nhận (IPN là nguồn sự thật), không đọc kết quả từ query string
   verifyVnpayReturn: async (paymentIntentId: string): Promise<VnpayReturnVerifyResult> => {
     const res = await patientGet<ApiPaymentStatus>(`/api/billing/patient/payments/${paymentIntentId}`);
-    const mapped = RETURN_STATES[res.status] ?? RETURN_STATES.Unknown;
+    const status = typeof res.status === 'number' ? PAYMENT_STATES[res.status] : res.status;
+    const mapped = RETURN_STATES[status] ?? RETURN_STATES.Unknown;
     return {
       state: mapped.state,
       vnpTxnRef: res.intentNumber,
