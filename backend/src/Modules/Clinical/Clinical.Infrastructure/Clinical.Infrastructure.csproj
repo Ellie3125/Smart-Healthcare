@@ -4,6 +4,11 @@
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\Clinical.Domain\Clinical.Domain.csproj" />
+    <ProjectReference Include="..\Clinical.Application\Clinical.Application.csproj" />
     <ProjectReference Include="..\..\..\Shared\Shared.Infrastructure\Shared.Infrastructure.csproj" />
+  </ItemGroup>
+  <ItemGroup>
+    <InternalsVisibleTo Include="SqlServerTests" />
+    <InternalsVisibleTo Include="Clinical.Tests" />
   </ItemGroup>
 </Project>
