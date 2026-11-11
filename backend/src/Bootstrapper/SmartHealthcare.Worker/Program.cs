@@ -1,16 +1,7 @@
-using Billing.Contracts;
-using Billing.Infrastructure;
 using Hangfire;
-using Hangfire.SqlServer;
-using Microsoft.Data.SqlClient;
-using Notifications.Infrastructure;
-using Notifications.Infrastructure.Persistence;
-using Scheduling.Application;
 using Scheduling.Application.Holds;
-using Scheduling.Infrastructure;
-using Scheduling.Infrastructure.Persistence;
-using Shared.Infrastructure;
 using Shared.Infrastructure.Outbox;
+using SmartHealthcare.Worker;
 
 var builder = Host.CreateApplicationBuilder(args);
 
@@ -20,30 +11,7 @@ if (string.IsNullOrWhiteSpace(connectionString))
     throw new InvalidOperationException("ConnectionStrings:SmartHealthcare chưa được cấu hình (dotnet user-secrets hoặc biến môi trường ConnectionStrings__SmartHealthcare).");
 }
 
-// Hangfire tự tạo và quản lý schema hangfire; EF không tạo bảng này.
-builder.Services.AddHangfire(configuration => configuration
-    .SetDataCompatibilityLevel(CompatibilityLevel.Version_180)
-    .UseSimpleAssemblyNameTypeSerializer()
-    .UseRecommendedSerializerSettings()
-    .UseSqlServerStorage(connectionString, new SqlServerStorageOptions
-    {
-        SchemaName = "hangfire",
-        PrepareSchemaIfNecessary = true,
-        SqlClientFactory = SqlClientFactory.Instance,
-    }));
-builder.Services.AddHangfireServer();
-
-builder.Services
-    .AddSharedInfrastructure(connectionString)
-    .AddSchedulingInfrastructure(connectionString)
-    .AddNotificationsInfrastructure(connectionString)
-    .AddUnitOfWorkParticipant<SchedulingDbContext>()
-    .AddUnitOfWorkParticipant<WorkflowDbContext>()
-    .AddSchedulingApplication()
-    // PaymentVerifiedHandler báo giá lại phí khám qua IBillingModule (W2-06).
-    .AddBillingInfrastructure(connectionString)
-    .AddOutboxDispatcher(builder.Configuration.GetSection(OutboxOptions.Section).Get<OutboxOptions>() ?? new OutboxOptions())
-    .AddOutboxEvent<PaymentVerified>();
+builder.Services.AddWorkerServices(builder.Configuration, connectionString);
 
 var host = builder.Build();
 
