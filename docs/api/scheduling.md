@@ -1,6 +1,6 @@
 # Contract module Scheduling
 
-- contract_version: **v0.3** (§1–§4.4 Approved 10/11/2026; §4.5 thêm 12/11/2026, chờ trưởng nhóm duyệt)
+- contract_version: **v0.3** (Approved; §4.5 trưởng nhóm duyệt 12/11/2026)
 - Trạng thái: **Approved** (H-02, trưởng nhóm duyệt 10/11/2026). Câu hỏi Q1–Q5 ở §6 vẫn là đề xuất cho tới khi trưởng nhóm chốt từng câu.
 - Người giữ: theo ownership.md mục 1. Task: W1-04.
 - Mã nguồn: `backend/src/Modules/Scheduling/Scheduling.Contracts/` (in-process), `Scheduling.Api/` (HTTP).
@@ -222,4 +222,5 @@ Chỉ route và mục đích, để UI (W2-09) mock trước. Body, mã lỗi v�
 | v0.1 Approved | 10/11/2026 | H-02 duyệt; §4.1–4.3 đối chiếu `dev` sau FIX-013 (policy vai trò + kênh) và W2-05 phần 1 (đã merge, `PatientOnly`, bỏ 503 không còn trong code); Phạm vi v2.12, Giải pháp v2.14 |
 | v0.2 | 10/11/2026 | Thêm §4.4 (W2-04: khôi phục tiến trình, tra Operation, giữ chỗ qua web) theo đề nghị OWN-14 của PR #55; thêm mã 415 `UnsupportedMediaType` |
 | v0.2 Approved | 10/11/2026 | Trưởng nhóm duyệt §4.4; `allowedActions` theo PR #55 đã merge (`NeedsReselection` đã lưu → `["Hold"]`, hết hạn tính lúc đọc → `[]`) |
-| v0.3 | 12/11/2026 | Thêm §4.5: tạo tiến trình đặt lịch, tạo thanh toán phí khám sau giữ chỗ, danh sách và chi tiết lịch hẹn của bệnh nhân; §5 đánh dấu 4 route đã có. Chờ trưởng nhóm duyệt |
+| v0.3 | 12/11/2026 | Thêm §4.5: tạo tiến trình đặt lịch, tạo thanh toán phí khám sau giữ chỗ, danh sách và chi tiết lịch hẹn của bệnh nhân; §5 đánh dấu 4 route đã có |
+| v0.3 Approved | 12/11/2026 | Trưởng nhóm duyệt §4.5 |
