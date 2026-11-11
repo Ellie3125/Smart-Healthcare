@@ -6,7 +6,6 @@
 # Image ghim phiên bản, không dùng latest (CTR-02, REL-04).
 ARG DOTNET_SDK_IMAGE=mcr.microsoft.com/dotnet/sdk:10.0.403
 ARG ASPNET_IMAGE=mcr.microsoft.com/dotnet/aspnet:10.0.14
-ARG RUNTIME_IMAGE=mcr.microsoft.com/dotnet/runtime:10.0.14
 ARG RUNTIME_DEPS_IMAGE=mcr.microsoft.com/dotnet/runtime-deps:10.0.14
 
 FROM ${DOTNET_SDK_IMAGE} AS build
@@ -26,6 +25,8 @@ FROM build AS bundles
 RUN dotnet tool install --tool-path /tools dotnet-ef --version 10.0.14
 # Program.cs của Api đòi có connection string khi dựng host; giá trị này chỉ để tạo bundle, không phải secret.
 ENV ConnectionStrings__SmartHealthcare="Server=build-time-placeholder"
+# Tương tự, Identity đòi Jwt:SigningKey ≥ 32 byte khi dựng host. Chỉ tồn tại trong stage bundles, không vào image chạy.
+ENV Jwt__SigningKey="build-time-placeholder-not-a-secret-0123456789"
 RUN set -e; \
     for pair in \
       IdentityPatientsDbContext:src/Modules/IdentityPatients/IdentityPatients.Infrastructure \
@@ -49,7 +50,8 @@ USER $APP_UID
 EXPOSE 8080
 ENTRYPOINT ["dotnet", "SmartHealthcare.Api.dll"]
 
-FROM ${RUNTIME_IMAGE} AS worker
+# Billing.Infrastructure, IdentityPatients.Infrastructure tham chiếu Microsoft.AspNetCore.App, nên worker cũng cần runtime ASP.NET Core.
+FROM ${ASPNET_IMAGE} AS worker
 WORKDIR /app
 COPY --from=publish-worker /out .
 USER $APP_UID
@@ -59,5 +61,7 @@ FROM ${RUNTIME_DEPS_IMAGE} AS migrator
 WORKDIR /bundles
 COPY --from=bundles /bundles .
 USER $APP_UID
+# Bundle dựng host của Api để tạo DbContext, nên cũng cần Jwt:SigningKey. Migrator không phát token: giá trị giữ chỗ, không phải secret.
+ENV Jwt__SigningKey="migrator-placeholder-not-a-secret-0123456789"
 # MIGRATION_CONNECTION do môi trường cấp lúc chạy (identity riêng cho migration, không phải identity runtime).
 ENTRYPOINT ["/bin/sh", "-c", "set -e; for ctx in IdentityPatientsDbContext SchedulingDbContext ClinicalDbContext MedicationDbContext BillingDbContext WorkflowDbContext DocumentsDbContext SharedDbContext; do echo \"== $ctx\"; ./$ctx --connection \"$MIGRATION_CONNECTION\"; done"]
