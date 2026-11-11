@@ -38,7 +38,11 @@ public sealed class IdentityPatientsSeedService(
             (SeedConstants.SpecialtyDaLieuId, SeedConstants.SpecialtyDaLieuCode, SeedConstants.SpecialtyDaLieuName, "Chẩn đoán, điều trị bệnh lý da liễu và thẩm mỹ y khoa."),
             (SeedConstants.SpecialtyXetNghiemId, SeedConstants.SpecialtyXetNghiemCode, SeedConstants.SpecialtyXetNghiemName, "Xét nghiệm huyết học, sinh hóa, miễn dịch và vi sinh lâm sàng."),
             (SeedConstants.SpecialtyNoiSoiId, SeedConstants.SpecialtyNoiSoiCode, SeedConstants.SpecialtyNoiSoiName, "Nội soi dạ dày, đại tràng không đau và can thiệp thủ thuật."),
-            (SeedConstants.SpecialtySieuAmId, SeedConstants.SpecialtySieuAmCode, SeedConstants.SpecialtySieuAmName, "Siêu âm màu Doppler tim mạch, ổ bụng, tuyến giáp và sản phụ khoa.")
+            (SeedConstants.SpecialtySieuAmId, SeedConstants.SpecialtySieuAmCode, SeedConstants.SpecialtySieuAmName, "Siêu âm màu Doppler tim mạch, ổ bụng, tuyến giáp và sản phụ khoa."),
+            (SeedConstants.SpecialtyNoiTongQuatId, SeedConstants.SpecialtyNoiTongQuatCode, SeedConstants.SpecialtyNoiTongQuatName, "Khám và điều trị các bệnh lý nội khoa thường gặp."),
+            (SeedConstants.SpecialtyTimMachId, SeedConstants.SpecialtyTimMachCode, SeedConstants.SpecialtyTimMachName, "Khám và điều trị bệnh lý tim mạch, tăng huyết áp."),
+            (SeedConstants.SpecialtyHoHapId, SeedConstants.SpecialtyHoHapCode, SeedConstants.SpecialtyHoHapName, "Khám và điều trị bệnh lý hô hấp, phổi."),
+            (SeedConstants.SpecialtyNhiId, SeedConstants.SpecialtyNhiCode, SeedConstants.SpecialtyNhiName, "Khám và điều trị bệnh lý trẻ em.")
         };
 
         foreach (var item in specialtiesToSeed)
@@ -184,7 +188,11 @@ public sealed class IdentityPatientsSeedService(
             (SeedConstants.StaffDoctor03Id, SeedConstants.Doctor03Id, SeedConstants.UserDoctor03Id, SeedConstants.UserDoctor03UserName, "bacsi03@smarthealthcare.local", "0904000003", "BS03", "PGS. BS Trần Thị Phó Giáo Sư", SeedConstants.SpecialtyTaiMuiHongId, SeedConstants.RankAssociateProfId, SeedConstants.RoomPK02Id, "Bác sĩ chuyên khoa Tai Mũi Họng giàu kinh nghiệm."),
             (SeedConstants.StaffDoctor04Id, SeedConstants.Doctor04Id, SeedConstants.UserDoctor04Id, SeedConstants.UserDoctor04UserName, "bacsi04@smarthealthcare.local", "0904000004", "BS04", "BS. CKII Lê Văn Da Liễu", SeedConstants.SpecialtyDaLieuId, SeedConstants.RankSpecialistIIId, SeedConstants.RoomPK03Id, "Bác sĩ CKII chuyên khoa Da Liễu."),
             (SeedConstants.StaffDoctor05Id, SeedConstants.Doctor05Id, SeedConstants.UserDoctor05Id, SeedConstants.UserDoctor05UserName, "bacsi05@smarthealthcare.local", "0904000005", "BS05", "ThS. BS Hoàng Văn Xét Nghiệm", SeedConstants.SpecialtyXetNghiemId, SeedConstants.RankMasterId, SeedConstants.RoomXN01Id, "Thạc sĩ Bác sĩ chuyên khoa Xét nghiệm y học."),
-            (SeedConstants.StaffDoctor06Id, SeedConstants.Doctor06Id, SeedConstants.UserDoctor06Id, SeedConstants.UserDoctor06UserName, "bacsi06@smarthealthcare.local", "0904000006", "BS06", "BS. Vũ Văn Nội Soi", SeedConstants.SpecialtyNoiSoiId, SeedConstants.RankDoctorId, SeedConstants.RoomNS01Id, "Bác sĩ điều trị chuyên khoa Nội soi can thiệp.")
+            (SeedConstants.StaffDoctor06Id, SeedConstants.Doctor06Id, SeedConstants.UserDoctor06Id, SeedConstants.UserDoctor06UserName, "bacsi06@smarthealthcare.local", "0904000006", "BS06", "BS. Vũ Văn Nội Soi", SeedConstants.SpecialtyNoiSoiId, SeedConstants.RankDoctorId, SeedConstants.RoomNS01Id, "Bác sĩ điều trị chuyên khoa Nội soi can thiệp."),
+            (SeedConstants.StaffDoctor07Id, SeedConstants.Doctor07Id, SeedConstants.UserDoctor07Id, SeedConstants.UserDoctor07UserName, "bacsi07@smarthealthcare.local", "0904000007", "BS07", "BS. Đỗ Minh Nội Khoa", SeedConstants.SpecialtyNoiTongQuatId, SeedConstants.RankDoctorId, SeedConstants.RoomPK04Id, "Bác sĩ điều trị Nội tổng quát."),
+            (SeedConstants.StaffDoctor08Id, SeedConstants.Doctor08Id, SeedConstants.UserDoctor08Id, SeedConstants.UserDoctor08UserName, "bacsi08@smarthealthcare.local", "0904000008", "BS08", "BS. CKII Bùi Thị Tim Mạch", SeedConstants.SpecialtyTimMachId, SeedConstants.RankSpecialistIIId, SeedConstants.RoomPK05Id, "Bác sĩ CKII chuyên khoa Tim mạch."),
+            (SeedConstants.StaffDoctor09Id, SeedConstants.Doctor09Id, SeedConstants.UserDoctor09Id, SeedConstants.UserDoctor09UserName, "bacsi09@smarthealthcare.local", "0904000009", "BS09", "BS. CKI Ngô Văn Hô Hấp", SeedConstants.SpecialtyHoHapId, SeedConstants.RankSpecialistIId, SeedConstants.RoomPK06Id, "Bác sĩ CKI chuyên khoa Hô hấp."),
+            (SeedConstants.StaffDoctor10Id, SeedConstants.Doctor10Id, SeedConstants.UserDoctor10Id, SeedConstants.UserDoctor10UserName, "bacsi10@smarthealthcare.local", "0904000010", "BS10", "ThS. BS Đặng Thị Nhi Khoa", SeedConstants.SpecialtyNhiId, SeedConstants.RankMasterId, SeedConstants.RoomPK10Id, "Thạc sĩ, bác sĩ chuyên khoa Nhi.")
         };
 
         foreach (var doc in doctorsToSeed)

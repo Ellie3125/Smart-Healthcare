@@ -31,6 +31,22 @@ public static class SeedConstants
     public const string SpecialtySieuAmCode = "SIEU_AM";
     public const string SpecialtySieuAmName = "Khoa Siêu âm";
 
+    public static readonly Guid SpecialtyNoiTongQuatId = Guid.Parse("11111111-1111-1111-1111-111111110008");
+    public const string SpecialtyNoiTongQuatCode = "NOI_TONG_QUAT";
+    public const string SpecialtyNoiTongQuatName = "Khoa Nội tổng quát";
+
+    public static readonly Guid SpecialtyTimMachId = Guid.Parse("11111111-1111-1111-1111-111111110009");
+    public const string SpecialtyTimMachCode = "TIM_MACH";
+    public const string SpecialtyTimMachName = "Khoa Tim mạch";
+
+    public static readonly Guid SpecialtyHoHapId = Guid.Parse("11111111-1111-1111-1111-111111110010");
+    public const string SpecialtyHoHapCode = "HO_HAP";
+    public const string SpecialtyHoHapName = "Khoa Hô hấp";
+
+    public static readonly Guid SpecialtyNhiId = Guid.Parse("11111111-1111-1111-1111-111111110011");
+    public const string SpecialtyNhiCode = "NHI";
+    public const string SpecialtyNhiName = "Khoa Nhi";
+
     // Doctor Ranks
     public static readonly Guid RankSpecialistIId = Guid.Parse("22222222-2222-2222-2222-222222220001");
     public static readonly Guid RankSpecialistIIId = Guid.Parse("22222222-2222-2222-2222-222222220002");
@@ -87,6 +103,10 @@ public static class SeedConstants
     public static readonly Guid StaffDoctor04Id = Guid.Parse("44444444-4444-4444-4444-444444440006");
     public static readonly Guid StaffDoctor05Id = Guid.Parse("44444444-4444-4444-4444-444444440007");
     public static readonly Guid StaffDoctor06Id = Guid.Parse("44444444-4444-4444-4444-444444440008");
+    public static readonly Guid StaffDoctor07Id = Guid.Parse("44444444-4444-4444-4444-444444440021");
+    public static readonly Guid StaffDoctor08Id = Guid.Parse("44444444-4444-4444-4444-444444440022");
+    public static readonly Guid StaffDoctor09Id = Guid.Parse("44444444-4444-4444-4444-444444440023");
+    public static readonly Guid StaffDoctor10Id = Guid.Parse("44444444-4444-4444-4444-444444440024");
 
     // Doctors
     public static readonly Guid Doctor01Id = Guid.Parse("55555555-5555-5555-5555-555555550001");
@@ -95,6 +115,10 @@ public static class SeedConstants
     public static readonly Guid Doctor04Id = Guid.Parse("55555555-5555-5555-5555-555555550004");
     public static readonly Guid Doctor05Id = Guid.Parse("55555555-5555-5555-5555-555555550005");
     public static readonly Guid Doctor06Id = Guid.Parse("55555555-5555-5555-5555-555555550006");
+    public static readonly Guid Doctor07Id = Guid.Parse("55555555-5555-5555-5555-555555550007");
+    public static readonly Guid Doctor08Id = Guid.Parse("55555555-5555-5555-5555-555555550008");
+    public static readonly Guid Doctor09Id = Guid.Parse("55555555-5555-5555-5555-555555550009");
+    public static readonly Guid Doctor10Id = Guid.Parse("55555555-5555-5555-5555-555555550010");
 
     // Room Accounts
     public static readonly Guid RoomAccount01Id = Guid.Parse("66666666-6666-6666-6666-666666660001");
@@ -145,6 +169,18 @@ public static class SeedConstants
 
     public static readonly Guid UserDoctor06Id = Guid.Parse("aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaa0015");
     public const string UserDoctor06UserName = "bacsi06";
+
+    public static readonly Guid UserDoctor07Id = Guid.Parse("aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaa0031");
+    public const string UserDoctor07UserName = "bacsi07";
+
+    public static readonly Guid UserDoctor08Id = Guid.Parse("aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaa0032");
+    public const string UserDoctor08UserName = "bacsi08";
+
+    public static readonly Guid UserDoctor09Id = Guid.Parse("aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaa0033");
+    public const string UserDoctor09UserName = "bacsi09";
+
+    public static readonly Guid UserDoctor10Id = Guid.Parse("aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaa0034");
+    public const string UserDoctor10UserName = "bacsi10";
 
     public static readonly Guid UserRoomXQ01Id = Guid.Parse("aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaa0005");
     public const string UserRoomXQ01UserName = "phong_xq01";
