@@ -20,17 +20,19 @@ export const Card: React.FC<{
   children: React.ReactNode;
   className?: string;
 }> = ({ title, subtitle, actions, children, className = '' }) => (
-  <section className={`rounded-2xl border border-[#bdcabf] bg-white shadow-sm ${className}`}>
+  <section
+    className={`rounded-2xl border border-surface-container-highest/70 bg-surface-container-lowest shadow-[0_1px_10px_rgba(15,31,24,0.04)] ${className}`}
+  >
     {(title || subtitle || actions) && (
-      <header className="flex flex-wrap items-center justify-between gap-3 border-b border-[#e5f8ed] px-5 py-4">
-        <div>
-          {title ? <h2 className="text-lg font-semibold text-[#0f1f18]">{title}</h2> : null}
-          {subtitle ? <p className="mt-0.5 text-sm text-[#3e4941]">{subtitle}</p> : null}
+      <header className="flex flex-wrap items-center justify-between gap-3 border-b border-surface-container-low px-4 sm:px-6 py-3.5 sm:py-4">
+        <div className="min-w-0 flex-1">
+          {title ? <h2 className="text-headline-sm font-semibold text-on-surface break-words">{title}</h2> : null}
+          {subtitle ? <p className="mt-0.5 text-sm text-on-surface-variant break-words">{subtitle}</p> : null}
         </div>
-        {actions ? <div className="flex items-center gap-2">{actions}</div> : null}
+        {actions ? <div className="flex flex-wrap items-center gap-2 max-w-full">{actions}</div> : null}
       </header>
     )}
-    <div className="p-5">{children}</div>
+    <div className="p-5 sm:p-6">{children}</div>
   </section>
 );
 
@@ -99,7 +101,7 @@ export const EmptyState: React.FC<{
   action?: React.ReactNode;
   icon?: React.ReactNode;
 }> = ({ title, description, action, icon }) => (
-  <div className="flex flex-col items-center justify-center rounded-2xl border border-dashed border-[#bdcabf] bg-white px-6 py-10 text-center">
+  <div className="flex flex-col items-center justify-center rounded-2xl border border-dashed border-outline-variant/80 bg-surface-container-lowest/90 px-6 py-10 text-center">
     <div className="mb-3 rounded-full bg-[#e5f8ed] p-3 text-[#006a41]" aria-hidden="true">
       {icon ?? <Inbox className="h-6 w-6" />}
     </div>
@@ -200,7 +202,7 @@ export const Dialog: React.FC<{
       aria-modal="true"
       aria-labelledby="patient-dialog-title"
     >
-      <div className="w-full max-w-lg rounded-2xl border border-[#bdcabf] bg-white shadow-xl">
+      <div className="w-full max-w-lg rounded-2xl border border-surface-container-highest/80 bg-surface-container-lowest shadow-2xl">
         <div className="flex items-start justify-between gap-3 border-b border-[#e5f8ed] px-5 py-4">
           <div>
             <h2 id="patient-dialog-title" className="text-lg font-semibold text-[#0f1f18]">
@@ -306,7 +308,7 @@ export const Tabs: React.FC<{
   activeId: string;
   onChange: (id: string) => void;
 }> = ({ tabs, activeId, onChange }) => (
-  <div role="tablist" className="flex flex-wrap gap-2 border-b border-[#bdcabf]">
+  <div role="tablist" className="inline-flex flex-wrap gap-1.5 rounded-xl bg-surface-container-low p-1.5 max-w-full">
     {tabs.map((tab) => {
       const active = tab.id === activeId;
       return (
@@ -316,13 +318,21 @@ export const Tabs: React.FC<{
           role="tab"
           aria-selected={active}
           onClick={() => onChange(tab.id)}
-          className={`inline-flex min-h-[44px] items-center gap-1.5 border-b-2 px-4 text-sm font-medium ${
-            active ? 'border-[#006a41] text-[#006a41]' : 'border-transparent text-[#3e4941] hover:text-[#0f1f18]'
+          className={`inline-flex min-h-[38px] sm:min-h-[40px] items-center gap-1.5 rounded-lg px-3 sm:px-4 text-xs sm:text-sm font-medium transition-all ${
+            active
+              ? 'bg-primary text-white shadow-[0_2px_8px_rgba(0,106,65,0.2)]'
+              : 'text-on-surface-variant hover:bg-surface-container hover:text-on-surface'
           }`}
         >
           <span>{tab.label}</span>
           {tab.count !== undefined ? (
-            <span className="rounded-full bg-[#e5f8ed] px-2 py-0.5 text-xs tabular-nums">{tab.count}</span>
+            <span
+              className={`rounded-full px-2 py-0.5 text-xs tabular-nums ${
+                active ? 'bg-white/20 text-white' : 'bg-surface-container-highest text-on-surface'
+              }`}
+            >
+              {tab.count}
+            </span>
           ) : null}
         </button>
       );
@@ -336,7 +346,7 @@ export const PaginationBar: React.FC<{
   onPageChange: (nextPage: number) => void;
   loading?: boolean;
 }> = ({ page, hasMore, onPageChange, loading }) => (
-  <div className="flex items-center justify-between pt-3 text-sm text-[#3e4941]">
+  <div className="flex items-center justify-between pt-3 text-sm text-[#3e4941] md:pr-48">
     <span className="tabular-nums">Trang {page}</span>
     <div className="flex gap-2">
       <Button variant="outline" size="sm" disabled={page <= 1 || loading} onClick={() => onPageChange(page - 1)}>

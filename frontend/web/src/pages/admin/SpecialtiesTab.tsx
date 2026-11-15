@@ -106,14 +106,14 @@ export const SpecialtiesTab: React.FC = () => {
     <div className="space-y-5">
       <div className="flex justify-between items-center">
         <div>
-          <h2 className="text-sm font-bold text-[#1C2B24]">Danh Mục Chuyên Khoa Y Tế</h2>
-          <p className="text-xs text-[#5E6F66]">
-            Mã chuyên khoa (SpecialtyCode) là định danh cố định phục vụ điều hướng khám & AI chatbot gợi ý khoa khám.
+          <h2 className="text-base font-extrabold tracking-tight text-on-surface">Danh Mục Chuyên Khoa Y Tế</h2>
+          <p className="text-xs text-on-surface-variant">
+            Mã chuyên khoa (SpecialtyCode) là định danh cố định phục vụ điều hướng khám &amp; AI chatbot gợi ý khoa khám.
           </p>
         </div>
         <button
           onClick={handleOpenCreate}
-          className="h-9 px-4 rounded-lg bg-[#006a41] text-white text-xs font-semibold hover:bg-[#028654] transition-colors flex items-center gap-1.5 shadow-sm"
+          className="h-10 px-4 rounded-xl bg-primary text-white text-xs font-semibold hover:bg-[#005231] transition-colors flex items-center gap-1.5 shadow-sm"
         >
           <span className="material-symbols-outlined text-[18px]">add</span>
           <span>Tạo Chuyên Khoa Mới</span>
@@ -138,24 +138,24 @@ export const SpecialtiesTab: React.FC = () => {
         </div>
       )}
 
-      <div className="bg-white rounded-xl border border-[#DDE7E1] shadow-sm overflow-hidden">
+      <div className="bg-surface-container-lowest rounded-2xl shadow-[0_1px_10px_rgba(15,31,24,0.04)] overflow-hidden">
         {isLoading ? (
-          <div className="py-16 text-center text-xs text-[#5E6F66]">Đang tải danh sách chuyên khoa...</div>
+          <div className="py-16 text-center text-xs text-on-surface-variant">Đang tải danh sách chuyên khoa...</div>
         ) : (
           <div className="overflow-x-auto">
             <table className="w-full text-left border-collapse text-xs">
               <thead>
-                <tr className="bg-[#F7FAF8] border-b border-[#DDE7E1] text-[#5E6F66] font-semibold uppercase tracking-wider">
-                  <th className="py-3 px-4">Mã Chuyên Khoa</th>
-                  <th className="py-3 px-4">Tên Chuyên Khoa</th>
-                  <th className="py-3 px-4">Mô tả / Phạm vi chẩn đoán</th>
-                  <th className="py-3 px-4">Trạng thái</th>
-                  <th className="py-3 px-4 text-right">Thao tác</th>
+                <tr className="bg-surface-container-low/85 text-on-surface-variant font-semibold uppercase tracking-wider text-[11px]">
+                  <th className="py-3.5 px-4">Mã Chuyên Khoa</th>
+                  <th className="py-3.5 px-4">Tên Chuyên Khoa</th>
+                  <th className="py-3.5 px-4">Mô tả / Phạm vi chẩn đoán</th>
+                  <th className="py-3.5 px-4">Trạng thái</th>
+                  <th className="py-3.5 px-4 text-right">Thao tác</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-[#DDE7E1]">
+              <tbody className="divide-y divide-surface-container-high/50">
                 {specialties.map((s) => (
-                  <tr key={s.id} className="hover:bg-[#F9FBFA] transition-colors">
+                  <tr key={s.id} className="hover:bg-surface-container-low/45 transition-colors">
                     <td className="py-3 px-4 font-mono font-bold text-[#006a41]">{s.code}</td>
                     <td className="py-3 px-4 font-semibold text-[#1C2B24]">{s.name}</td>
                     <td className="py-3 px-4 text-[#5E6F66] max-w-sm">{s.description || '-'}</td>

@@ -60,10 +60,12 @@ export const WalkInRegisterPage: React.FC = () => {
   const chosenDoc = (doctorsQuery.data ?? []).find((d) => d.doctorId === selectedDoctorId);
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-5">
       <div>
-        <h1 className="text-xl font-semibold text-[#0f1f18]">Đăng ký khám trực tiếp tại quầy — Walk-in (RC02)</h1>
-        <p className="text-xs text-[#44544c]">Bệnh nhân tại quầy dùng chung 30 suất/ngày với bệnh nhân đặt trực tuyến.</p>
+        <h1 className="font-headline-md text-2xl font-extrabold tracking-tight text-on-surface">
+          Đăng ký khám trực tiếp tại quầy — Walk-in (RC02)
+        </h1>
+        <p className="text-sm text-on-surface-variant">Bệnh nhân tại quầy dùng chung 30 suất/ngày với bệnh nhân đặt trực tuyến.</p>
       </div>
 
       <Stepper
@@ -114,14 +116,16 @@ export const WalkInRegisterPage: React.FC = () => {
                 return (
                   <div
                     key={doc.doctorId}
-                    className={`flex flex-wrap items-center justify-between gap-3 rounded-xl border p-3.5 ${
-                      selected ? 'border-[#006a41] bg-[#e5f8ed]' : 'border-[#cddbd3]'
+                    className={`flex flex-wrap items-center justify-between gap-3 rounded-2xl p-4 transition-all ${
+                      selected
+                        ? 'bg-primary-container/60 ring-2 ring-primary'
+                        : 'bg-surface-container-low/65 hover:bg-surface-container-low'
                     }`}
                   >
                     <div>
-                      <p className="font-semibold text-[#0f1f18]">{doc.doctorName}</p>
-                      <p className="text-xs text-[#44544c]">
-                        {doc.specialtyName} • {doc.roomName} • Còn <strong className="text-[#006a41]">{doc.remainingSlots}</strong>/30 suất
+                      <p className="font-semibold text-on-surface">{doc.doctorName}</p>
+                      <p className="text-xs text-on-surface-variant">
+                        {doc.specialtyName} • {doc.roomName} • Còn <strong className="font-data-tabular text-primary">{doc.remainingSlots}</strong>/30 suất
                       </p>
                     </div>
                     <div className="flex items-center gap-3">

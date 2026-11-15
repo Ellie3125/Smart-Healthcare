@@ -56,11 +56,15 @@ export const ServiceStationsPage: React.FC = () => {
   });
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-5">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
-          <h1 className="text-xl font-semibold text-[#0f1f18]">Quản lý Quầy & Điểm dịch vụ (AD03)</h1>
-          <p className="text-xs text-[#44544c]">Cấu hình quầy tiếp đón, thu ngân, bàn đo sinh hiệu và điểm hiển thị.</p>
+          <h1 className="font-headline-md text-2xl font-extrabold tracking-tight text-on-surface">
+            Quản lý Quầy &amp; Điểm dịch vụ (AD03)
+          </h1>
+          <p className="text-sm text-on-surface-variant">
+            Cấu hình quầy tiếp đón, thu ngân, bàn đo sinh hiệu và điểm hiển thị.
+          </p>
         </div>
         <Button leftIcon={<Plus className="h-4 w-4" />} onClick={() => setOpen(true)}>
           Thêm quầy mới

@@ -31,63 +31,72 @@ export const EncounterCostPage: React.FC = () => {
 
   const c = query.data;
   const metrics = [
-    { label: 'Tổng đã trả', value: c.totalPaid, accent: 'text-[#0f1f18]' },
-    { label: 'Tổng đã duyệt hoàn', value: c.totalApprovedRefund, accent: 'text-[#0b57d0]' },
-    { label: 'Còn giữ ròng', value: c.netHeld, accent: 'text-[#006a41]' },
-    { label: 'Miễn giảm', value: c.totalWaived, accent: 'text-[#9a5b00]' },
-    { label: 'Hoàn thành công', value: c.totalCompletedRefund, accent: 'text-[#006a41]' },
+    { label: 'Tổng đã trả', value: c.totalPaid, accent: 'text-on-surface', bg: 'bg-surface-container-lowest' },
+    { label: 'Tổng đã duyệt hoàn', value: c.totalApprovedRefund, accent: 'text-[#0b57d0]', bg: 'bg-surface-container-lowest' },
+    { label: 'Còn giữ ròng', value: c.netHeld, accent: 'text-primary', bg: 'bg-secondary-container/45' },
+    { label: 'Miễn giảm', value: c.totalWaived, accent: 'text-[#9a5b00]', bg: 'bg-surface-container-lowest' },
+    { label: 'Hoàn thành công', value: c.totalCompletedRefund, accent: 'text-primary', bg: 'bg-surface-container-lowest' },
   ];
 
   return (
-    <div className="space-y-5">
-      <Link to="/records" className="inline-flex items-center gap-1.5 text-sm font-medium text-[#006a41] hover:underline">
+    <div className="space-y-6">
+      <Link
+        to="/records"
+        className="inline-flex items-center gap-1.5 rounded-xl bg-surface-container-low px-3.5 py-2 text-sm font-semibold text-primary hover:bg-surface-container transition-colors"
+      >
         <ArrowLeft className="h-4 w-4" aria-hidden="true" />
         Về danh sách hồ sơ khám
       </Link>
 
       <div>
-        <h1 className="text-2xl font-semibold text-[#0f1f18]">Chi phí đợt khám</h1>
-        <p className="mt-1 text-sm text-[#3e4941]">
+        <span className="inline-flex items-center gap-1.5 rounded-full bg-secondary-container/75 px-3 py-0.5 text-xs font-semibold text-[#005231] mb-2">
+          Minh bạch viện phí
+        </span>
+        <h1 className="text-2xl sm:text-3xl font-bold text-on-surface tracking-tight">Chi phí đợt khám</h1>
+        <p className="mt-1 text-sm text-on-surface-variant">
           {c.doctorName} • {c.specialtyName} • Ngày <DateTimeText value={c.serviceDate} mode="date" />
         </p>
       </div>
 
-      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
+      <div className="grid gap-3.5 sm:grid-cols-2 lg:grid-cols-5">
         {metrics.map((m) => (
-          <Card key={m.label}>
-            <p className="text-xs text-[#3e4941]">{m.label}</p>
-            <p className={`mt-1 text-xl font-bold ${m.accent}`}>
+          <div
+            key={m.label}
+            className={`rounded-2xl ${m.bg} border border-surface-container-highest/65 p-4 shadow-[0_1px_8px_rgba(15,31,24,0.04)]`}
+          >
+            <p className="text-xs font-medium text-on-surface-variant">{m.label}</p>
+            <p className={`mt-1.5 text-xl font-bold tabular-nums ${m.accent}`}>
               <MoneyText amount={m.value} />
             </p>
-          </Card>
+          </div>
         ))}
       </div>
 
       <Card title="Chi tiết các khoản phát sinh">
-        <div className="overflow-x-auto">
-          <table className="min-w-full divide-y divide-[#e5f8ed] text-sm">
-            <thead className="bg-[#e5f8ed]">
+        <div className="overflow-x-auto rounded-xl">
+          <table className="min-w-full divide-y divide-surface-container-low text-sm">
+            <thead className="bg-surface-container-low">
               <tr>
-                <th className="px-4 py-2.5 text-left font-semibold text-[#0f1f18]">Nhóm</th>
-                <th className="px-4 py-2.5 text-left font-semibold text-[#0f1f18]">Nội dung</th>
-                <th className="px-4 py-2.5 text-right font-semibold text-[#0f1f18]">Đơn giá</th>
-                <th className="px-4 py-2.5 text-right font-semibold text-[#0f1f18]">Miễn giảm</th>
-                <th className="px-4 py-2.5 text-right font-semibold text-[#0f1f18]">Thực trả</th>
-                <th className="px-4 py-2.5 text-center font-semibold text-[#0f1f18]">Trạng thái</th>
+                <th className="px-4 py-3 text-left font-semibold text-on-surface">Nhóm</th>
+                <th className="px-4 py-3 text-left font-semibold text-on-surface">Nội dung</th>
+                <th className="px-4 py-3 text-right font-semibold text-on-surface">Đơn giá</th>
+                <th className="px-4 py-3 text-right font-semibold text-on-surface">Miễn giảm</th>
+                <th className="px-4 py-3 text-right font-semibold text-on-surface">Thực trả</th>
+                <th className="px-4 py-3 text-center font-semibold text-on-surface">Trạng thái</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-[#e5f8ed]">
+            <tbody className="divide-y divide-surface-container-low bg-surface-container-lowest">
               {c.lineItems.map((line) => (
-                <tr key={line.id}>
-                  <td className="px-4 py-3 text-[#3e4941]">{line.category}</td>
-                  <td className="px-4 py-3 font-medium text-[#0f1f18]">{line.description}</td>
-                  <td className="px-4 py-3 text-right">
+                <tr key={line.id} className="hover:bg-surface-container-low/40 transition-colors">
+                  <td className="px-4 py-3 text-on-surface-variant">{line.category}</td>
+                  <td className="px-4 py-3 font-medium text-on-surface">{line.description}</td>
+                  <td className="px-4 py-3 text-right tabular-nums">
                     <MoneyText amount={line.grossAmount} />
                   </td>
-                  <td className="px-4 py-3 text-right text-[#9a5b00]">
+                  <td className="px-4 py-3 text-right tabular-nums text-[#9a5b00]">
                     <MoneyText amount={line.waiverAmount} />
                   </td>
-                  <td className="px-4 py-3 text-right font-semibold text-[#006a41]">
+                  <td className="px-4 py-3 text-right font-semibold tabular-nums text-primary">
                     <MoneyText amount={line.netAmount} />
                   </td>
                   <td className="px-4 py-3 text-center">

@@ -223,11 +223,15 @@ export const DoctorPage: React.FC = () => {
   const isPublished = draft?.status === 'Published' || draft?.status === 'Amended';
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-5">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
-          <h1 className="text-xl font-semibold text-[#0f1f18]">Bàn làm việc Bác sĩ (DR01–DR10)</h1>
-          <p className="text-xs text-[#44544c]">Hàng đợi gọi tuần tự theo hệ thống, lưu nháp tự động và kiểm soát phiên bản v409.</p>
+          <h1 className="font-headline-md text-2xl font-extrabold tracking-tight text-on-surface">
+            Bàn làm việc Bác sĩ (DR01–DR10)
+          </h1>
+          <p className="text-sm text-on-surface-variant">
+            Hàng đợi gọi tuần tự theo hệ thống, lưu nháp tự động và kiểm soát phiên bản v409.
+          </p>
         </div>
         <Link to="/doctor/records">
           <Button variant="outline" size="sm" leftIcon={<History className="h-4 w-4" />}>
@@ -236,99 +240,118 @@ export const DoctorPage: React.FC = () => {
         </Link>
       </div>
 
-      {/* DR01 Dual Queue — CHỈ có nút "Gọi người tiếp theo" do Backend chọn */}
-      <div className="grid gap-4 md:grid-cols-2">
-        <Card
-          title={`Hàng đợi Khám đầu (${initialQueue.length})`}
-          actions={
-            <Button
-              size="sm"
-              variant="primary"
-              leftIcon={<PhoneForwarded className="h-3.5 w-3.5" />}
-              loading={callNextMutation.isPending}
-              onClick={() => callNextMutation.mutate('Initial')}
-            >
-              Gọi người tiếp theo
-            </Button>
-          }
-        >
-          <ul className="space-y-1.5 text-xs">
-            {initialQueue.map((q) => (
-              <li key={q.encounterId} className="flex items-center justify-between rounded-lg bg-[#f4f8f6] px-3 py-2">
-                <span>
-                  <strong className="font-mono text-[#006a41]">{q.ticketNumber}</strong> — {q.patientName}
-                </span>
-                <StatusPill status={q.status} />
-              </li>
-            ))}
-          </ul>
-        </Card>
-
-        <Card
-          title={`Hàng đợi Quay lại sau CLS (${clsReturnQueue.length})`}
-          actions={
-            <Button
-              size="sm"
-              variant="secondary"
-              leftIcon={<PhoneForwarded className="h-3.5 w-3.5" />}
-              loading={callNextMutation.isPending}
-              onClick={() => callNextMutation.mutate('ClsReturn')}
-            >
-              Gọi người tiếp theo
-            </Button>
-          }
-        >
-          <ul className="space-y-1.5 text-xs">
-            {clsReturnQueue.map((q) => (
-              <li key={q.encounterId} className="flex items-center justify-between rounded-lg bg-[#f4f8f6] px-3 py-2">
-                <span>
-                  <strong className="font-mono text-[#006a41]">{q.ticketNumber}</strong> — {q.patientName}
-                </span>
-                <StatusPill status={q.status} />
-              </li>
-            ))}
-          </ul>
-        </Card>
-      </div>
-
-      {wsQuery.isLoading || !draft ? (
-        <Card><Skeleton rows={5} /></Card>
-      ) : wsQuery.isError ? (
-        <ErrorState message={extractFriendlyError(wsQuery.error).message} onRetry={() => wsQuery.refetch()} />
-      ) : (
-        <Card
-          title={`Ca đang xử lý: ${draft.ticketNumber} — ${draft.patientName} (${draft.patientGender}, ${draft.patientAge} tuổi)`}
-          subtitle={`${draft.encounterCode} • ${draft.vitalsSummary || 'Chưa có sinh hiệu'} • ${draftSavedHint || `Phiên bản v${draft.version}`}`}
-          actions={
-            <div className="flex flex-wrap items-center gap-2">
-              <StatusPill status={draft.status} />
+      {/* Stitch ca138e8e: 12-col desktop split (left dual queues, right active workspace) */}
+      <div className="grid gap-5 lg:grid-cols-12 items-start">
+        {/* DR01 Dual Queue — CHỈ có nút "Gọi người tiếp theo" do Backend chọn */}
+        <div className="space-y-4 lg:col-span-4">
+          <Card
+            title={`Hàng đợi Khám đầu (${initialQueue.length})`}
+            actions={
               <Button
                 size="sm"
-                variant="outline"
-                leftIcon={<Save className="h-3.5 w-3.5" />}
-                loading={saveDraftMutation.isPending}
-                disabled={isPublished}
-                onClick={() => saveDraftMutation.mutate(draft)}
+                variant="primary"
+                leftIcon={<PhoneForwarded className="h-3.5 w-3.5" />}
+                loading={callNextMutation.isPending}
+                onClick={() => callNextMutation.mutate('Initial')}
               >
-                Lưu nháp
+                Gọi người tiếp theo
               </Button>
-              {!isPublished ? (
-                <Button
-                  size="sm"
-                  variant="primary"
-                  leftIcon={<Send className="h-3.5 w-3.5" />}
-                  onClick={() => setPublishConfirmOpen(true)}
+            }
+          >
+            <ul className="space-y-2 text-xs">
+              {initialQueue.map((q) => (
+                <li
+                  key={q.encounterId}
+                  className={`flex items-center justify-between rounded-xl px-3.5 py-2.5 transition-colors ${
+                    q.encounterId === activeEncounterId
+                      ? 'bg-primary-container/60 ring-1 ring-primary/40'
+                      : 'bg-surface-container-low/75'
+                  }`}
                 >
-                  Phát hành hồ sơ
-                </Button>
-              ) : (
-                <Button size="sm" variant="warning" onClick={() => setAmendModalOpen(true)}>
-                  Bổ sung sau phát hành
-                </Button>
-              )}
-            </div>
-          }
-        >
+                  <span>
+                    <strong className="font-data-tabular font-mono text-primary">{q.ticketNumber}</strong> —{' '}
+                    <span className="font-medium text-on-surface">{q.patientName}</span>
+                  </span>
+                  <StatusPill status={q.status} />
+                </li>
+              ))}
+            </ul>
+          </Card>
+
+          <Card
+            title={`Hàng đợi Quay lại sau CLS (${clsReturnQueue.length})`}
+            actions={
+              <Button
+                size="sm"
+                variant="secondary"
+                leftIcon={<PhoneForwarded className="h-3.5 w-3.5" />}
+                loading={callNextMutation.isPending}
+                onClick={() => callNextMutation.mutate('ClsReturn')}
+              >
+                Gọi người tiếp theo
+              </Button>
+            }
+          >
+            <ul className="space-y-2 text-xs">
+              {clsReturnQueue.map((q) => (
+                <li
+                  key={q.encounterId}
+                  className={`flex items-center justify-between rounded-xl px-3.5 py-2.5 transition-colors ${
+                    q.encounterId === activeEncounterId
+                      ? 'bg-primary-container/60 ring-1 ring-primary/40'
+                      : 'bg-surface-container-low/75'
+                  }`}
+                >
+                  <span>
+                    <strong className="font-data-tabular font-mono text-primary">{q.ticketNumber}</strong> —{' '}
+                    <span className="font-medium text-on-surface">{q.patientName}</span>
+                  </span>
+                  <StatusPill status={q.status} />
+                </li>
+              ))}
+            </ul>
+          </Card>
+        </div>
+
+        <div className="lg:col-span-8">
+          {wsQuery.isLoading || !draft ? (
+            <Card><Skeleton rows={5} /></Card>
+          ) : wsQuery.isError ? (
+            <ErrorState message={extractFriendlyError(wsQuery.error).message} onRetry={() => wsQuery.refetch()} />
+          ) : (
+            <Card
+              title={`Ca đang xử lý: ${draft.ticketNumber} — ${draft.patientName} (${draft.patientGender}, ${draft.patientAge} tuổi)`}
+              subtitle={`${draft.encounterCode} • ${draft.vitalsSummary || 'Chưa có sinh hiệu'} • ${draftSavedHint || `Phiên bản v${draft.version}`}`}
+              actions={
+                <div className="flex flex-wrap items-center gap-2 max-w-full">
+                  <StatusPill status={draft.status} />
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    leftIcon={<Save className="h-3.5 w-3.5" />}
+                    loading={saveDraftMutation.isPending}
+                    disabled={isPublished}
+                    onClick={() => saveDraftMutation.mutate(draft)}
+                  >
+                    Lưu nháp
+                  </Button>
+                  {!isPublished ? (
+                    <Button
+                      size="sm"
+                      variant="primary"
+                      leftIcon={<Send className="h-3.5 w-3.5" />}
+                      onClick={() => setPublishConfirmOpen(true)}
+                    >
+                      Phát hành hồ sơ
+                    </Button>
+                  ) : (
+                    <Button size="sm" variant="warning" onClick={() => setAmendModalOpen(true)}>
+                      Bổ sung sau phát hành
+                    </Button>
+                  )}
+                </div>
+              }
+            >
           <Tabs
             activeId={tab}
             onChange={(id) => setTab(id as typeof tab)}
@@ -437,8 +460,12 @@ export const DoctorPage: React.FC = () => {
                     return (
                       <label
                         key={svc.id}
-                        className={`flex items-center justify-between gap-2 rounded-xl border p-3 text-xs ${
-                          svc.hasActiveRoom ? 'border-[#cddbd3] bg-white' : 'border-[#ffb4ab] bg-[#fff5f4] opacity-70'
+                        className={`flex items-center justify-between gap-2 rounded-xl p-3 text-xs transition-colors ${
+                          svc.hasActiveRoom
+                            ? checked
+                              ? 'bg-primary-container/50 ring-1 ring-primary'
+                              : 'bg-surface-container-low/70 hover:bg-surface-container-low'
+                            : 'bg-error-container/60 text-[#93000a] opacity-75'
                         }`}
                       >
                         <div className="flex items-center gap-2">
@@ -475,15 +502,15 @@ export const DoctorPage: React.FC = () => {
                 </div>
               </div>
 
-              <div className="space-y-2">
-                <h3 className="text-sm font-semibold text-[#0f1f18]">Theo dõi & Kết quả CLS</h3>
+              <div className="space-y-2.5">
+                <h3 className="text-sm font-semibold text-on-surface">Theo dõi &amp; Kết quả CLS</h3>
                 {draft.clsOrders.map((ord) => (
-                  <div key={ord.id} className="rounded-xl border border-[#cddbd3] p-3 text-xs">
+                  <div key={ord.id} className="rounded-xl bg-surface-container-low/70 p-3.5 text-xs">
                     <div className="flex items-center justify-between">
-                      <strong>{ord.serviceName} ({ord.serviceCode})</strong>
+                      <strong className="text-on-surface">{ord.serviceName} ({ord.serviceCode})</strong>
                       <StatusPill status={ord.status} />
                     </div>
-                    {ord.summaryText ? <p className="mt-1 text-[#0f1f18]">{ord.summaryText}</p> : null}
+                    {ord.summaryText ? <p className="mt-1.5 text-on-surface">{ord.summaryText}</p> : null}
                   </div>
                 ))}
               </div>
@@ -492,6 +519,9 @@ export const DoctorPage: React.FC = () => {
 
           {tab === 'rx' ? (
             <div className="mt-4 space-y-4">
+              <Banner tone="info">
+                Hệ thống chỉ lập đơn, không bán hay cấp phát thuốc — Chỉ hiển thị hoạt chất y khoa chuẩn.
+              </Banner>
               <FormField label="Tìm kiếm thuốc từ danh mục chuẩn (Full-Text Search)">
                 {(props) => (
                   <Input
@@ -521,12 +551,12 @@ export const DoctorPage: React.FC = () => {
 
               <div className="space-y-2">
                 {draft.prescriptionItems.map((line, idx) => (
-                  <div key={`${line.drugId}-${idx}`} className="rounded-xl border border-[#cddbd3] bg-[#f8fbf9] p-3 text-xs">
+                  <div key={`${line.drugId}-${idx}`} className="rounded-xl bg-surface-container-low/75 p-3.5 text-xs">
                     <div className="flex items-center justify-between">
-                      <strong>{idx + 1}. {line.drugName} ({line.activeIngredient})</strong>
-                      <span>{line.quantity} {line.unit}</span>
+                      <strong className="text-on-surface">{idx + 1}. {line.drugName} ({line.activeIngredient})</strong>
+                      <span className="font-data-tabular font-semibold text-primary">{line.quantity} {line.unit}</span>
                     </div>
-                    <p className="mt-1 text-[#44544c]">{line.dosage} • {line.frequency} • {line.durationDays} ngày</p>
+                    <p className="mt-1 text-on-surface-variant">{line.dosage} • {line.frequency} • {line.durationDays} ngày</p>
                   </div>
                 ))}
               </div>
@@ -536,14 +566,14 @@ export const DoctorPage: React.FC = () => {
           {tab === 'amend' ? (
             <div className="mt-4 space-y-3">
               {draft.amendmentHistory.length === 0 ? (
-                <p className="text-xs text-[#44544c]">Chưa có bổ sung nào sau phát hành.</p>
+                <p className="text-xs text-on-surface-variant">Chưa có bổ sung nào sau phát hành.</p>
               ) : (
                 draft.amendmentHistory.map((h) => (
-                  <div key={h.version} className="rounded-xl border border-[#fcd34d] bg-[#fef3c7]/40 p-3 text-xs">
-                    <p className="font-semibold">
+                  <div key={h.version} className="rounded-xl border-l-4 border-l-[#f59e0b] bg-[#fef3c7]/50 p-3.5 text-xs">
+                    <p className="font-semibold text-on-surface">
                       Phiên bản v{h.version} • <DateTimeText value={h.amendedAt} />
                     </p>
-                    <p className="mt-1 font-mono text-[#0f1f18]">{h.summaryDiff}</p>
+                    <p className="mt-1 font-mono text-on-surface">{h.summaryDiff}</p>
                   </div>
                 ))
               )}
@@ -551,6 +581,8 @@ export const DoctorPage: React.FC = () => {
           ) : null}
         </Card>
       )}
+        </div>
+      </div>
 
       <ConfirmDialog
         open={publishConfirmOpen}

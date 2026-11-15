@@ -59,10 +59,13 @@ export const BookingDoctorsPage: React.FC = () => {
 
   return (
     <div className="space-y-6">
-      <div className="flex flex-wrap items-center justify-between gap-3">
+      <div className="flex flex-wrap items-center justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-semibold text-[#0f1f18]">Đặt lịch khám bệnh</h1>
-          <p className="mt-1 text-sm text-[#3e4941]">
+          <span className="inline-flex items-center gap-1.5 rounded-full bg-secondary-container/75 px-3 py-0.5 text-xs font-semibold text-[#005231] mb-2">
+            Đặt lịch ngoại trú trực tuyến
+          </span>
+          <h1 className="text-2xl sm:text-3xl font-bold text-on-surface tracking-tight">Đặt lịch khám bệnh</h1>
+          <p className="mt-1 text-sm text-on-surface-variant">
             Chọn ngày khám, chuyên khoa và bác sĩ phù hợp. Mỗi bác sĩ phục vụ 30 lượt khám mỗi ngày.
           </p>
         </div>
@@ -71,6 +74,21 @@ export const BookingDoctorsPage: React.FC = () => {
             Xem lịch của tôi
           </Button>
         </Link>
+      </div>
+
+      {/* Stitch Info Policy Strip */}
+      <div className="rounded-2xl bg-surface-container-low p-4 flex flex-wrap items-center justify-between gap-3">
+        <div className="flex items-center gap-3">
+          <div className="w-9 h-9 rounded-xl bg-surface-container flex items-center justify-center text-primary shrink-0">
+            <Stethoscope className="h-5 w-5" aria-hidden="true" />
+          </div>
+          <p className="text-sm text-on-surface-variant">
+            <strong className="text-on-surface">Quy trình đặt khám minh bạch:</strong> Sau khi chọn bác sĩ, hệ thống giữ suất trong 5 phút để hoàn tất thanh toán VNPAY an toàn.
+          </p>
+        </div>
+        <span className="rounded-full bg-surface-container-lowest px-3 py-1 text-xs font-semibold text-primary shadow-sm">
+          Tự động mở suất 07:00 – 16:30
+        </span>
       </div>
 
       {recoverable.length > 0 ? (
@@ -90,144 +108,181 @@ export const BookingDoctorsPage: React.FC = () => {
         </Banner>
       ) : null}
 
-      <Card title="Bộ lọc tìm bác sĩ">
-        <div className="grid gap-4 sm:grid-cols-3">
-          <FormField label="Ngày khám" required>
-            {(props) => (
-              <DatePicker
-                {...props}
-                min={getVNDateISO()}
-                value={serviceDate}
-                onChange={(e) => {
-                  setServiceDate(e.target.value);
-                  setPage(1);
-                }}
-              />
-            )}
-          </FormField>
+      <div className="grid gap-6 lg:grid-cols-12 items-start">
+        {/* Left Filter Sidebar matching Stitch 1c9bdd66 */}
+        <aside className="lg:col-span-4 xl:col-span-3 lg:sticky lg:top-24">
+          <Card title="Bộ lọc tìm bác sĩ" subtitle="Lọc nhanh theo lịch mở khám">
+            <div className="space-y-4">
+              <FormField label="Ngày khám" required>
+                {(props) => (
+                  <DatePicker
+                    {...props}
+                    min={getVNDateISO()}
+                    value={serviceDate}
+                    onChange={(e) => {
+                      setServiceDate(e.target.value);
+                      setPage(1);
+                    }}
+                  />
+                )}
+              </FormField>
 
-          <FormField label="Chuyên khoa">
-            {(props) => (
-              <Select
-                {...props}
-                placeholder="Tất cả chuyên khoa"
-                value={specialtyId}
-                onChange={(e) => {
-                  setSpecialtyId(e.target.value);
-                  setPage(1);
-                }}
-                options={(specialtiesQuery.data ?? []).map((s) => ({
-                  value: s.id,
-                  label: s.name,
-                }))}
-              />
-            )}
-          </FormField>
+              <FormField label="Chuyên khoa">
+                {(props) => (
+                  <Select
+                    {...props}
+                    placeholder="Tất cả chuyên khoa"
+                    value={specialtyId}
+                    onChange={(e) => {
+                      setSpecialtyId(e.target.value);
+                      setPage(1);
+                    }}
+                    options={(specialtiesQuery.data ?? []).map((s) => ({
+                      value: s.id,
+                      label: s.name,
+                    }))}
+                  />
+                )}
+              </FormField>
 
-          <FormField label="Học hàm / Học vị">
-            {(props) => (
-              <Select
-                {...props}
-                placeholder="Tất cả mức phí"
-                value={doctorRankId}
-                onChange={(e) => {
-                  setDoctorRankId(e.target.value);
-                  setPage(1);
-                }}
-                options={(ranksQuery.data ?? []).map((r) => ({
-                  value: r.id,
-                  label: `${r.name} (${r.consultationFee.toLocaleString('vi-VN')} ₫)`,
-                }))}
-              />
-            )}
-          </FormField>
-        </div>
-      </Card>
+              <FormField label="Học hàm / Học vị">
+                {(props) => (
+                  <Select
+                    {...props}
+                    placeholder="Tất cả mức phí"
+                    value={doctorRankId}
+                    onChange={(e) => {
+                      setDoctorRankId(e.target.value);
+                      setPage(1);
+                    }}
+                    options={(ranksQuery.data ?? []).map((r) => ({
+                      value: r.id,
+                      label: `${r.name} (${r.consultationFee.toLocaleString('vi-VN')} ₫)`,
+                    }))}
+                  />
+                )}
+              </FormField>
 
-      {doctorsQuery.isLoading ? (
-        <div className="grid gap-4 md:grid-cols-2">
-          <Card><Skeleton rows={4} /></Card>
-          <Card><Skeleton rows={4} /></Card>
-        </div>
-      ) : doctorsQuery.isError ? (
-        <ErrorState
-          message={extractPatientError(doctorsQuery.error).message}
-          onRetry={() => doctorsQuery.refetch()}
-        />
-      ) : doctors.length === 0 ? (
-        <EmptyState
-          title="Không có bác sĩ mở lịch trong ngày đã chọn"
-          description="Bạn có thể thử chọn ngày khám kế tiếp hoặc bỏ bớt điều kiện lọc chuyên khoa."
-          icon={<Search className="h-6 w-6" />}
-        />
-      ) : (
-        <>
-          <div className="grid gap-4 md:grid-cols-2">
-            {doctors.map((doc) => {
-              const disabled = doc.status !== 'Open' || doc.remainingSlots <= 0;
-              return (
-                <Card key={`${doc.doctorId}-${doc.serviceDate}`}>
-                  <div className="flex flex-col justify-between gap-4">
-                    <div className="space-y-2">
-                      <div className="flex items-start justify-between gap-3">
-                        <div>
-                          <span className="inline-flex items-center gap-1 rounded-full bg-[#e5f8ed] px-2.5 py-0.5 text-xs font-medium text-[#005231]">
-                            <Stethoscope className="h-3.5 w-3.5" aria-hidden="true" />
-                            {doc.specialtyName}
-                          </span>
-                          <h3 className="mt-1.5 text-lg font-semibold text-[#0f1f18]">{doc.fullName}</h3>
-                          <p className="text-sm text-[#3e4941]">{doc.doctorRankName}</p>
+              {(specialtyId || doctorRankId) ? (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="w-full"
+                  onClick={() => {
+                    setSpecialtyId('');
+                    setDoctorRankId('');
+                    setPage(1);
+                  }}
+                >
+                  Đặt lại bộ lọc chuyên khoa
+                </Button>
+              ) : null}
+            </div>
+          </Card>
+        </aside>
+
+        {/* Right 2-column Doctor Results */}
+        <div className="lg:col-span-8 xl:col-span-9 space-y-5">
+          {doctorsQuery.isLoading ? (
+            <div className="grid gap-4 md:grid-cols-2">
+              <Card><Skeleton rows={4} /></Card>
+              <Card><Skeleton rows={4} /></Card>
+            </div>
+          ) : doctorsQuery.isError ? (
+            <ErrorState
+              message={extractPatientError(doctorsQuery.error).message}
+              onRetry={() => doctorsQuery.refetch()}
+            />
+          ) : doctors.length === 0 ? (
+            <EmptyState
+              title="Không có bác sĩ mở lịch trong ngày đã chọn"
+              description="Bạn có thể thử chọn ngày khám kế tiếp hoặc bỏ bớt điều kiện lọc chuyên khoa."
+              icon={<Search className="h-6 w-6" />}
+            />
+          ) : (
+            <>
+              <div className="grid gap-4 md:grid-cols-2">
+                {doctors.map((doc) => {
+                  const disabled = doc.status !== 'Open' || doc.remainingSlots <= 0;
+                  return (
+                    <Card
+                      key={`${doc.doctorId}-${doc.serviceDate}`}
+                      className="hover:border-primary/40 hover:shadow-md transition-all"
+                    >
+                      <div className="flex flex-col justify-between gap-4 h-full">
+                        <div className="space-y-3">
+                          <div className="flex items-start justify-between gap-3">
+                            <div className="flex items-start gap-3">
+                              <div className="w-11 h-11 rounded-xl bg-secondary-container/75 text-[#005231] flex items-center justify-center font-bold text-base shrink-0">
+                                {doc.fullName.split(' ').pop()?.charAt(0) ?? 'B'}
+                              </div>
+                              <div>
+                                <span className="inline-flex items-center gap-1 rounded-full bg-surface-container-low px-2.5 py-0.5 text-xs font-medium text-[#005231]">
+                                  <Stethoscope className="h-3.5 w-3.5" aria-hidden="true" />
+                                  {doc.specialtyName}
+                                </span>
+                                <h3 className="mt-1.5 text-lg font-semibold text-on-surface leading-snug">
+                                  {doc.fullName}
+                                </h3>
+                                <p className="text-sm text-on-surface-variant">{doc.doctorRankName}</p>
+                              </div>
+                            </div>
+                            <StatusPill
+                              status={doc.remainingSlots > 0 && doc.status === 'Open' ? 'Open' : 'Closed'}
+                              labelOverride={
+                                doc.remainingSlots > 0
+                                  ? `Còn ${doc.remainingSlots}/${doc.totalSlots} suất`
+                                  : 'Đã hết suất'
+                              }
+                              toneOverride={doc.remainingSlots > 0 ? 'success' : 'danger'}
+                            />
+                          </div>
+
+                          {doc.bio ? <p className="text-sm text-on-surface-variant line-clamp-2">{doc.bio}</p> : null}
+
+                          <div className="flex flex-wrap items-center gap-4 rounded-xl bg-surface-container-low/70 px-3.5 py-2.5 text-sm text-on-surface-variant">
+                            <span className="inline-flex items-center gap-1.5 font-medium text-on-surface">
+                              <Calendar className="h-4 w-4 text-primary" aria-hidden="true" />
+                              <DateTimeText value={doc.serviceDate} mode="date" />
+                            </span>
+                            <span className="inline-flex items-center gap-1.5">
+                              <Clock className="h-4 w-4 text-primary" aria-hidden="true" />
+                              {doc.roomName}
+                            </span>
+                          </div>
                         </div>
-                        <StatusPill
-                          status={doc.remainingSlots > 0 && doc.status === 'Open' ? 'Open' : 'Closed'}
-                          labelOverride={doc.remainingSlots > 0 ? `Còn ${doc.remainingSlots}/${doc.totalSlots} suất` : 'Đã hết suất'}
-                          toneOverride={doc.remainingSlots > 0 ? 'success' : 'danger'}
-                        />
+
+                        <div className="flex items-center justify-between border-t border-surface-container-low pt-3.5">
+                          <div>
+                            <p className="text-xs text-on-surface-variant">Phí khám dự kiến</p>
+                            <MoneyText amount={doc.consultationFee} className="text-lg font-bold text-primary" />
+                          </div>
+                          {disabled ? (
+                            <Button variant="outline" disabled>
+                              Hết suất khám
+                            </Button>
+                          ) : (
+                            <Link to={`/booking/doctors/${doc.doctorId}?date=${doc.serviceDate}`}>
+                              <Button variant="primary">Xem suất & Chọn lịch</Button>
+                            </Link>
+                          )}
+                        </div>
                       </div>
+                    </Card>
+                  );
+                })}
+              </div>
 
-                      {doc.bio ? <p className="text-sm text-[#3e4941]">{doc.bio}</p> : null}
-
-                      <div className="flex flex-wrap items-center gap-4 pt-1 text-sm text-[#3e4941]">
-                        <span className="inline-flex items-center gap-1.5">
-                          <Calendar className="h-4 w-4 text-[#006a41]" aria-hidden="true" />
-                          <DateTimeText value={doc.serviceDate} mode="date" />
-                        </span>
-                        <span className="inline-flex items-center gap-1.5">
-                          <Clock className="h-4 w-4 text-[#006a41]" aria-hidden="true" />
-                          {doc.roomName}
-                        </span>
-                      </div>
-                    </div>
-
-                    <div className="flex items-center justify-between border-t border-[#e5f8ed] pt-3">
-                      <div>
-                        <p className="text-xs text-[#3e4941]">Phí khám dự kiến</p>
-                        <MoneyText amount={doc.consultationFee} className="text-lg text-[#006a41]" />
-                      </div>
-                      {disabled ? (
-                        <Button variant="outline" disabled>
-                          Hết suất khám
-                        </Button>
-                      ) : (
-                        <Link to={`/booking/doctors/${doc.doctorId}?date=${doc.serviceDate}`}>
-                          <Button variant="primary">Xem suất & Chọn lịch</Button>
-                        </Link>
-                      )}
-                    </div>
-                  </div>
-                </Card>
-              );
-            })}
-          </div>
-
-          <PaginationBar
-            page={page}
-            hasMore={Boolean(doctorsQuery.data?.hasMore)}
-            onPageChange={setPage}
-            loading={doctorsQuery.isFetching}
-          />
-        </>
-      )}
+              <PaginationBar
+                page={page}
+                hasMore={Boolean(doctorsQuery.data?.hasMore)}
+                onPageChange={setPage}
+                loading={doctorsQuery.isFetching}
+              />
+            </>
+          )}
+        </div>
+      </div>
     </div>
   );
 };

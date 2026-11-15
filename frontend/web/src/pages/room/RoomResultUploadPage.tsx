@@ -119,8 +119,8 @@ export const RoomResultUploadPage: React.FC = () => {
   const isPublished = d.resultStatus === 'Published';
 
   return (
-    <div className="space-y-4">
-      <Link to="/room" className="inline-flex items-center gap-1.5 text-sm font-medium text-[#006a41] hover:underline">
+    <div className="space-y-5">
+      <Link to="/room" className="inline-flex items-center gap-1.5 rounded-xl bg-surface-container-low px-3.5 py-2 text-sm font-semibold text-primary transition-colors hover:bg-surface-container-high">
         <ArrowLeft className="h-4 w-4" aria-hidden="true" />
         Quay lại hàng đợi phòng CLS
       </Link>
@@ -161,8 +161,8 @@ export const RoomResultUploadPage: React.FC = () => {
               )}
             </FormField>
 
-            <div className="rounded-xl border border-dashed border-[#cddbd3] bg-[#f8fbf9] p-4">
-              <label htmlFor="cls-draft-file" className="block text-sm font-medium text-[#0f1f18]">
+            <div className="rounded-2xl border border-dashed border-outline-variant/60 bg-surface-container-low/65 p-4 sm:p-5 overflow-hidden">
+              <label htmlFor="cls-draft-file" className="block text-sm font-semibold text-on-surface">
                 Đính kèm tệp kết quả nháp (PDF / JPG / PNG, tối đa 20MB)
               </label>
               <div className="mt-2 flex flex-wrap items-center gap-3">
@@ -172,6 +172,7 @@ export const RoomResultUploadPage: React.FC = () => {
                   accept=".pdf,.jpg,.jpeg,.png"
                   onChange={handleFileChange}
                   disabled={uploadMutation.isPending}
+                  className="max-w-full text-xs text-on-surface"
                 />
                 {uploadMutation.isPending ? (
                   <span className="inline-flex items-center gap-1 text-xs text-[#006a41]">
@@ -183,7 +184,7 @@ export const RoomResultUploadPage: React.FC = () => {
               {d.draftFiles.length > 0 ? (
                 <ul className="mt-3 space-y-1 text-xs text-[#0f1f18]">
                   {d.draftFiles.map((f) => (
-                    <li key={f.fileId} className="font-mono">
+                    <li key={f.fileId} className="font-mono break-all">
                       • {f.fileName} ({Math.round(f.sizeBytes / 1024)} KB)
                     </li>
                   ))}

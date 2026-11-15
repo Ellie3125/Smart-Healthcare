@@ -66,11 +66,11 @@ const STATUS_MAP: Record<string, StatusMeta> = {
 };
 
 const TONE_CLASSES: Record<StatusTone, string> = {
-  neutral: 'bg-[#eef3f0] text-[#44544c] border-[#cddbd3]',
-  info: 'bg-[#e8f0fe] text-[#0b57d0] border-[#bdd4fb]',
-  success: 'bg-[#d4f7e2] text-[#005231] border-[#8ef8bb]',
-  warning: 'bg-[#fef3c7] text-[#9a5b00] border-[#fcd34d]',
-  danger: 'bg-[#ffdad6] text-[#93000a] border-[#ffb4ab]',
+  neutral: 'bg-surface-container-low text-on-surface-variant border-surface-container-highest/80',
+  info: 'bg-[#e8f0fe] text-[#0b57d0] border-[#bdd4fb]/75',
+  success: 'bg-secondary-container/75 text-[#005231] border-[#8ef8bb]/80',
+  warning: 'bg-[#fef3c7] text-[#9a5b00] border-[#fcd34d]/75',
+  danger: 'bg-error-container text-[#93000a] border-[#ffb4ab]/80',
 };
 
 function renderIcon(kind?: StatusMeta['icon']) {

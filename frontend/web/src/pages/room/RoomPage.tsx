@@ -49,13 +49,41 @@ export const RoomPage: React.FC = () => {
     onError: (err) => pushToast(extractFriendlyError(err).message, 'danger'),
   });
 
+  const rows = query.data ?? [];
+  const waitingCount = rows.filter((r) => r.queueStatus === 'Waiting').length;
+  const calledCount = rows.filter((r) => r.queueStatus === 'Called').length;
+  const inProgressCount = rows.filter((r) => r.queueStatus === 'InProgress').length;
+  const completedCount = rows.filter((r) => r.queueStatus === 'Completed').length;
+
   return (
-    <div className="space-y-4">
+    <div className="space-y-5">
       <div>
-        <h1 className="text-xl font-semibold text-[#0f1f18]">Phòng Cận lâm sàng — Hàng đợi & Kết quả (CL01–CL03)</h1>
-        <p className="text-xs text-[#44544c]">
+        <h1 className="font-headline-md text-2xl font-extrabold tracking-tight text-on-surface">
+          Phòng Cận lâm sàng — Hàng đợi &amp; Kết quả (CL01–CL03)
+        </h1>
+        <p className="text-sm text-on-surface-variant">
           Hoàn tất thực hiện kỹ thuật là bước tách biệt với Phát hành kết quả chính thức; ca chưa phát hành từ ngày trước vẫn hiển thị tại đây.
         </p>
+      </div>
+
+      {/* Stitch 9fb14103: 4-Stage Operational KPI Counters */}
+      <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+        <Card className="bg-surface-container-lowest">
+          <span className="text-[11px] font-semibold uppercase tracking-wider text-on-surface-variant">1. Chờ tiếp nhận</span>
+          <p className="font-data-tabular mt-1 text-2xl font-extrabold text-on-surface">{waitingCount}</p>
+        </Card>
+        <Card className="bg-surface-container-lowest">
+          <span className="text-[11px] font-semibold uppercase tracking-wider text-on-surface-variant">2. Đã gọi vào phòng</span>
+          <p className="font-data-tabular mt-1 text-2xl font-extrabold text-primary">{calledCount}</p>
+        </Card>
+        <Card className="bg-surface-container-lowest">
+          <span className="text-[11px] font-semibold uppercase tracking-wider text-on-surface-variant">3. Đang thực hiện</span>
+          <p className="font-data-tabular mt-1 text-2xl font-extrabold text-primary">{inProgressCount}</p>
+        </Card>
+        <Card className="bg-surface-container-low/80">
+          <span className="text-[11px] font-semibold uppercase tracking-wider text-on-surface-variant">4. Hoàn tất kỹ thuật</span>
+          <p className="font-data-tabular mt-1 text-2xl font-extrabold text-on-surface">{completedCount}</p>
+        </Card>
       </div>
 
       <Banner tone="info">

@@ -76,13 +76,13 @@ export const StatusScreenPage: React.FC<{ kind: StatusScreenKind }> = ({ kind })
 
   return (
     <div className="mx-auto max-w-lg py-10">
-      <Card>
+      <Card className="p-8">
         <div className="flex flex-col items-center gap-3 text-center">
-          <div className="rounded-full bg-[#e5f8ed] p-4 text-[#006a41]" aria-hidden="true">
+          <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-surface-container-low text-primary" aria-hidden="true">
             <Icon className="h-8 w-8" />
           </div>
-          <h1 className="text-xl font-semibold text-[#0f1f18]">{meta.title}</h1>
-          <p className="text-sm text-[#3e4941]">{meta.message}</p>
+          <h1 className="font-headline-sm text-xl font-extrabold tracking-tight text-on-surface">{meta.title}</h1>
+          <p className="text-sm leading-relaxed text-on-surface-variant">{meta.message}</p>
           <Link to={meta.ctaTo} className="mt-2">
             <Button variant="primary">{meta.ctaLabel}</Button>
           </Link>

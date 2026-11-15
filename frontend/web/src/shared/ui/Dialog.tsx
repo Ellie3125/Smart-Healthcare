@@ -39,7 +39,7 @@ export const Dialog: React.FC<DialogProps> = ({
       aria-modal="true"
       aria-labelledby="dialog-title"
     >
-      <div className={`w-full ${maxWidthClass} rounded-xl border border-[#cddbd3] bg-white shadow-xl`}>
+      <div className={`w-full ${maxWidthClass} rounded-2xl border border-surface-container-highest/80 bg-white shadow-2xl`}>
         <div className="flex items-start justify-between gap-3 border-b border-[#e9f2ed] px-5 py-4">
           <div>
             <h2 id="dialog-title" className="text-base font-semibold text-[#0f1f18]">

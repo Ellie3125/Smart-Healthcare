@@ -1,40 +1,48 @@
-import React, { useEffect, useState } from 'react';
-import { apiClient } from '../../api/client';
-import { RoomAccountDto, RoomAdminDto, RoomSessionDto } from '../../types/admin';
+import React, { useEffect, useState } from "react";
+import { apiClient } from "../../api/client";
+import {
+  RoomAccountDto,
+  RoomAdminDto,
+  RoomSessionDto,
+} from "../../types/admin";
 
 export const RoomsTab: React.FC = () => {
   const [rooms, setRooms] = useState<RoomAdminDto[]>([]);
   const [isLoading, setIsLoading] = useState(true);
-  const [roomTypeFilter, setRoomTypeFilter] = useState('');
-  const [activeFilter, setActiveFilter] = useState('');
+  const [roomTypeFilter, setRoomTypeFilter] = useState("");
+  const [activeFilter, setActiveFilter] = useState("");
 
   // Modals
   const [showRoomModal, setShowRoomModal] = useState(false);
   const [editingRoom, setEditingRoom] = useState<RoomAdminDto | null>(null);
 
   const [showAccountModal, setShowAccountModal] = useState(false);
-  const [selectedRoomForAccount, setSelectedRoomForAccount] = useState<RoomAdminDto | null>(null);
+  const [selectedRoomForAccount, setSelectedRoomForAccount] =
+    useState<RoomAdminDto | null>(null);
   const [roomAccount, setRoomAccount] = useState<RoomAccountDto | null>(null);
   const [loadingAccount, setLoadingAccount] = useState(false);
-  const [newRoomPassword, setNewRoomPassword] = useState('Hospital@2026');
+  const [newRoomPassword, setNewRoomPassword] = useState("Hospital@2026");
 
   const [showSessionsModal, setShowSessionsModal] = useState(false);
-  const [selectedRoomForSessions, setSelectedRoomForSessions] = useState<RoomAdminDto | null>(null);
+  const [selectedRoomForSessions, setSelectedRoomForSessions] =
+    useState<RoomAdminDto | null>(null);
   const [sessions, setSessions] = useState<RoomSessionDto[]>([]);
   const [loadingSessions, setLoadingSessions] = useState(false);
-  const [revokingSessionId, setRevokingSessionId] = useState<string | null>(null);
+  const [revokingSessionId, setRevokingSessionId] = useState<string | null>(
+    null,
+  );
 
   // Form states - Room
-  const [roomNumber, setRoomNumber] = useState('');
-  const [roomName, setRoomName] = useState('');
-  const [roomType, setRoomType] = useState('Clinical');
-  const [departmentName, setDepartmentName] = useState('');
+  const [roomNumber, setRoomNumber] = useState("");
+  const [roomName, setRoomName] = useState("");
+  const [roomType, setRoomType] = useState("Clinical");
+  const [departmentName, setDepartmentName] = useState("");
 
   // Form states - RoomAccount
-  const [accountCode, setAccountCode] = useState('');
-  const [accountUserName, setAccountUserName] = useState('');
-  const [accountEmail, setAccountEmail] = useState('');
-  const [accountPassword, setAccountPassword] = useState('');
+  const [accountCode, setAccountCode] = useState("");
+  const [accountUserName, setAccountUserName] = useState("");
+  const [accountEmail, setAccountEmail] = useState("");
+  const [accountPassword, setAccountPassword] = useState("");
 
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
@@ -44,13 +52,15 @@ export const RoomsTab: React.FC = () => {
     setIsLoading(true);
     try {
       const params = new URLSearchParams();
-      if (roomTypeFilter) params.append('roomType', roomTypeFilter);
-      if (activeFilter !== '') params.append('isActive', activeFilter);
+      if (roomTypeFilter) params.append("roomType", roomTypeFilter);
+      if (activeFilter !== "") params.append("isActive", activeFilter);
 
-      const res = await apiClient.get<RoomAdminDto[]>(`/api/staff/admin/rooms?${params.toString()}`);
+      const res = await apiClient.get<RoomAdminDto[]>(
+        `/api/staff/admin/rooms?${params.toString()}`,
+      );
       setRooms(res.data);
     } catch {
-      setErrorMsg('Không thể tải danh sách phòng khám & CLS.');
+      setErrorMsg("Không thể tải danh sách phòng khám & CLS.");
     } finally {
       setIsLoading(false);
     }
@@ -62,10 +72,10 @@ export const RoomsTab: React.FC = () => {
 
   const handleOpenCreateRoom = () => {
     setEditingRoom(null);
-    setRoomNumber('');
-    setRoomName('');
-    setRoomType('Clinical');
-    setDepartmentName('Khoa Khám Bệnh');
+    setRoomNumber("");
+    setRoomName("");
+    setRoomType("Clinical");
+    setDepartmentName("Khoa Khám Bệnh");
     setShowRoomModal(true);
   };
 
@@ -93,19 +103,23 @@ export const RoomsTab: React.FC = () => {
         });
         setSuccessMsg(`Cập nhật phòng "${roomName}" thành công!`);
       } else {
-        await apiClient.post('/api/staff/admin/rooms', {
+        await apiClient.post("/api/staff/admin/rooms", {
           roomNumber: roomNumber.trim(),
           roomName: roomName.trim(),
           roomType,
           departmentName: departmentName.trim(),
         });
-        setSuccessMsg(`Tạo mới phòng ${roomNumber.trim()} - ${roomName.trim()} thành công!`);
+        setSuccessMsg(
+          `Tạo mới phòng ${roomNumber.trim()} - ${roomName.trim()} thành công!`,
+        );
       }
       setShowRoomModal(false);
       fetchRooms();
     } catch (err: unknown) {
       const errorObj = err as { response?: { data?: { detail?: string } } };
-      setErrorMsg(errorObj.response?.data?.detail || 'Thao tác không thành công.');
+      setErrorMsg(
+        errorObj.response?.data?.detail || "Thao tác không thành công.",
+      );
     } finally {
       setIsSubmitting(false);
     }
@@ -113,7 +127,11 @@ export const RoomsTab: React.FC = () => {
 
   const handleToggleRoomActive = async (r: RoomAdminDto) => {
     const nextStatus = !r.isActive;
-    if (!window.confirm(`${nextStatus ? 'Mở lại' : 'Tạm dừng hoạt động'} phòng ${r.roomNumber}? Dữ liệu liên kết ở các module khác không bị xóa.`)) {
+    if (
+      !window.confirm(
+        `${nextStatus ? "Mở lại" : "Tạm dừng hoạt động"} phòng ${r.roomNumber}? Dữ liệu liên kết ở các module khác không bị xóa.`,
+      )
+    ) {
       return;
     }
     try {
@@ -123,10 +141,12 @@ export const RoomsTab: React.FC = () => {
         departmentName: r.departmentName,
         isActive: nextStatus,
       });
-      setSuccessMsg(`Đã ${nextStatus ? 'mở lại' : 'tạm dừng'} phòng ${r.roomNumber}.`);
+      setSuccessMsg(
+        `Đã ${nextStatus ? "mở lại" : "tạm dừng"} phòng ${r.roomNumber}.`,
+      );
       fetchRooms();
     } catch {
-      setErrorMsg('Không thể cập nhật trạng thái phòng.');
+      setErrorMsg("Không thể cập nhật trạng thái phòng.");
     }
   };
 
@@ -134,16 +154,22 @@ export const RoomsTab: React.FC = () => {
     setSelectedRoomForAccount(r);
     setRoomAccount(null);
     setLoadingAccount(true);
-    setNewRoomPassword('Hospital@2026');
-    setAccountCode(`ACC_${r.roomNumber.replace(/\s+/g, '_')}`);
-    setAccountUserName(`room_${r.roomNumber.toLowerCase().replace(/[^a-z0-9]/g, '_')}`);
-    setAccountEmail(`room.${r.roomNumber.toLowerCase().replace(/[^a-z0-9]/g, '')}@hospital.vn`);
-    setAccountPassword('Hospital@2026');
+    setNewRoomPassword("Hospital@2026");
+    setAccountCode(`ACC_${r.roomNumber.replace(/\s+/g, "_")}`);
+    setAccountUserName(
+      `room_${r.roomNumber.toLowerCase().replace(/[^a-z0-9]/g, "_")}`,
+    );
+    setAccountEmail(
+      `room.${r.roomNumber.toLowerCase().replace(/[^a-z0-9]/g, "")}@hospital.vn`,
+    );
+    setAccountPassword("Hospital@2026");
     setErrorMsg(null);
     setShowAccountModal(true);
 
     try {
-      const res = await apiClient.get<RoomAccountDto>(`/api/staff/admin/rooms/${r.id}/account`);
+      const res = await apiClient.get<RoomAccountDto>(
+        `/api/staff/admin/rooms/${r.id}/account`,
+      );
       setRoomAccount(res.data);
     } catch {
       setRoomAccount(null);
@@ -159,15 +185,18 @@ export const RoomsTab: React.FC = () => {
     try {
       const nextStatus = !roomAccount.isActive;
       const res = await apiClient.post<RoomAccountDto>(
-        `/api/staff/admin/rooms/accounts/${roomAccount.roomAccountId}/toggle-active?isActive=${nextStatus}`
+        `/api/staff/admin/rooms/accounts/${roomAccount.roomAccountId}/toggle-active?isActive=${nextStatus}`,
       );
       setRoomAccount(res.data);
       setSuccessMsg(
-        `Đã ${nextStatus ? 'kích hoạt' : 'vô hiệu hóa'} tài khoản phòng "${selectedRoomForAccount.roomNumber}".`
+        `Đã ${nextStatus ? "kích hoạt" : "vô hiệu hóa"} tài khoản phòng "${selectedRoomForAccount.roomNumber}".`,
       );
     } catch (err: unknown) {
       const errorObj = err as { response?: { data?: { detail?: string } } };
-      setErrorMsg(errorObj.response?.data?.detail || 'Không thể đổi trạng thái tài khoản phòng.');
+      setErrorMsg(
+        errorObj.response?.data?.detail ||
+          "Không thể đổi trạng thái tài khoản phòng.",
+      );
     } finally {
       setIsSubmitting(false);
     }
@@ -177,21 +206,29 @@ export const RoomsTab: React.FC = () => {
     e.preventDefault();
     if (!roomAccount || !selectedRoomForAccount) return;
     if (newRoomPassword.trim().length < 6) {
-      setErrorMsg('Mật khẩu mới phải có ít nhất 6 ký tự.');
+      setErrorMsg("Mật khẩu mới phải có ít nhất 6 ký tự.");
       return;
     }
 
     setIsSubmitting(true);
     setErrorMsg(null);
     try {
-      await apiClient.post(`/api/staff/admin/rooms/accounts/${roomAccount.roomAccountId}/reset-password`, {
-        newPassword: newRoomPassword,
-      });
-      setSuccessMsg(`Đã đặt lại mật khẩu cho tài khoản phòng "${roomAccount.userName}".`);
+      await apiClient.post(
+        `/api/staff/admin/rooms/accounts/${roomAccount.roomAccountId}/reset-password`,
+        {
+          newPassword: newRoomPassword,
+        },
+      );
+      setSuccessMsg(
+        `Đã đặt lại mật khẩu cho tài khoản phòng "${roomAccount.userName}".`,
+      );
       setShowAccountModal(false);
     } catch (err: unknown) {
       const errorObj = err as { response?: { data?: { detail?: string } } };
-      setErrorMsg(errorObj.response?.data?.detail || 'Không thể đặt lại mật khẩu tài khoản phòng.');
+      setErrorMsg(
+        errorObj.response?.data?.detail ||
+          "Không thể đặt lại mật khẩu tài khoản phòng.",
+      );
     } finally {
       setIsSubmitting(false);
     }
@@ -204,17 +241,25 @@ export const RoomsTab: React.FC = () => {
     setIsSubmitting(true);
     setErrorMsg(null);
     try {
-      await apiClient.post(`/api/staff/admin/rooms/${selectedRoomForAccount.id}/account`, {
-        accountCode: accountCode.trim(),
-        userName: accountUserName.trim(),
-        email: accountEmail.trim(),
-        password: accountPassword,
-      });
-      setSuccessMsg(`Tạo tài khoản phòng cho "${selectedRoomForAccount.roomName}" thành công!`);
+      await apiClient.post(
+        `/api/staff/admin/rooms/${selectedRoomForAccount.id}/account`,
+        {
+          accountCode: accountCode.trim(),
+          userName: accountUserName.trim(),
+          email: accountEmail.trim(),
+          password: accountPassword,
+        },
+      );
+      setSuccessMsg(
+        `Tạo tài khoản phòng cho "${selectedRoomForAccount.roomName}" thành công!`,
+      );
       setShowAccountModal(false);
     } catch (err: unknown) {
       const errorObj = err as { response?: { data?: { detail?: string } } };
-      setErrorMsg(errorObj.response?.data?.detail || 'Lỗi khi tạo tài khoản phòng (mỗi phòng tối đa 1 tài khoản).');
+      setErrorMsg(
+        errorObj.response?.data?.detail ||
+          "Lỗi khi tạo tài khoản phòng (mỗi phòng tối đa 1 tài khoản).",
+      );
     } finally {
       setIsSubmitting(false);
     }
@@ -225,10 +270,12 @@ export const RoomsTab: React.FC = () => {
     setShowSessionsModal(true);
     setLoadingSessions(true);
     try {
-      const res = await apiClient.get<RoomSessionDto[]>(`/api/staff/admin/rooms/${r.id}/sessions`);
+      const res = await apiClient.get<RoomSessionDto[]>(
+        `/api/staff/admin/rooms/${r.id}/sessions`,
+      );
       setSessions(res.data);
     } catch {
-      setErrorMsg('Không thể tải danh sách phiên thiết bị phòng.');
+      setErrorMsg("Không thể tải danh sách phiên thiết bị phòng.");
     } finally {
       setLoadingSessions(false);
     }
@@ -239,17 +286,23 @@ export const RoomsTab: React.FC = () => {
     setRevokingSessionId(ses.sessionId);
     setErrorMsg(null);
     try {
-      await apiClient.post(`/api/staff/admin/rooms/sessions/${ses.sessionId}/revoke`, {
-        reason: 'Admin buộc đăng xuất phiên thiết bị phòng từ cổng quản trị',
-      });
+      await apiClient.post(
+        `/api/staff/admin/rooms/sessions/${ses.sessionId}/revoke`,
+        {
+          reason: "Admin buộc đăng xuất phiên thiết bị phòng từ cổng quản trị",
+        },
+      );
       setSuccessMsg(`Đã buộc đăng xuất thiết bị ${ses.deviceId}.`);
       const res = await apiClient.get<RoomSessionDto[]>(
-        `/api/staff/admin/rooms/${selectedRoomForSessions.id}/sessions`
+        `/api/staff/admin/rooms/${selectedRoomForSessions.id}/sessions`,
       );
       setSessions(res.data);
     } catch (err: unknown) {
       const errorObj = err as { response?: { data?: { detail?: string } } };
-      setErrorMsg(errorObj.response?.data?.detail || 'Không thể buộc đăng xuất phiên thiết bị.');
+      setErrorMsg(
+        errorObj.response?.data?.detail ||
+          "Không thể buộc đăng xuất phiên thiết bị.",
+      );
     } finally {
       setRevokingSessionId(null);
     }
@@ -257,18 +310,42 @@ export const RoomsTab: React.FC = () => {
 
   const getRoomTypeBadge = (type: string) => {
     switch (type) {
-      case 'Clinical':
-        return <span className="px-2 py-0.5 rounded text-xs font-semibold bg-[#E8F5EE] text-[#006a41] border border-[#DDE7E1]">Khám Lâm Sàng</span>;
-      case 'Laboratory':
-        return <span className="px-2 py-0.5 rounded text-xs font-semibold bg-[#E0F2FE] text-[#0369A1] border border-[#BAE6FD]">Xét Nghiệm</span>;
-      case 'XRay':
-        return <span className="px-2 py-0.5 rounded text-xs font-semibold bg-[#FEF3C7] text-[#B45309] border border-[#FDE68A]">X-Quang</span>;
-      case 'Ultrasound':
-        return <span className="px-2 py-0.5 rounded text-xs font-semibold bg-[#F3E8FF] text-[#7E22CE] border border-[#E9D5FF]">Siêu Âm</span>;
-      case 'Endoscopy':
-        return <span className="px-2 py-0.5 rounded text-xs font-semibold bg-[#FCE7F3] text-[#BE185D] border border-[#FBCFE8]">Nội Soi</span>;
+      case "Clinical":
+        return (
+          <span className="px-2 py-0.5 rounded text-xs font-semibold bg-[#E8F5EE] text-[#006a41] border border-[#DDE7E1]">
+            Khám Lâm Sàng
+          </span>
+        );
+      case "Laboratory":
+        return (
+          <span className="px-2 py-0.5 rounded text-xs font-semibold bg-[#E0F2FE] text-[#0369A1] border border-[#BAE6FD]">
+            Xét Nghiệm
+          </span>
+        );
+      case "XRay":
+        return (
+          <span className="px-2 py-0.5 rounded text-xs font-semibold bg-[#FEF3C7] text-[#B45309] border border-[#FDE68A]">
+            X-Quang
+          </span>
+        );
+      case "Ultrasound":
+        return (
+          <span className="px-2 py-0.5 rounded text-xs font-semibold bg-[#F3E8FF] text-[#7E22CE] border border-[#E9D5FF]">
+            Siêu Âm
+          </span>
+        );
+      case "Endoscopy":
+        return (
+          <span className="px-2 py-0.5 rounded text-xs font-semibold bg-[#FCE7F3] text-[#BE185D] border border-[#FBCFE8]">
+            Nội Soi
+          </span>
+        );
       default:
-        return <span className="px-2 py-0.5 rounded text-xs font-semibold bg-gray-100 text-gray-700">{type}</span>;
+        return (
+          <span className="px-2 py-0.5 rounded text-xs font-semibold bg-gray-100 text-gray-700">
+            {type}
+          </span>
+        );
     }
   };
 
@@ -279,7 +356,7 @@ export const RoomsTab: React.FC = () => {
           <select
             value={roomTypeFilter}
             onChange={(e) => setRoomTypeFilter(e.target.value)}
-            className="h-9 px-3 rounded-lg border border-[#DDE7E1] bg-white text-xs focus:ring-2 focus:ring-[#006a41]/20"
+            className="h-10 px-3 rounded-xl border border-transparent bg-surface-container-low/70 text-xs text-on-surface focus:outline-none focus:bg-white focus:border-primary focus:ring-2 focus:ring-primary/15"
           >
             <option value="">Tất cả loại phòng</option>
             <option value="Clinical">Khám Lâm Sàng</option>
@@ -292,7 +369,7 @@ export const RoomsTab: React.FC = () => {
           <select
             value={activeFilter}
             onChange={(e) => setActiveFilter(e.target.value)}
-            className="h-9 px-3 rounded-lg border border-[#DDE7E1] bg-white text-xs focus:ring-2 focus:ring-[#006a41]/20"
+            className="h-10 px-3 rounded-xl border border-transparent bg-surface-container-low/70 text-xs text-on-surface focus:outline-none focus:bg-white focus:border-primary focus:ring-2 focus:ring-primary/15"
           >
             <option value="">Tất cả trạng thái</option>
             <option value="true">Đang hoạt động</option>
@@ -302,9 +379,11 @@ export const RoomsTab: React.FC = () => {
 
         <button
           onClick={handleOpenCreateRoom}
-          className="h-9 px-4 rounded-lg bg-[#006a41] text-white text-xs font-semibold hover:bg-[#028654] transition-colors flex items-center gap-1.5 shadow-sm shrink-0"
+          className="h-10 px-4 rounded-xl bg-primary text-white text-xs font-semibold hover:bg-[#005231] transition-colors flex items-center gap-1.5 shadow-sm shrink-0"
         >
-          <span className="material-symbols-outlined text-[18px]">meeting_room</span>
+          <span className="material-symbols-outlined text-[18px]">
+            meeting_room
+          </span>
           <span>Tạo Phòng Mới</span>
         </button>
       </div>
@@ -328,29 +407,42 @@ export const RoomsTab: React.FC = () => {
       )}
 
       {/* Rooms Table */}
-      <div className="bg-white rounded-xl border border-[#DDE7E1] shadow-sm overflow-hidden">
+      <div className="bg-surface-container-lowest rounded-2xl shadow-[0_1px_10px_rgba(15,31,24,0.04)] overflow-hidden">
         {isLoading ? (
-          <div className="py-16 text-center text-xs text-[#5E6F66]">Đang tải danh sách phòng...</div>
+          <div className="py-16 text-center text-xs text-on-surface-variant">
+            Đang tải danh sách phòng...
+          </div>
         ) : (
           <div className="overflow-x-auto">
             <table className="w-full text-left border-collapse text-xs">
               <thead>
-                <tr className="bg-[#F7FAF8] border-b border-[#DDE7E1] text-[#5E6F66] font-semibold uppercase tracking-wider">
-                  <th className="py-3 px-4">Số Phòng</th>
-                  <th className="py-3 px-4">Tên Phòng Khám / Dịch Vụ</th>
-                  <th className="py-3 px-4">Loại Phòng</th>
-                  <th className="py-3 px-4">Khoa Trực Thuộc</th>
-                  <th className="py-3 px-4">Trạng thái</th>
-                  <th className="py-3 px-4 text-right">Thao tác</th>
+                <tr className="bg-surface-container-low/85 text-on-surface-variant font-semibold uppercase tracking-wider text-[11px]">
+                  <th className="py-3.5 px-4">Số Phòng</th>
+                  <th className="py-3.5 px-4">Tên Phòng Khám / Dịch Vụ</th>
+                  <th className="py-3.5 px-4">Loại Phòng</th>
+                  <th className="py-3.5 px-4">Khoa Trực Thuộc</th>
+                  <th className="py-3.5 px-4">Trạng thái</th>
+                  <th className="py-3.5 px-4 text-right">Thao tác</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-[#DDE7E1]">
+              <tbody className="divide-y divide-surface-container-high/50">
                 {rooms.map((r) => (
-                  <tr key={r.id} className="hover:bg-[#F9FBFA] transition-colors">
-                    <td className="py-3 px-4 font-mono font-bold text-[#006a41]">{r.roomNumber}</td>
-                    <td className="py-3 px-4 font-semibold text-[#1C2B24]">{r.roomName}</td>
-                    <td className="py-3 px-4">{getRoomTypeBadge(r.roomType)}</td>
-                    <td className="py-3 px-4 text-[#5E6F66]">{r.departmentName}</td>
+                  <tr
+                    key={r.id}
+                    className="hover:bg-surface-container-low/45 transition-colors"
+                  >
+                    <td className="py-3 px-4 font-mono font-bold text-[#006a41]">
+                      {r.roomNumber}
+                    </td>
+                    <td className="py-3 px-4 font-semibold text-[#1C2B24]">
+                      {r.roomName}
+                    </td>
+                    <td className="py-3 px-4">
+                      {getRoomTypeBadge(r.roomType)}
+                    </td>
+                    <td className="py-3 px-4 text-[#5E6F66]">
+                      {r.departmentName}
+                    </td>
                     <td className="py-3 px-4">
                       {r.isActive ? (
                         <span className="inline-flex items-center gap-1 text-[#047857] font-semibold">
@@ -371,7 +463,9 @@ export const RoomsTab: React.FC = () => {
                           className="h-7 px-2 rounded border border-[#DDE7E1] hover:bg-[#E8F5EE] text-[11px] font-semibold text-[#006a41] flex items-center gap-1"
                           title="Tạo tài khoản đăng nhập cho thiết bị phòng"
                         >
-                          <span className="material-symbols-outlined text-[14px]">key</span>
+                          <span className="material-symbols-outlined text-[14px]">
+                            key
+                          </span>
                           <span>Tài khoản</span>
                         </button>
                         <button
@@ -379,7 +473,9 @@ export const RoomsTab: React.FC = () => {
                           className="h-7 px-2 rounded border border-[#DDE7E1] hover:bg-gray-50 text-[11px] font-semibold text-[#5E6F66] flex items-center gap-1"
                           title="Xem phiên thiết bị đăng nhập"
                         >
-                          <span className="material-symbols-outlined text-[14px]">devices</span>
+                          <span className="material-symbols-outlined text-[14px]">
+                            devices
+                          </span>
                           <span>Phiên</span>
                         </button>
                         <button
@@ -392,11 +488,11 @@ export const RoomsTab: React.FC = () => {
                           onClick={() => handleToggleRoomActive(r)}
                           className={`h-7 px-2 rounded text-[11px] font-semibold border transition-colors ${
                             r.isActive
-                              ? 'border-[#FECACA] text-[#B91C1C] hover:bg-[#FEE2E2]'
-                              : 'border-[#A7F3D0] text-[#047857] hover:bg-[#ECFDF5]'
+                              ? "border-[#FECACA] text-[#B91C1C] hover:bg-[#FEE2E2]"
+                              : "border-[#A7F3D0] text-[#047857] hover:bg-[#ECFDF5]"
                           }`}
                         >
-                          {r.isActive ? 'Khóa' : 'Mở'}
+                          {r.isActive ? "Khóa" : "Mở"}
                         </button>
                       </div>
                     </td>
@@ -414,17 +510,25 @@ export const RoomsTab: React.FC = () => {
           <div className="bg-white rounded-2xl border border-[#DDE7E1] shadow-xl w-full max-w-md p-6 space-y-4">
             <div className="flex items-center justify-between border-b border-[#DDE7E1] pb-3">
               <h3 className="text-base font-bold text-[#1C2B24]">
-                {editingRoom ? `Sửa Phòng: ${editingRoom.roomNumber}` : 'Tạo Mới Phòng'}
+                {editingRoom
+                  ? `Sửa Phòng: ${editingRoom.roomNumber}`
+                  : "Tạo Mới Phòng"}
               </h3>
-              <button onClick={() => setShowRoomModal(false)} className="text-gray-400 hover:text-black">
-                <span className="material-symbols-outlined text-[20px]">close</span>
+              <button
+                onClick={() => setShowRoomModal(false)}
+                className="text-gray-400 hover:text-black"
+              >
+                <span className="material-symbols-outlined text-[20px]">
+                  close
+                </span>
               </button>
             </div>
 
             <form onSubmit={handleSaveRoom} className="space-y-3.5">
               <div>
                 <label className="block text-xs font-semibold text-[#1C2B24] mb-1">
-                  Số Phòng (RoomNumber UK) <span className="text-red-500">*</span>
+                  Số Phòng (RoomNumber UK){" "}
+                  <span className="text-red-500">*</span>
                 </label>
                 <input
                   type="text"
@@ -434,7 +538,9 @@ export const RoomsTab: React.FC = () => {
                   value={roomNumber}
                   onChange={(e) => setRoomNumber(e.target.value)}
                   className={`w-full h-9 px-3 rounded-lg border text-xs font-mono uppercase ${
-                    editingRoom ? 'bg-gray-100 text-gray-500 border-gray-200' : 'bg-white border-[#DDE7E1]'
+                    editingRoom
+                      ? "bg-gray-100 text-gray-500 border-gray-200"
+                      : "bg-white border-[#DDE7E1]"
                   }`}
                 />
               </div>
@@ -455,7 +561,9 @@ export const RoomsTab: React.FC = () => {
 
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="block text-xs font-semibold text-[#1C2B24] mb-1">Loại Phòng</label>
+                  <label className="block text-xs font-semibold text-[#1C2B24] mb-1">
+                    Loại Phòng
+                  </label>
                   <select
                     value={roomType}
                     onChange={(e) => setRoomType(e.target.value)}
@@ -469,7 +577,9 @@ export const RoomsTab: React.FC = () => {
                   </select>
                 </div>
                 <div>
-                  <label className="block text-xs font-semibold text-[#1C2B24] mb-1">Khoa Trực Thuộc</label>
+                  <label className="block text-xs font-semibold text-[#1C2B24] mb-1">
+                    Khoa Trực Thuộc
+                  </label>
                   <input
                     type="text"
                     required
@@ -494,7 +604,7 @@ export const RoomsTab: React.FC = () => {
                   disabled={isSubmitting}
                   className="h-9 px-5 rounded-lg bg-[#006a41] text-white text-xs font-semibold hover:bg-[#028654] disabled:opacity-50"
                 >
-                  {isSubmitting ? 'Đang lưu...' : 'Lưu Phòng'}
+                  {isSubmitting ? "Đang lưu..." : "Lưu Phòng"}
                 </button>
               </div>
             </form>
@@ -509,29 +619,46 @@ export const RoomsTab: React.FC = () => {
             <div className="flex items-center justify-between border-b border-[#DDE7E1] pb-3">
               <div>
                 <h3 className="text-base font-bold text-[#1C2B24]">
-                  {roomAccount ? 'Quản Lý Tài Khoản Phòng (RoomAccount)' : 'Tạo Tài Khoản Phòng (RoomAccount)'}
+                  {roomAccount
+                    ? "Quản Lý Tài Khoản Phòng (RoomAccount)"
+                    : "Tạo Tài Khoản Phòng (RoomAccount)"}
                 </h3>
                 <p className="text-xs text-[#5E6F66]">
-                  Phòng: <strong>{selectedRoomForAccount.roomNumber} - {selectedRoomForAccount.roomName}</strong>
+                  Phòng:{" "}
+                  <strong>
+                    {selectedRoomForAccount.roomNumber} -{" "}
+                    {selectedRoomForAccount.roomName}
+                  </strong>
                 </p>
               </div>
-              <button onClick={() => setShowAccountModal(false)} className="text-gray-400 hover:text-black">
-                <span className="material-symbols-outlined text-[20px]">close</span>
+              <button
+                onClick={() => setShowAccountModal(false)}
+                className="text-gray-400 hover:text-black"
+              >
+                <span className="material-symbols-outlined text-[20px]">
+                  close
+                </span>
               </button>
             </div>
 
             {loadingAccount ? (
-              <div className="py-8 text-center text-xs text-[#5E6F66]">Đang kiểm tra tài khoản phòng...</div>
+              <div className="py-8 text-center text-xs text-[#5E6F66]">
+                Đang kiểm tra tài khoản phòng...
+              </div>
             ) : roomAccount ? (
               <div className="space-y-4">
                 <div className="p-3.5 rounded-xl bg-[#F7FAF8] border border-[#DDE7E1] space-y-2 text-xs">
                   <div className="flex justify-between">
                     <span className="text-[#5E6F66]">Mã tài khoản:</span>
-                    <span className="font-mono font-bold text-[#1C2B24]">{roomAccount.accountCode}</span>
+                    <span className="font-mono font-bold text-[#1C2B24]">
+                      {roomAccount.accountCode}
+                    </span>
                   </div>
                   <div className="flex justify-between">
                     <span className="text-[#5E6F66]">Tên đăng nhập:</span>
-                    <span className="font-mono font-semibold text-[#1C2B24]">{roomAccount.userName}</span>
+                    <span className="font-mono font-semibold text-[#1C2B24]">
+                      {roomAccount.userName}
+                    </span>
                   </div>
                   <div className="flex justify-between">
                     <span className="text-[#5E6F66]">Email phòng:</span>
@@ -555,13 +682,16 @@ export const RoomsTab: React.FC = () => {
                         onClick={handleToggleRoomAccountActive}
                         className="h-7 px-2.5 rounded border border-[#DDE7E1] bg-white text-[11px] font-semibold hover:bg-gray-50 disabled:opacity-50"
                       >
-                        {roomAccount.isActive ? 'Vô hiệu hóa' : 'Kích hoạt'}
+                        {roomAccount.isActive ? "Vô hiệu hóa" : "Kích hoạt"}
                       </button>
                     </div>
                   </div>
                 </div>
 
-                <form onSubmit={handleResetRoomPassword} className="space-y-3 border-t border-[#DDE7E1] pt-3">
+                <form
+                  onSubmit={handleResetRoomPassword}
+                  className="space-y-3 border-t border-[#DDE7E1] pt-3"
+                >
                   <div>
                     <label className="block text-xs font-semibold text-[#1C2B24] mb-1">
                       Đặt Lại Mật Khẩu Mới (tối thiểu 6 ký tự)
@@ -588,78 +718,87 @@ export const RoomsTab: React.FC = () => {
                       disabled={isSubmitting}
                       className="h-9 px-4 rounded-lg bg-[#D97706] text-white text-xs font-semibold hover:bg-[#B45309] disabled:opacity-50"
                     >
-                      {isSubmitting ? 'Đang xử lý...' : 'Đặt Lại Mật Khẩu'}
+                      {isSubmitting ? "Đang xử lý..." : "Đặt Lại Mật Khẩu"}
                     </button>
                   </div>
                 </form>
               </div>
             ) : (
-            <form onSubmit={handleSaveAccount} className="space-y-3.5">
-              <div>
-                <label className="block text-xs font-semibold text-[#1C2B24] mb-1">Mã Tài Khoản (AccountCode UK)</label>
-                <input
-                  type="text"
-                  required
-                  value={accountCode}
-                  onChange={(e) => setAccountCode(e.target.value)}
-                  className="w-full h-9 px-3 rounded-lg border border-[#DDE7E1] text-xs font-mono uppercase focus:ring-2 focus:ring-[#006a41]/20"
-                />
-              </div>
+              <form onSubmit={handleSaveAccount} className="space-y-3.5">
+                <div>
+                  <label className="block text-xs font-semibold text-[#1C2B24] mb-1">
+                    Mã Tài Khoản (AccountCode UK)
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    value={accountCode}
+                    onChange={(e) => setAccountCode(e.target.value)}
+                    className="w-full h-9 px-3 rounded-lg border border-[#DDE7E1] text-xs font-mono uppercase focus:ring-2 focus:ring-[#006a41]/20"
+                  />
+                </div>
 
-              <div>
-                <label className="block text-xs font-semibold text-[#1C2B24] mb-1">Tên Đăng Nhập AppUser</label>
-                <input
-                  type="text"
-                  required
-                  value={accountUserName}
-                  onChange={(e) => setAccountUserName(e.target.value)}
-                  className="w-full h-9 px-3 rounded-lg border border-[#DDE7E1] text-xs font-mono focus:ring-2 focus:ring-[#006a41]/20"
-                />
-              </div>
+                <div>
+                  <label className="block text-xs font-semibold text-[#1C2B24] mb-1">
+                    Tên Đăng Nhập AppUser
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    value={accountUserName}
+                    onChange={(e) => setAccountUserName(e.target.value)}
+                    className="w-full h-9 px-3 rounded-lg border border-[#DDE7E1] text-xs font-mono focus:ring-2 focus:ring-[#006a41]/20"
+                  />
+                </div>
 
-              <div>
-                <label className="block text-xs font-semibold text-[#1C2B24] mb-1">Email Riêng Cho Phòng (UK)</label>
-                <input
-                  type="email"
-                  required
-                  value={accountEmail}
-                  onChange={(e) => setAccountEmail(e.target.value)}
-                  className="w-full h-9 px-3 rounded-lg border border-[#DDE7E1] text-xs focus:ring-2 focus:ring-[#006a41]/20"
-                />
-              </div>
+                <div>
+                  <label className="block text-xs font-semibold text-[#1C2B24] mb-1">
+                    Email Riêng Cho Phòng (UK)
+                  </label>
+                  <input
+                    type="email"
+                    required
+                    value={accountEmail}
+                    onChange={(e) => setAccountEmail(e.target.value)}
+                    className="w-full h-9 px-3 rounded-lg border border-[#DDE7E1] text-xs focus:ring-2 focus:ring-[#006a41]/20"
+                  />
+                </div>
 
-              <div>
-                <label className="block text-xs font-semibold text-[#1C2B24] mb-1">Mật Khẩu Đăng Nhập</label>
-                <input
-                  type="password"
-                  required
-                  value={accountPassword}
-                  onChange={(e) => setAccountPassword(e.target.value)}
-                  className="w-full h-9 px-3 rounded-lg border border-[#DDE7E1] text-xs focus:ring-2 focus:ring-[#006a41]/20"
-                />
-              </div>
+                <div>
+                  <label className="block text-xs font-semibold text-[#1C2B24] mb-1">
+                    Mật Khẩu Đăng Nhập
+                  </label>
+                  <input
+                    type="password"
+                    required
+                    value={accountPassword}
+                    onChange={(e) => setAccountPassword(e.target.value)}
+                    className="w-full h-9 px-3 rounded-lg border border-[#DDE7E1] text-xs focus:ring-2 focus:ring-[#006a41]/20"
+                  />
+                </div>
 
-              <div className="p-3 bg-[#E8F5EE] rounded-lg border border-[#DDE7E1] text-[11px] text-[#5E6F66] leading-relaxed">
-                Mỗi phòng chỉ gắn đúng 1 tài khoản RoomAccount. Tài khoản phòng không liên kết với bảng Staff.
-              </div>
+                <div className="p-3 bg-[#E8F5EE] rounded-lg border border-[#DDE7E1] text-[11px] text-[#5E6F66] leading-relaxed">
+                  Mỗi phòng chỉ gắn đúng 1 tài khoản RoomAccount. Tài khoản
+                  phòng không liên kết với bảng Staff.
+                </div>
 
-              <div className="pt-3 border-t border-[#DDE7E1] flex justify-end gap-2">
-                <button
-                  type="button"
-                  onClick={() => setShowAccountModal(false)}
-                  className="h-9 px-4 rounded-lg border border-[#DDE7E1] text-xs font-semibold hover:bg-gray-50"
-                >
-                  Hủy
-                </button>
-                <button
-                  type="submit"
-                  disabled={isSubmitting}
-                  className="h-9 px-5 rounded-lg bg-[#006a41] text-white text-xs font-semibold hover:bg-[#028654] disabled:opacity-50"
-                >
-                  {isSubmitting ? 'Đang tạo...' : 'Tạo Tài Khoản Phòng'}
-                </button>
-              </div>
-            </form>
+                <div className="pt-3 border-t border-[#DDE7E1] flex justify-end gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setShowAccountModal(false)}
+                    className="h-9 px-4 rounded-lg border border-[#DDE7E1] text-xs font-semibold hover:bg-gray-50"
+                  >
+                    Hủy
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={isSubmitting}
+                    className="h-9 px-5 rounded-lg bg-[#006a41] text-white text-xs font-semibold hover:bg-[#028654] disabled:opacity-50"
+                  >
+                    {isSubmitting ? "Đang tạo..." : "Tạo Tài Khoản Phòng"}
+                  </button>
+                </div>
+              </form>
             )}
           </div>
         </div>
@@ -671,18 +810,31 @@ export const RoomsTab: React.FC = () => {
           <div className="bg-white rounded-2xl border border-[#DDE7E1] shadow-xl w-full max-w-xl p-6 space-y-4">
             <div className="flex items-center justify-between border-b border-[#DDE7E1] pb-3">
               <div>
-                <h3 className="text-base font-bold text-[#1C2B24]">Phiên Thiết Bị (RoomDeviceSession)</h3>
+                <h3 className="text-base font-bold text-[#1C2B24]">
+                  Phiên Thiết Bị (RoomDeviceSession)
+                </h3>
                 <p className="text-xs text-[#5E6F66]">
-                  Phòng: <strong>{selectedRoomForSessions.roomNumber} - {selectedRoomForSessions.roomName}</strong>
+                  Phòng:{" "}
+                  <strong>
+                    {selectedRoomForSessions.roomNumber} -{" "}
+                    {selectedRoomForSessions.roomName}
+                  </strong>
                 </p>
               </div>
-              <button onClick={() => setShowSessionsModal(false)} className="text-gray-400 hover:text-black">
-                <span className="material-symbols-outlined text-[20px]">close</span>
+              <button
+                onClick={() => setShowSessionsModal(false)}
+                className="text-gray-400 hover:text-black"
+              >
+                <span className="material-symbols-outlined text-[20px]">
+                  close
+                </span>
               </button>
             </div>
 
             {loadingSessions ? (
-              <div className="py-10 text-center text-xs text-[#5E6F66]">Đang tải danh sách phiên thiết bị...</div>
+              <div className="py-10 text-center text-xs text-[#5E6F66]">
+                Đang tải danh sách phiên thiết bị...
+              </div>
             ) : sessions.length === 0 ? (
               <div className="py-10 text-center text-xs text-[#5E6F66]">
                 Chưa có thiết bị nào đăng nhập vào tài khoản phòng này.
@@ -702,9 +854,15 @@ export const RoomsTab: React.FC = () => {
                   <tbody className="divide-y divide-[#DDE7E1]">
                     {sessions.map((ses) => (
                       <tr key={ses.sessionId} className="hover:bg-gray-50">
-                        <td className="py-2 px-3 font-mono font-bold text-[#1C2B24]">{ses.deviceId}</td>
-                        <td className="py-2 px-3 font-mono text-[#5E6F66]">{ses.deviceIpAddress}</td>
-                        <td className="py-2 px-3 text-[#5E6F66]">{new Date(ses.loginAtUtc).toLocaleString('vi-VN')}</td>
+                        <td className="py-2 px-3 font-mono font-bold text-[#1C2B24]">
+                          {ses.deviceId}
+                        </td>
+                        <td className="py-2 px-3 font-mono text-[#5E6F66]">
+                          {ses.deviceIpAddress}
+                        </td>
+                        <td className="py-2 px-3 text-[#5E6F66]">
+                          {new Date(ses.loginAtUtc).toLocaleString("vi-VN")}
+                        </td>
                         <td className="py-2 px-3">
                           {ses.isActive ? (
                             <span className="px-2 py-0.5 rounded-full text-[10px] font-semibold bg-[#D1FAE5] text-[#047857]">
@@ -724,11 +882,17 @@ export const RoomsTab: React.FC = () => {
                               onClick={() => handleRevokeSession(ses)}
                               className="h-7 px-2.5 rounded border border-[#FECACA] text-[#B91C1C] hover:bg-[#FEE2E2] text-[11px] font-semibold disabled:opacity-50"
                             >
-                              {revokingSessionId === ses.sessionId ? 'Đang đóng...' : 'Buộc đăng xuất'}
+                              {revokingSessionId === ses.sessionId
+                                ? "Đang đóng..."
+                                : "Buộc đăng xuất"}
                             </button>
                           ) : (
                             <span className="text-[11px] text-gray-400">
-                              {ses.logoutAtUtc ? new Date(ses.logoutAtUtc).toLocaleTimeString('vi-VN') : '—'}
+                              {ses.logoutAtUtc
+                                ? new Date(ses.logoutAtUtc).toLocaleTimeString(
+                                    "vi-VN",
+                                  )
+                                : "—"}
                             </span>
                           )}
                         </td>
@@ -740,7 +904,9 @@ export const RoomsTab: React.FC = () => {
             )}
 
             <div className="p-3 bg-[#FFFBEB] rounded-lg border border-[#FDE68A] text-[11px] text-[#92400E] leading-relaxed">
-              Theo quy định bảo mật (SEC-02): Mỗi tài khoản phòng chỉ có tối đa 01 phiên hoạt động duy nhất. Khi một thiết bị mới đăng nhập, phiên cũ sẽ tự động bị đóng và ghi nhận vào AuditLog.
+              Theo quy định bảo mật (SEC-02): Mỗi tài khoản phòng chỉ có tối đa
+              01 phiên hoạt động duy nhất. Khi một thiết bị mới đăng nhập, phiên
+              cũ sẽ tự động bị đóng và ghi nhận vào AuditLog.
             </div>
 
             <div className="pt-3 border-t border-[#DDE7E1] flex justify-end">

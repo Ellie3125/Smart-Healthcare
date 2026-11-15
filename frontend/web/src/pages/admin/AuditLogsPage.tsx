@@ -32,11 +32,15 @@ export const AuditLogsPage: React.FC = () => {
   });
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-5">
       <div className="flex flex-wrap items-end justify-between gap-3">
         <div>
-          <h1 className="text-xl font-semibold text-[#0f1f18]">Nhật ký kiểm toán AuditLog (AD15)</h1>
-          <p className="text-xs text-[#44544c]">CCCD và SĐT bệnh nhân được che tự động, chỉ giữ lại 3 ký tự cuối theo chuẩn bảo mật.</p>
+          <h1 className="font-headline-md text-2xl font-extrabold tracking-tight text-on-surface">
+            Nhật ký kiểm toán AuditLog (AD15)
+          </h1>
+          <p className="text-sm text-on-surface-variant">
+            CCCD và SĐT bệnh nhân được che tự động, chỉ giữ lại 3 ký tự cuối theo chuẩn bảo mật.
+          </p>
         </div>
         <div className="w-72">
           <FormField label="Tìm theo người thao tác / mã">

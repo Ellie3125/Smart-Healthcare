@@ -119,7 +119,7 @@ export const RescheduleAppointmentPage: React.FC = () => {
                 {(optionsQuery.data ?? []).map((opt) => (
                   <div
                     key={opt.doctorId}
-                    className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-[#bdcabf] p-4"
+                    className="flex flex-wrap items-center justify-between gap-3 rounded-xl bg-surface-container-low/75 p-4 hover:bg-surface-container-low transition-colors"
                   >
                     <div>
                       <div className="flex items-center gap-2">

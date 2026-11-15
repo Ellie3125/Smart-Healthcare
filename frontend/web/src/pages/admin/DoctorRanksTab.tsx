@@ -101,14 +101,14 @@ export const DoctorRanksTab: React.FC = () => {
     <div className="space-y-5">
       <div className="flex justify-between items-center">
         <div>
-          <h2 className="text-sm font-bold text-[#1C2B24]">Danh Mục Cấp Bậc / Học Hàm Bác Sĩ</h2>
-          <p className="text-xs text-[#5E6F66]">
+          <h2 className="text-base font-extrabold tracking-tight text-on-surface">Danh Mục Cấp Bậc / Học Hàm Bác Sĩ</h2>
+          <p className="text-xs text-on-surface-variant">
             Mã cấp bậc (RankCode) được module Billing dùng để tính đơn giá khám bệnh ngoại trú.
           </p>
         </div>
         <button
           onClick={handleOpenCreate}
-          className="h-9 px-4 rounded-lg bg-[#006a41] text-white text-xs font-semibold hover:bg-[#028654] transition-colors flex items-center gap-1.5 shadow-sm"
+          className="h-10 px-4 rounded-xl bg-primary text-white text-xs font-semibold hover:bg-[#005231] transition-colors flex items-center gap-1.5 shadow-sm"
         >
           <span className="material-symbols-outlined text-[18px]">add</span>
           <span>Tạo Cấp Bậc Mới</span>
@@ -133,24 +133,24 @@ export const DoctorRanksTab: React.FC = () => {
         </div>
       )}
 
-      <div className="bg-white rounded-xl border border-[#DDE7E1] shadow-sm overflow-hidden">
+      <div className="bg-surface-container-lowest rounded-2xl shadow-[0_1px_10px_rgba(15,31,24,0.04)] overflow-hidden">
         {isLoading ? (
-          <div className="py-16 text-center text-xs text-[#5E6F66]">Đang tải danh sách cấp bậc...</div>
+          <div className="py-16 text-center text-xs text-on-surface-variant">Đang tải danh sách cấp bậc...</div>
         ) : (
           <div className="overflow-x-auto">
             <table className="w-full text-left border-collapse text-xs">
               <thead>
-                <tr className="bg-[#F7FAF8] border-b border-[#DDE7E1] text-[#5E6F66] font-semibold uppercase tracking-wider">
-                  <th className="py-3 px-4">Thứ tự</th>
-                  <th className="py-3 px-4">Mã Cấp Bậc</th>
-                  <th className="py-3 px-4">Tên Cấp Bậc / Học Vị</th>
-                  <th className="py-3 px-4">Trạng thái</th>
-                  <th className="py-3 px-4 text-right">Thao tác</th>
+                <tr className="bg-surface-container-low/85 text-on-surface-variant font-semibold uppercase tracking-wider text-[11px]">
+                  <th className="py-3.5 px-4">Thứ tự</th>
+                  <th className="py-3.5 px-4">Mã Cấp Bậc</th>
+                  <th className="py-3.5 px-4">Tên Cấp Bậc / Học Vị</th>
+                  <th className="py-3.5 px-4">Trạng thái</th>
+                  <th className="py-3.5 px-4 text-right">Thao tác</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-[#DDE7E1]">
+              <tbody className="divide-y divide-surface-container-high/50">
                 {ranks.map((r) => (
-                  <tr key={r.id} className="hover:bg-[#F9FBFA] transition-colors">
+                  <tr key={r.id} className="hover:bg-surface-container-low/45 transition-colors">
                     <td className="py-3 px-4 font-mono font-bold text-[#5E6F66]">{r.displayOrder}</td>
                     <td className="py-3 px-4 font-mono font-bold text-[#006a41]">{r.code}</td>
                     <td className="py-3 px-4 font-semibold text-[#1C2B24]">{r.name}</td>

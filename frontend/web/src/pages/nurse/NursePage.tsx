@@ -130,21 +130,28 @@ export const NursePage: React.FC = () => {
   };
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-5">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
-          <h1 className="text-xl font-semibold text-[#0f1f18]">
+          <h1 className="font-headline-md text-2xl font-extrabold tracking-tight text-on-surface">
             Ghi nhận sinh hiệu (NU02) — Vé {form.ticketNumber}
           </h1>
-          <p className="text-xs text-[#44544c]">
-            Bệnh nhân: <strong>{form.patientName}</strong> • Phiên bản dữ liệu v{form.version}
+          <p className="text-sm text-on-surface-variant">
+            Bệnh nhân: <strong className="text-on-surface">{form.patientName}</strong> • Phiên bản dữ liệu{' '}
+            <span className="font-data-tabular font-semibold text-primary">v{form.version}</span>
           </p>
         </div>
-        <Link to="/nurse/queue">
-          <Button variant="outline" size="sm" leftIcon={<ClipboardList className="h-4 w-4" />}>
-            Mở hàng chờ điều dưỡng
-          </Button>
-        </Link>
+        <div className="flex flex-wrap items-center gap-2.5">
+          <div className="rounded-xl bg-surface-container-low px-3.5 py-2 text-xs">
+            <span className="text-on-surface-variant">BMI tự tính: </span>
+            <strong className="font-data-tabular text-sm text-primary">{bmiText}</strong>
+          </div>
+          <Link to="/nurse/queue">
+            <Button variant="outline" size="sm" leftIcon={<ClipboardList className="h-4 w-4" />}>
+              Mở hàng chờ điều dưỡng
+            </Button>
+          </Link>
+        </div>
       </div>
 
       {warnings.length > 0 ? (
@@ -191,17 +198,19 @@ export const NursePage: React.FC = () => {
           </FormField>
         </div>
 
-        <div className="mt-5 flex flex-wrap items-center justify-between gap-3 border-t border-[#e9f2ed] pt-4">
+        <div className="mt-5 flex flex-wrap items-center justify-between gap-3 border-t border-surface-container-high/60 pt-4">
           {emptyFields.length > 0 ? (
-            <span className="inline-flex items-center gap-1.5 text-xs font-medium text-[#9a5b00]">
+            <span className="inline-flex items-center gap-1.5 rounded-full bg-[#fef3c7]/70 px-3 py-1 text-xs font-semibold text-[#9a5b00]">
               <AlertTriangle className="h-4 w-4" aria-hidden="true" />
               Còn {emptyFields.length} ô chỉ số chưa nhập
             </span>
           ) : (
-            <span className="text-xs text-[#006a41]">Đã điền đầy đủ toàn bộ chỉ số.</span>
+            <span className="inline-flex items-center gap-1.5 rounded-full bg-surface-container-low px-3 py-1 text-xs font-semibold text-primary">
+              Đã điền đầy đủ toàn bộ chỉ số.
+            </span>
           )}
           <Button variant="primary" loading={saveMutation.isPending} onClick={handleSubmitClick}>
-            Hoàn tất & Lưu sinh hiệu
+            Hoàn tất &amp; Lưu sinh hiệu
           </Button>
         </div>
       </Card>

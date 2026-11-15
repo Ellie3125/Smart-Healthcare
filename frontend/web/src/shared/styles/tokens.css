@@ -7,12 +7,13 @@
   --sh-secondary: #076c43;
   --sh-secondary-container: #9ef5c0;
   --sh-on-secondary-container: #005231;
-  --sh-surface: #f4f8f6;
+  --sh-surface: #ebfef2;
   --sh-surface-card: #ffffff;
-  --sh-surface-muted: #e9f2ed;
+  --sh-surface-muted: #e5f8ed;
+  --sh-surface-high: #daede1;
   --sh-on-surface: #0f1f18;
-  --sh-on-surface-variant: #44544c;
-  --sh-border: #cddbd3;
+  --sh-on-surface-variant: #3e4941;
+  --sh-border: #bdcabf;
   --sh-info: #0b57d0;
   --sh-info-bg: #e8f0fe;
   --sh-warning: #9a5b00;

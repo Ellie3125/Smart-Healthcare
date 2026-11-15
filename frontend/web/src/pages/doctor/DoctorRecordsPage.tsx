@@ -18,13 +18,15 @@ export const DoctorRecordsPage: React.FC = () => {
   });
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-5">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
-          <h1 className="text-xl font-semibold text-[#0f1f18]">Lịch sử khám (Chỉ đọc — DR09)</h1>
-          <p className="text-xs text-[#44544c]">Tra cứu nhanh các đợt khám đã thực hiện của bác sĩ.</p>
+          <h1 className="font-headline-md text-2xl font-extrabold tracking-tight text-on-surface">
+            Lịch sử khám (Chỉ đọc — DR09)
+          </h1>
+          <p className="text-sm text-on-surface-variant">Tra cứu nhanh các đợt khám đã thực hiện của bác sĩ.</p>
         </div>
-        <Link to="/doctor" className="inline-flex items-center gap-1.5 text-sm font-medium text-[#006a41] hover:underline">
+        <Link to="/doctor" className="inline-flex items-center gap-1.5 rounded-xl bg-surface-container-low px-3.5 py-2 text-sm font-semibold text-primary transition-colors hover:bg-surface-container-high">
           <ArrowLeft className="h-4 w-4" aria-hidden="true" />
           Về bàn khám
         </Link>

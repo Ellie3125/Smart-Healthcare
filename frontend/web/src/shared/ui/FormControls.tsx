@@ -55,7 +55,7 @@ export const FormField: React.FC<FormFieldProps> = ({
 };
 
 const BASE_INPUT_CLASSES =
-  'w-full rounded-lg border border-[#cddbd3] bg-white px-3 py-2 text-sm text-[#0f1f18] placeholder:text-[#6e7a71] focus:border-[#006a41] focus:outline-none focus:ring-2 focus:ring-[#006a41]/20 disabled:bg-[#f4f8f6] disabled:text-[#6e7a71]';
+  'w-full rounded-xl border border-outline-variant/75 bg-surface-container-low/55 px-3.5 py-2 text-sm text-on-surface placeholder:text-outline transition-colors focus:border-primary focus:bg-white focus:outline-none focus:ring-2 focus:ring-primary/20 disabled:bg-surface-container-low disabled:text-outline';
 
 export interface InputProps extends React.InputHTMLAttributes<HTMLInputElement> {
   hasError?: boolean;

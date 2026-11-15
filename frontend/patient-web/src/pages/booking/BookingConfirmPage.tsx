@@ -68,94 +68,116 @@ export const BookingConfirmPage: React.FC = () => {
 
   return (
     <div className="space-y-6">
-      <Stepper
-        currentStepIndex={1}
-        steps={[
-          { id: 'choose', label: 'Chọn bác sĩ' },
-          { id: 'hold', label: 'Xác nhận & Giữ chỗ 5p' },
-          { id: 'vnpay', label: 'Thanh toán VNPAY' },
-        ]}
-      />
+      <div className="rounded-2xl bg-surface-container-lowest p-4 sm:px-6 shadow-[0_1px_10px_rgba(15,31,24,0.04)]">
+        <Stepper
+          currentStepIndex={1}
+          steps={[
+            { id: 'choose', label: 'Chọn bác sĩ' },
+            { id: 'hold', label: 'Xác nhận & Giữ chỗ 5p' },
+            { id: 'vnpay', label: 'Thanh toán VNPAY' },
+          ]}
+        />
+      </div>
 
-      <Card
-        title="Xác nhận thông tin đặt khám"
-        subtitle={`Mã phiên giữ chỗ: ${attempt.bookingAttemptId}`}
-        actions={
-          <div className="flex flex-wrap items-center gap-2">
-            <StatusPill status={isHoldExpired ? 'Expired' : attempt.status} />
-            <Countdown
-              expiresAt={attempt.expiresAt}
-              label="Giữ chỗ còn"
-              onExpire={() => setExpired(true)}
-            />
-          </div>
-        }
-      >
-        {isHoldExpired ? (
-          <Banner
-            tone="danger"
-            title="Phiên giữ chỗ đã hết hạn"
-            action={
-              <Link to="/booking">
-                <Button size="sm" variant="primary">
-                  Chọn lại lịch khám
-                </Button>
-              </Link>
+      <div className="grid gap-6 lg:grid-cols-12 items-start">
+        {/* Left Details + Cancellation Policy matching Stitch 0c3f3b12 */}
+        <div className="lg:col-span-7 space-y-5">
+          <Card
+            title="Xác nhận thông tin đặt khám"
+            subtitle={`Mã phiên giữ chỗ: ${attempt.bookingAttemptId}`}
+            actions={<StatusPill status={isHoldExpired ? 'Expired' : attempt.status} />}
+          >
+            {isHoldExpired ? (
+              <div className="mb-4">
+                <Banner
+                  tone="danger"
+                  title="Phiên giữ chỗ đã hết hạn"
+                  action={
+                    <Link to="/booking">
+                      <Button size="sm" variant="primary">
+                        Chọn lại lịch khám
+                      </Button>
+                    </Link>
+                  }
+                >
+                  Thời gian giữ chỗ 5 phút đã kết thúc. Vui lòng quay lại để chọn suất khám mới.
+                </Banner>
+              </div>
+            ) : null}
+
+            <dl className="grid gap-4 sm:grid-cols-2">
+              <div className="rounded-xl bg-surface-container-low/75 p-4">
+                <dt className="text-xs font-medium text-on-surface-variant">Người khám</dt>
+                <dd className="mt-1 font-semibold text-on-surface">{attempt.patientName}</dd>
+              </div>
+              <div className="rounded-xl bg-surface-container-low/75 p-4">
+                <dt className="text-xs font-medium text-on-surface-variant">Bác sĩ &amp; Chuyên khoa</dt>
+                <dd className="mt-1 font-semibold text-on-surface">
+                  {attempt.doctorName} — {attempt.specialtyName}
+                </dd>
+              </div>
+              <div className="rounded-xl bg-surface-container-low/75 p-4 sm:col-span-2">
+                <dt className="text-xs font-medium text-on-surface-variant">Ngày khám &amp; Phòng khám</dt>
+                <dd className="mt-1 font-semibold text-on-surface">
+                  <DateTimeText value={attempt.serviceDate} mode="date" /> • {attempt.roomName}
+                </dd>
+              </div>
+            </dl>
+
+            <div className="mt-4 rounded-xl bg-surface-container-low/70 p-4 text-xs text-on-surface-variant space-y-1">
+              <p className="font-semibold text-on-surface">Chính sách đổi lịch &amp; hoàn tiền</p>
+              <p>Miễn phí đổi lịch hoặc hủy hoàn 100% viện phí trước 05:00 sáng cùng ngày khám qua cổng bệnh nhân.</p>
+            </div>
+          </Card>
+        </div>
+
+        {/* Right Hold Timer & Payment Breakdown */}
+        <div className="lg:col-span-5">
+          <Card
+            title="Thanh toán giữ chỗ"
+            actions={
+              <Countdown
+                expiresAt={attempt.expiresAt}
+                label="Giữ chỗ còn"
+                onExpire={() => setExpired(true)}
+              />
             }
           >
-            Thời gian giữ chỗ 5 phút đã kết thúc. Vui lòng quay lại để chọn suất khám mới.
-          </Banner>
-        ) : null}
+            <div className="space-y-4">
+              <div className="rounded-2xl bg-secondary-container/50 p-4 flex items-center justify-between">
+                <span className="text-sm font-medium text-[#005231]">Số tiền thanh toán</span>
+                <span className="text-2xl font-bold text-primary">
+                  <MoneyText amount={attempt.amount} />
+                </span>
+              </div>
 
-        <dl className="mt-4 grid gap-4 sm:grid-cols-2">
-          <div className="rounded-xl bg-[#f8fbf9] p-3.5">
-            <dt className="text-xs text-[#3e4941]">Người khám</dt>
-            <dd className="mt-1 font-semibold text-[#0f1f18]">{attempt.patientName}</dd>
-          </div>
-          <div className="rounded-xl bg-[#f8fbf9] p-3.5">
-            <dt className="text-xs text-[#3e4941]">Bác sĩ & Chuyên khoa</dt>
-            <dd className="mt-1 font-semibold text-[#0f1f18]">
-              {attempt.doctorName} — {attempt.specialtyName}
-            </dd>
-          </div>
-          <div className="rounded-xl bg-[#f8fbf9] p-3.5">
-            <dt className="text-xs text-[#3e4941]">Ngày khám & Phòng</dt>
-            <dd className="mt-1 font-semibold text-[#0f1f18]">
-              <DateTimeText value={attempt.serviceDate} mode="date" /> • {attempt.roomName}
-            </dd>
-          </div>
-          <div className="rounded-xl bg-[#e5f8ed] p-3.5">
-            <dt className="text-xs text-[#005231]">Số tiền thanh toán</dt>
-            <dd className="mt-1 text-xl font-bold text-[#006a41]">
-              <MoneyText amount={attempt.amount} />
-            </dd>
-          </div>
-        </dl>
+              <div className="rounded-xl bg-surface-container-low/75 p-3.5 flex items-start gap-2.5 text-xs text-on-surface-variant">
+                <ShieldCheck className="h-4 w-4 text-primary shrink-0 mt-0.5" aria-hidden="true" />
+                <span>Giao dịch được xác thực qua cổng VNPAY và bảo vệ chống nhấn trùng bằng Idempotency-Key.</span>
+              </div>
 
-        <div className="mt-5 flex flex-wrap items-center justify-between gap-3 border-t border-[#e5f8ed] pt-4">
-          <p className="inline-flex items-center gap-1.5 text-xs text-[#3e4941]">
-            <ShieldCheck className="h-4 w-4 text-[#006a41]" aria-hidden="true" />
-            Giao dịch được xác thực qua cổng VNPAY và bảo vệ chống nhấn trùng bằng Idempotency-Key.
-          </p>
-          <div className="flex gap-2">
-            <Link to="/booking">
-              <Button variant="outline" disabled={checkoutMutation.isPending}>
-                Chọn bác sĩ khác
-              </Button>
-            </Link>
-            <Button
-              variant="primary"
-              size="lg"
-              leftIcon={<CreditCard className="h-4 w-4" />}
-              disabled={isHoldExpired}
-              loading={checkoutMutation.isPending}
-              onClick={() => checkoutMutation.mutate()}
-            >
-              Thanh toán qua VNPAY
-            </Button>
-          </div>
+              <div className="flex flex-col gap-2.5 pt-2">
+                <Button
+                  variant="primary"
+                  size="lg"
+                  className="w-full"
+                  leftIcon={<CreditCard className="h-4 w-4" />}
+                  disabled={isHoldExpired}
+                  loading={checkoutMutation.isPending}
+                  onClick={() => checkoutMutation.mutate()}
+                >
+                  Thanh toán qua VNPAY
+                </Button>
+                <Link to="/booking" className="w-full">
+                  <Button variant="outline" className="w-full" disabled={checkoutMutation.isPending}>
+                    Chọn bác sĩ khác
+                  </Button>
+                </Link>
+              </div>
+            </div>
+          </Card>
         </div>
-      </Card>
+      </div>
     </div>
   );
 };

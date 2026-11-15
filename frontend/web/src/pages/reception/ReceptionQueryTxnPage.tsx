@@ -30,10 +30,14 @@ export const ReceptionQueryTxnPage: React.FC = () => {
   });
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-5">
       <div>
-        <h1 className="text-xl font-semibold text-[#0f1f18]">Tra cứu giao dịch VNPAY tại quầy (RC06)</h1>
-        <p className="text-xs text-[#44544c]">Hỗ trợ kiểm tra nhanh kết quả thanh toán qua `querydr` khi bệnh nhân báo đã trừ tiền.</p>
+        <h1 className="font-headline-md text-2xl font-extrabold tracking-tight text-on-surface">
+          Tra cứu giao dịch VNPAY tại quầy (RC06)
+        </h1>
+        <p className="text-sm text-on-surface-variant">
+          Hỗ trợ kiểm tra nhanh kết quả thanh toán qua `querydr` khi bệnh nhân báo đã trừ tiền.
+        </p>
       </div>
 
       <Card>

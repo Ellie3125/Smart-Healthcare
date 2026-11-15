@@ -43,8 +43,10 @@ export const PermissionsDevicesPage: React.FC = () => {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-xl font-semibold text-[#0f1f18]">Phân quyền & Thiết bị bệnh viện (AD10)</h1>
-        <p className="text-xs text-[#44544c]">Kiểm soát ranh giới vai trò và thiết bị gán phòng theo ngày.</p>
+        <h1 className="font-headline-md text-2xl font-extrabold tracking-tight text-on-surface">
+          Phân quyền &amp; Thiết bị bệnh viện (AD10)
+        </h1>
+        <p className="text-sm text-on-surface-variant">Kiểm soát ranh giới vai trò và thiết bị gán phòng theo ngày.</p>
       </div>
 
       <Card title="Ma trận phân quyền theo vai trò">

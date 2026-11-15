@@ -46,11 +46,41 @@ export const ExceptionsPage: React.FC = () => {
     onError: (err) => pushToast(extractFriendlyError(err).message, 'danger'),
   });
 
+  const rows = query.data ?? [];
+  const openCount = rows.filter((r) => r.status === 'Open').length;
+  const resolvedCount = rows.filter((r) => r.status !== 'Open').length;
+  const lateCheckinCount = rows.filter((r) => r.type === 'CheckInExpired').length;
+  const paymentOrSessionCount = rows.filter((r) => r.type !== 'CheckInExpired').length;
+
   return (
-    <div className="space-y-4">
+    <div className="space-y-5">
       <div>
-        <h1 className="text-xl font-semibold text-[#0f1f18]">Trung tâm xử lý ngoại lệ (AD11)</h1>
-        <p className="text-xs text-[#44544c]">Tiếp nhận và ghi nhận xử lý ngoại lệ check-in quá hạn, treo giao dịch hoặc hủy phiên.</p>
+        <h1 className="font-headline-md text-2xl font-extrabold tracking-tight text-on-surface">
+          Trung tâm xử lý ngoại lệ (AD11)
+        </h1>
+        <p className="text-sm text-on-surface-variant">
+          Tiếp nhận và ghi nhận xử lý ngoại lệ check-in quá hạn, treo giao dịch hoặc hủy phiên.
+        </p>
+      </div>
+
+      {/* Stitch d7220721: 4 SLA Exception KPI Strip */}
+      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+        <Card className="border-l-4 border-l-error">
+          <p className="text-xs font-medium uppercase tracking-wider text-on-surface-variant">Ngoại lệ đang mở</p>
+          <p className="font-data-tabular mt-1.5 text-3xl font-extrabold text-error">{openCount}</p>
+        </Card>
+        <Card className="border-l-4 border-l-[#f59e0b]">
+          <p className="text-xs font-medium uppercase tracking-wider text-on-surface-variant">Quá hạn CheckInDeadline</p>
+          <p className="font-data-tabular mt-1.5 text-3xl font-extrabold text-[#9a5b00]">{lateCheckinCount}</p>
+        </Card>
+        <Card className="border-l-4 border-l-primary">
+          <p className="text-xs font-medium uppercase tracking-wider text-on-surface-variant">Thanh toán / Phiên khám</p>
+          <p className="font-data-tabular mt-1.5 text-3xl font-extrabold text-primary">{paymentOrSessionCount}</p>
+        </Card>
+        <Card className="bg-surface-container-low/80">
+          <p className="text-xs font-medium uppercase tracking-wider text-on-surface-variant">Đã chốt xử lý</p>
+          <p className="font-data-tabular mt-1.5 text-3xl font-extrabold text-on-surface">{resolvedCount}</p>
+        </Card>
       </div>
 
       {query.isLoading ? (

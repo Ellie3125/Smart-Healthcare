@@ -24,10 +24,14 @@ export const ChatbotConfigPage: React.FC = () => {
   });
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-5">
       <div>
-        <h1 className="text-xl font-semibold text-[#0f1f18]">Cấu hình Chuyên khoa & Red-flag Chatbot (AD17)</h1>
-        <p className="text-xs text-[#44544c]">Quản lý từ khóa gợi ý chuyên khoa, từ khóa cảnh báo cấp cứu 115 và câu khuyến cáo chuẩn.</p>
+        <h1 className="font-headline-md text-2xl font-extrabold tracking-tight text-on-surface">
+          Cấu hình Chuyên khoa &amp; Red-flag Chatbot (AD17)
+        </h1>
+        <p className="text-sm text-on-surface-variant">
+          Quản lý từ khóa gợi ý chuyên khoa, từ khóa cảnh báo cấp cứu 115 và câu khuyến cáo chuẩn.
+        </p>
       </div>
 
       {query.isLoading ? (

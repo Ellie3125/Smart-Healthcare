@@ -68,12 +68,19 @@ export const ClsPaymentsPage: React.FC = () => {
   const batches = batchesQuery.data ?? [];
 
   return (
-    <div className="space-y-5">
-      <div>
-        <h1 className="text-2xl font-semibold text-[#0f1f18]">Thanh toán Cận lâm sàng (CLS)</h1>
-        <p className="mt-1 text-sm text-[#3e4941]">
-          Các đợt chỉ định cần thanh toán trong 15 phút để phòng xét nghiệm/CĐHA tiếp nhận thực hiện.
-        </p>
+    <div className="space-y-6">
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div>
+          <span className="inline-flex items-center gap-1.5 rounded-full bg-secondary-container/75 px-3 py-0.5 text-xs font-semibold text-[#005231] mb-2">
+            Thanh toán chỉ định trong 15 phút
+          </span>
+          <h1 className="text-2xl sm:text-3xl font-bold text-on-surface tracking-tight">
+            Thanh toán Cận lâm sàng (CLS)
+          </h1>
+          <p className="mt-1 text-sm text-on-surface-variant">
+            Các đợt chỉ định cần thanh toán trong 15 phút để phòng xét nghiệm/CĐHA tiếp nhận thực hiện.
+          </p>
+        </div>
       </div>
 
       {batches.length === 0 ? (
@@ -107,28 +114,28 @@ export const ClsPaymentsPage: React.FC = () => {
                   </div>
                 }
               >
-                <div className="space-y-3">
+                <div className="space-y-2.5">
                   {batch.items.map((item) => (
                     <div
                       key={item.id}
-                      className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-[#e5f8ed] bg-[#f8fbf9] px-4 py-3 text-sm"
+                      className="flex flex-wrap items-center justify-between gap-2 rounded-xl bg-surface-container-low/75 px-4 py-3 text-sm"
                     >
                       <div>
-                        <p className="font-semibold text-[#0f1f18]">{item.serviceName}</p>
-                        <p className="text-xs text-[#3e4941]">
+                        <p className="font-semibold text-on-surface">{item.serviceName}</p>
+                        <p className="text-xs text-on-surface-variant">
                           {item.serviceCode} • {item.roomName}
                           {item.waiverAmount > 0 ? ` • Miễn giảm ${item.waiverAmount.toLocaleString('vi-VN')} ₫` : ''}
                         </p>
                       </div>
-                      <MoneyText amount={item.netPrice} className="text-[#006a41]" />
+                      <MoneyText amount={item.netPrice} className="font-semibold text-primary" />
                     </div>
                   ))}
                 </div>
 
-                <div className="mt-4 flex flex-wrap items-center justify-between gap-3 border-t border-[#e5f8ed] pt-4">
+                <div className="mt-4 flex flex-wrap items-center justify-between gap-3 border-t border-surface-container-low pt-4">
                   <div className="text-sm">
-                    <span className="text-[#3e4941]">Tổng cần thanh toán: </span>
-                    <MoneyText amount={batch.totalPayableAmount} className="text-xl text-[#006a41]" />
+                    <span className="text-on-surface-variant">Tổng cần thanh toán: </span>
+                    <MoneyText amount={batch.totalPayableAmount} className="text-xl font-bold text-primary" />
                   </div>
                   {batch.status === 'PendingPayment' ? (
                     <Button

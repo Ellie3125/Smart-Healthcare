@@ -135,20 +135,22 @@ export const DoctorsTab: React.FC = () => {
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
         <div className="flex flex-wrap items-center gap-3 w-full sm:w-auto">
           <div className="relative flex-1 sm:w-60">
-            <span className="material-symbols-outlined absolute left-3 top-2.5 text-[#5E6F66] text-[18px]">search</span>
+            <span className="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-[#5E6F66] text-[18px] pointer-events-none w-5 h-5 flex items-center justify-center overflow-hidden shrink-0 select-none">
+              search
+            </span>
             <input
               type="text"
               placeholder="Tìm theo tên bác sĩ, mã NV..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
-              className="w-full h-9 pl-9 pr-3 rounded-lg border border-[#DDE7E1] bg-white text-xs focus:ring-2 focus:ring-[#006a41]/20"
+              className="w-full h-10 pl-10 pr-3 rounded-xl border border-transparent bg-surface-container-low/70 text-xs text-on-surface focus:outline-none focus:bg-white focus:border-primary focus:ring-2 focus:ring-primary/15"
             />
           </div>
 
           <select
             value={specialtyFilter}
             onChange={(e) => setSpecialtyFilter(e.target.value)}
-            className="h-9 px-3 rounded-lg border border-[#DDE7E1] bg-white text-xs focus:ring-2 focus:ring-[#006a41]/20"
+            className="h-10 px-3 rounded-xl border border-transparent bg-surface-container-low/70 text-xs text-on-surface focus:outline-none focus:bg-white focus:border-primary focus:ring-2 focus:ring-primary/15"
           >
             <option value="">Tất cả chuyên khoa</option>
             {specialties.map((s) => (
@@ -161,7 +163,7 @@ export const DoctorsTab: React.FC = () => {
           <select
             value={rankFilter}
             onChange={(e) => setRankFilter(e.target.value)}
-            className="h-9 px-3 rounded-lg border border-[#DDE7E1] bg-white text-xs focus:ring-2 focus:ring-[#006a41]/20"
+            className="h-10 px-3 rounded-xl border border-transparent bg-surface-container-low/70 text-xs text-on-surface focus:outline-none focus:bg-white focus:border-primary focus:ring-2 focus:ring-primary/15"
           >
             <option value="">Tất cả cấp bậc</option>
             {ranks.map((r) => (
@@ -174,7 +176,7 @@ export const DoctorsTab: React.FC = () => {
           <select
             value={activeFilter}
             onChange={(e) => setActiveFilter(e.target.value)}
-            className="h-9 px-3 rounded-lg border border-[#DDE7E1] bg-white text-xs focus:ring-2 focus:ring-[#006a41]/20"
+            className="h-10 px-3 rounded-xl border border-transparent bg-surface-container-low/70 text-xs text-on-surface focus:outline-none focus:bg-white focus:border-primary focus:ring-2 focus:ring-primary/15"
           >
             <option value="">Tất cả trạng thái</option>
             <option value="true">Đang hoạt động</option>
@@ -184,7 +186,7 @@ export const DoctorsTab: React.FC = () => {
 
         <button
           onClick={handleOpenCreate}
-          className="h-9 px-4 rounded-lg bg-[#006a41] text-white text-xs font-semibold hover:bg-[#028654] transition-colors flex items-center gap-1.5 shadow-sm shrink-0"
+          className="h-10 px-4 rounded-xl bg-primary text-white text-xs font-semibold hover:bg-[#005231] transition-colors flex items-center gap-1.5 shadow-sm shrink-0"
         >
           <span className="material-symbols-outlined text-[18px]">stethoscope</span>
           <span>Gán Hồ Sơ Bác Sĩ</span>
@@ -210,23 +212,23 @@ export const DoctorsTab: React.FC = () => {
       )}
 
       {/* Doctor Cards / Table */}
-      <div className="bg-white rounded-xl border border-[#DDE7E1] shadow-sm overflow-hidden">
+      <div className="bg-surface-container-lowest rounded-2xl shadow-[0_1px_10px_rgba(15,31,24,0.04)] overflow-hidden">
         {isLoading ? (
-          <div className="py-16 text-center text-xs text-[#5E6F66]">Đang tải danh sách bác sĩ...</div>
+          <div className="py-16 text-center text-xs text-on-surface-variant">Đang tải danh sách bác sĩ...</div>
         ) : filteredDoctors.length === 0 ? (
-          <div className="py-16 text-center text-xs text-[#5E6F66]">Không có bác sĩ nào phù hợp.</div>
+          <div className="py-16 text-center text-xs text-on-surface-variant">Không có bác sĩ nào phù hợp.</div>
         ) : (
           <div className="overflow-x-auto">
             <table className="w-full text-left border-collapse text-xs">
               <thead>
-                <tr className="bg-[#F7FAF8] border-b border-[#DDE7E1] text-[#5E6F66] font-semibold uppercase tracking-wider">
-                  <th className="py-3 px-4">Mã NV</th>
-                  <th className="py-3 px-4">Bác sĩ</th>
-                  <th className="py-3 px-4">Cấp bậc / Học hàm</th>
-                  <th className="py-3 px-4">Chuyên khoa</th>
-                  <th className="py-3 px-4">Tiểu sử tóm tắt</th>
-                  <th className="py-3 px-4">Trạng thái</th>
-                  <th className="py-3 px-4 text-right">Thao tác</th>
+                <tr className="bg-surface-container-low/85 text-on-surface-variant font-semibold uppercase tracking-wider text-[11px]">
+                  <th className="py-3.5 px-4">Mã NV</th>
+                  <th className="py-3.5 px-4">Bác sĩ</th>
+                  <th className="py-3.5 px-4">Cấp bậc / Học hàm</th>
+                  <th className="py-3.5 px-4">Chuyên khoa</th>
+                  <th className="py-3.5 px-4">Tiểu sử tóm tắt</th>
+                  <th className="py-3.5 px-4">Trạng thái</th>
+                  <th className="py-3.5 px-4 text-right">Thao tác</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-[#DDE7E1]">

@@ -99,17 +99,15 @@ export const LoginPage: React.FC = () => {
   };
 
   return (
-    <div className="bg-background font-body-md text-on-surface antialiased min-h-screen flex flex-col justify-center items-center">
-      <main className="w-full max-w-lg lg:max-w-5xl mx-auto px-margin py-space-xl">
-        <div className="flex flex-col w-full">
-          <div className="w-full bg-[#F7FAF8] py-6 sm:py-10 md:py-14 px-3 sm:px-6 flex items-center justify-center">
-            <div className="w-full max-w-5xl rounded-[12px] bg-white border border-[#DDE7E1] shadow-[0_4px_24px_-4px_rgba(28,43,36,0.06)] overflow-hidden grid grid-cols-1 lg:grid-cols-12">
-              {/* Left Panel: Information & Illustration */}
-              <aside className="hidden lg:flex lg:col-span-5 bg-[#E8F5EE] p-8 lg:p-10 flex-col justify-between relative border-r border-[#DDE7E1]">
-                <div>
-                  {/* Brand Header */}
-                  <div className="flex items-center gap-3">
-                    <div className="relative w-11 h-11 rounded-lg bg-white border border-[#DDE7E1] flex items-center justify-center shadow-sm">
+    <div className="bg-surface font-body-md text-on-surface antialiased min-h-screen flex flex-col justify-center items-center">
+      <main className="w-full max-w-lg lg:max-w-5xl mx-auto px-4 sm:px-6 py-8">
+        <div className="w-full rounded-3xl bg-surface-container-lowest shadow-[0_12px_40px_rgba(15,31,24,0.06)] overflow-hidden grid grid-cols-1 lg:grid-cols-12">
+          {/* Left Panel: Information & Illustration */}
+          <aside className="hidden lg:flex lg:col-span-5 bg-surface-container-low/80 p-8 lg:p-10 flex-col justify-between relative">
+            <div>
+              {/* Brand Header */}
+              <div className="flex items-center gap-3">
+                <div className="relative w-11 h-11 rounded-xl bg-surface-container-lowest flex items-center justify-center shadow-sm">
                       <svg
                         className="w-7 h-7 text-[#006a41]"
                         fill="none"
@@ -273,42 +271,42 @@ export const LoginPage: React.FC = () => {
               </aside>
 
               {/* Right Panel: Login Form */}
-              <section className="lg:col-span-7 bg-white p-6 sm:p-10 lg:p-12 flex flex-col justify-center">
+              <section className="lg:col-span-7 bg-surface-container-lowest p-6 sm:p-10 lg:p-12 flex flex-col justify-center">
                 {/* Mobile Logo Header */}
-                <div className="flex lg:hidden items-center gap-2.5 mb-6 pb-4 border-b border-[#DDE7E1]">
-                  <div className="w-9 h-9 rounded-lg bg-[#E8F5EE] border border-[#DDE7E1] flex items-center justify-center">
-                    <span className="material-symbols-outlined text-[#006a41] text-[22px]">local_hospital</span>
+                <div className="flex lg:hidden items-center gap-2.5 mb-6 pb-4 border-b border-outline-variant/25">
+                  <div className="w-9 h-9 rounded-xl bg-surface-container-low flex items-center justify-center">
+                    <span className="material-symbols-outlined text-primary text-[22px]">local_hospital</span>
                   </div>
                   <div>
-                    <span className="font-headline-sm text-headline-sm font-bold text-[#1C2B24]">Smart Healthcare</span>
-                    <span className="block text-[11px] text-[#5E6F66]">Phòng khám Đa khoa Tiêu chuẩn Quốc tế</span>
+                    <span className="font-headline-sm text-headline-sm font-extrabold text-on-surface">Smart Healthcare</span>
+                    <span className="block text-[11px] text-on-surface-variant">Phòng khám Đa khoa Tiêu chuẩn Quốc tế</span>
                   </div>
                 </div>
 
                 {/* Header */}
-                <div className="mb-5">
-                  <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-[#E8F5EE] border border-[#DDE7E1] text-[#006a41] text-[11px] font-semibold mb-2">
+                <div className="mb-6">
+                  <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-surface-container-low text-primary text-[11px] font-semibold mb-2.5">
                     <span className="material-symbols-outlined text-[15px]">medical_services</span>
                     <span>Cổng Nhân viên Y tế &amp; Phòng CLS</span>
                   </div>
-                  <h1 className="font-headline-lg text-[24px] leading-[32px] font-semibold text-[#1C2B24] tracking-tight">
+                  <h1 className="font-headline-lg text-[24px] leading-[32px] font-extrabold text-on-surface tracking-tight">
                     Đăng nhập hệ thống
                   </h1>
-                  <p className="font-body-md text-body-md text-[#5E6F66] mt-1">
+                  <p className="font-body-md text-body-md text-on-surface-variant mt-1">
                     Dành cho Quản trị viên, Tiếp tân, Bác sĩ, Điều dưỡng &amp; Tài khoản phòng CLS
                   </p>
                 </div>
 
                 {/* Error Banner */}
                 {errorMsg && (
-                  <div className="mb-5 p-3.5 rounded-lg bg-[#FDE8E8] border border-[#F8B4B4] flex items-start gap-3 text-[#D32F2F]">
-                    <span className="material-symbols-outlined text-[20px] shrink-0 mt-0.5 text-[#D32F2F]">error</span>
+                  <div className="mb-5 p-3.5 rounded-xl bg-error-container flex items-start gap-3 text-[#93000a]">
+                    <span className="material-symbols-outlined text-[20px] shrink-0 mt-0.5 text-error">error</span>
                     <div className="flex-1">
                       <p className="font-body-md text-body-md font-medium leading-tight">{errorMsg}</p>
                     </div>
                     <button
                       aria-label="Đóng thông báo"
-                      className="text-[#D32F2F] hover:opacity-80 p-0.5 rounded focus:outline-none"
+                      className="text-[#93000a] hover:opacity-80 p-0.5 rounded focus:outline-none"
                       onClick={() => setErrorMsg(null)}
                       type="button"
                     >
@@ -318,14 +316,14 @@ export const LoginPage: React.FC = () => {
                 )}
 
                 {infoMsg && (
-                  <div className="mb-5 p-3.5 rounded-lg bg-[#E8F5EE] border border-[#DDE7E1] flex items-start gap-3 text-[#006a41]">
+                  <div className="mb-5 p-3.5 rounded-xl bg-surface-container-low flex items-start gap-3 text-primary">
                     <span className="material-symbols-outlined text-[20px] shrink-0 mt-0.5">info</span>
                     <div className="flex-1">
                       <p className="font-body-md text-body-md font-medium leading-tight">{infoMsg}</p>
                     </div>
                     <button
                       aria-label="Đóng thông báo"
-                      className="text-[#006a41] hover:opacity-80 p-0.5 rounded focus:outline-none"
+                      className="text-primary hover:opacity-80 p-0.5 rounded focus:outline-none"
                       onClick={() => setInfoMsg(null)}
                       type="button"
                     >
@@ -338,16 +336,16 @@ export const LoginPage: React.FC = () => {
                 <form className="space-y-4" onSubmit={handleLogin} noValidate>
                   {/* Username field */}
                   <div>
-                    <label className="block font-label-md text-label-md font-medium text-[#1C2B24] mb-1.5" htmlFor="identity">
-                      Tên đăng nhập / Mã tài khoản <span className="text-[#D32F2F]">*</span>
+                    <label className="block font-label-md text-label-md font-medium text-on-surface mb-1.5" htmlFor="identity">
+                      Tên đăng nhập / Mã tài khoản <span className="text-error">*</span>
                     </label>
                     <div className="relative">
-                      <span className="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-[#006a41] text-[20px] pointer-events-none">
+                      <span className="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-primary text-[20px] pointer-events-none w-5 h-5 flex items-center justify-center overflow-hidden shrink-0 select-none">
                         contact_mail
                       </span>
                       <input
                         autoComplete="username"
-                        className="w-full h-[44px] pl-10 pr-3 rounded-[8px] border border-[#DDE7E1] bg-white text-[#1C2B24] font-body-md text-body-md placeholder:text-[#5E6F66]/60 focus:outline-none focus:border-[#006a41] focus:ring-2 focus:ring-[#006a41]/20 transition-all duration-150"
+                        className="w-full h-[44px] pl-11 pr-3 rounded-xl border border-transparent bg-surface-container-low/70 text-on-surface font-body-md text-body-md placeholder:text-on-surface-variant/60 focus:outline-none focus:border-primary focus:bg-white focus:ring-2 focus:ring-primary/15 transition-all duration-150"
                         id="identity"
                         name="identity"
                         value={identity}
@@ -362,11 +360,11 @@ export const LoginPage: React.FC = () => {
                   {/* Password field */}
                   <div>
                     <div className="flex items-center justify-between mb-1.5">
-                      <label className="block font-label-md text-label-md font-medium text-[#1C2B24]" htmlFor="password">
-                        Mật khẩu <span className="text-[#D32F2F]">*</span>
+                      <label className="block font-label-md text-label-md font-medium text-on-surface" htmlFor="password">
+                        Mật khẩu <span className="text-error">*</span>
                       </label>
                       <button
-                        className="font-label-sm text-label-sm font-semibold text-[#006a41] hover:underline focus:outline-none focus:ring-1 focus:ring-[#006a41]"
+                        className="font-label-sm text-label-sm font-semibold text-primary hover:underline focus:outline-none focus:ring-1 focus:ring-primary"
                         onClick={() =>
                           setInfoMsg('Vui lòng liên hệ Quản trị viên hệ thống để được cấp hoặc đặt lại mật khẩu nhân sự.')
                         }
@@ -376,12 +374,12 @@ export const LoginPage: React.FC = () => {
                       </button>
                     </div>
                     <div className="relative">
-                      <span className="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-[#006a41] text-[20px] pointer-events-none">
+                      <span className="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-primary text-[20px] pointer-events-none w-5 h-5 flex items-center justify-center overflow-hidden shrink-0 select-none">
                         lock
                       </span>
                       <input
                         autoComplete="current-password"
-                        className="w-full h-[44px] pl-10 pr-11 rounded-[8px] border border-[#DDE7E1] bg-white text-[#1C2B24] font-body-md text-body-md placeholder:text-[#5E6F66]/60 focus:outline-none focus:border-[#006a41] focus:ring-2 focus:ring-[#006a41]/20 transition-all duration-150"
+                        className="w-full h-[44px] pl-11 pr-12 rounded-xl border border-transparent bg-surface-container-low/70 text-on-surface font-body-md text-body-md placeholder:text-on-surface-variant/60 focus:outline-none focus:border-primary focus:bg-white focus:ring-2 focus:ring-primary/15 transition-all duration-150"
                         id="password"
                         name="password"
                         value={password}
@@ -392,11 +390,11 @@ export const LoginPage: React.FC = () => {
                       />
                       <button
                         aria-label={showPassword ? 'Ẩn mật khẩu' : 'Hiện mật khẩu'}
-                        className="absolute right-2 top-1/2 -translate-y-1/2 p-1.5 text-[#5E6F66] hover:text-[#1C2B24] rounded focus:outline-none"
+                        className="absolute right-2 top-1/2 -translate-y-1/2 w-8 h-8 flex items-center justify-center p-1 text-on-surface-variant hover:text-on-surface rounded-lg focus:outline-none"
                         onClick={() => setShowPassword(!showPassword)}
                         type="button"
                       >
-                        <span className="material-symbols-outlined text-[20px]">
+                        <span className="material-symbols-outlined text-[20px] w-5 h-5 flex items-center justify-center overflow-hidden select-none">
                           {showPassword ? 'visibility_off' : 'visibility'}
                         </span>
                       </button>
@@ -405,15 +403,15 @@ export const LoginPage: React.FC = () => {
 
                   {/* Device ID (for RoomAccount session tracking) */}
                   <div>
-                    <label className="block font-label-md text-label-md font-medium text-[#1C2B24] mb-1.5" htmlFor="deviceId">
-                      Mã thiết bị / Máy trạm <span className="text-xs font-normal text-[#5E6F66]">(dành cho Phòng CLS)</span>
+                    <label className="block font-label-md text-label-md font-medium text-on-surface mb-1.5" htmlFor="deviceId">
+                      Mã thiết bị / Máy trạm <span className="text-xs font-normal text-on-surface-variant">(dành cho Phòng CLS)</span>
                     </label>
                     <div className="relative">
-                      <span className="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-[#006a41] text-[20px] pointer-events-none">
+                      <span className="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-primary text-[20px] pointer-events-none w-5 h-5 flex items-center justify-center overflow-hidden shrink-0 select-none">
                         computer
                       </span>
                       <input
-                        className="w-full h-[42px] pl-10 pr-3 rounded-[8px] border border-[#DDE7E1] bg-white text-[#1C2B24] font-body-md text-body-md placeholder:text-[#5E6F66]/60 focus:outline-none focus:border-[#006a41] focus:ring-2 focus:ring-[#006a41]/20 transition-all duration-150"
+                        className="w-full h-[42px] pl-11 pr-3 rounded-xl border border-transparent bg-surface-container-low/70 text-on-surface font-body-md text-body-md placeholder:text-on-surface-variant/60 focus:outline-none focus:border-primary focus:bg-white focus:ring-2 focus:ring-primary/15 transition-all duration-150"
                         id="deviceId"
                         name="deviceId"
                         value={deviceIdInput}
@@ -428,22 +426,22 @@ export const LoginPage: React.FC = () => {
                   <div className="flex items-center justify-between pt-1">
                     <label className="flex items-center gap-2 cursor-pointer select-none">
                       <input
-                        className="w-4 h-4 rounded border-[#DDE7E1] text-[#006a41] focus:ring-[#006a41] focus:ring-offset-0 cursor-pointer accent-[#006a41]"
+                        className="w-4 h-4 rounded border-outline-variant text-primary focus:ring-primary focus:ring-offset-0 cursor-pointer accent-[#006a41]"
                         id="remember"
                         name="remember"
                         checked={remember}
                         onChange={(e) => setRemember(e.target.checked)}
                         type="checkbox"
                       />
-                      <span className="font-body-md text-body-md text-[#1C2B24]">Ghi nhớ đăng nhập</span>
+                      <span className="font-body-md text-body-md text-on-surface">Ghi nhớ đăng nhập</span>
                     </label>
-                    <span className="font-label-sm text-label-sm text-[#5E6F66]">Kênh: Nhân viên (Staff)</span>
+                    <span className="font-label-sm text-label-sm text-on-surface-variant">Kênh: Nhân viên (Staff)</span>
                   </div>
 
                   {/* Primary CTA Button */}
                   <div className="pt-2">
                     <button
-                      className="w-full h-[44px] rounded-[8px] bg-[#006a41] text-white font-label-md text-label-md font-semibold flex items-center justify-center gap-2 hover:bg-[#005231] active:scale-[0.99] transition-all duration-150 shadow-sm focus:outline-none focus:ring-2 focus:ring-[#006a41] focus:ring-offset-2 disabled:opacity-60"
+                      className="w-full h-[44px] rounded-xl bg-primary text-white font-label-md text-label-md font-semibold flex items-center justify-center gap-2 hover:bg-[#005231] active:scale-[0.99] transition-all duration-150 shadow-sm focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2 disabled:opacity-60"
                       disabled={isSubmitting}
                       type="submit"
                     >
@@ -461,10 +459,10 @@ export const LoginPage: React.FC = () => {
 
                 {/* Patient Portal Link */}
                 <div className="mt-6 text-center">
-                  <p className="font-body-md text-body-md text-[#5E6F66]">
+                  <p className="font-body-md text-body-md text-on-surface-variant">
                     Bạn là bệnh nhân hoặc người đại diện?{' '}
                     <a
-                      className="font-semibold text-[#006a41] hover:underline focus:outline-none focus:ring-1 focus:ring-[#006a41] rounded ml-1"
+                      className="font-semibold text-primary hover:underline focus:outline-none focus:ring-1 focus:ring-primary rounded ml-1"
                       href={import.meta.env.VITE_PATIENT_PORTAL_URL || 'http://localhost:3000'}
                     >
                       Chuyển sang Cổng bệnh nhân
@@ -473,13 +471,13 @@ export const LoginPage: React.FC = () => {
                 </div>
 
                 {/* Footer Assistance */}
-                <div className="mt-8 pt-5 border-t border-[#DDE7E1] flex flex-col sm:flex-row items-center justify-between gap-3 text-center sm:text-left">
-                  <div className="flex items-center gap-2 text-[#5E6F66]">
-                    <span className="material-symbols-outlined text-[16px] text-[#006a41]">support_agent</span>
+                <div className="mt-8 pt-5 border-t border-outline-variant/25 flex flex-col sm:flex-row items-center justify-between gap-3 text-center sm:text-left">
+                  <div className="flex items-center gap-2 text-on-surface-variant">
+                    <span className="material-symbols-outlined text-[16px] text-primary">support_agent</span>
                     <span className="font-label-sm text-label-sm">Hỗ trợ kỹ thuật: hotro@smarthealthcare.vn</span>
                   </div>
                   <a
-                    className="font-label-sm text-label-sm font-semibold text-[#006a41] hover:underline flex items-center gap-1"
+                    className="font-label-sm text-label-sm font-semibold text-primary hover:underline flex items-center gap-1"
                     href="tel:19006868"
                   >
                     <span className="material-symbols-outlined text-[15px]">call</span>
@@ -487,8 +485,6 @@ export const LoginPage: React.FC = () => {
                   </a>
                 </div>
               </section>
-            </div>
-          </div>
         </div>
       </main>
     </div>

@@ -39,10 +39,14 @@ export const ReceptionRefundsPage: React.FC = () => {
   });
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-5">
       <div>
-        <h1 className="text-xl font-semibold text-[#0f1f18]">Chi hoàn tiền mặt tại quầy (RC08)</h1>
-        <p className="text-xs text-[#44544c]">Thực hiện chi tiền mặt cho các yêu cầu hoàn tiền đã được Quản trị viên phê duyệt.</p>
+        <h1 className="font-headline-md text-2xl font-extrabold tracking-tight text-on-surface">
+          Chi hoàn tiền mặt tại quầy (RC08)
+        </h1>
+        <p className="text-sm text-on-surface-variant">
+          Thực hiện chi tiền mặt cho các yêu cầu hoàn tiền đã được Quản trị viên phê duyệt.
+        </p>
       </div>
 
       {query.isLoading ? (

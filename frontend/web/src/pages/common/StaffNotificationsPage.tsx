@@ -34,12 +34,14 @@ export const StaffNotificationsPage: React.FC = () => {
   const items = query.data?.items ?? [];
 
   return (
-    <div className="space-y-4">
-      <div className="flex items-center gap-2.5">
-        <Bell className="h-6 w-6 text-[#006a41]" aria-hidden="true" />
+    <div className="space-y-5">
+      <div className="flex items-center gap-3">
+        <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-surface-container-low text-primary" aria-hidden="true">
+          <Bell className="h-5 w-5" />
+        </div>
         <div>
-          <h1 className="text-xl font-semibold text-[#0f1f18]">Thông báo nội bộ (S03)</h1>
-          <p className="text-xs text-[#44544c]">Cảnh báo trễ check-in, thay đổi ca trực, duyệt hoàn tiền và phiên thiết bị.</p>
+          <h1 className="font-headline-sm text-xl font-extrabold tracking-tight text-on-surface">Thông báo nội bộ (S03)</h1>
+          <p className="text-xs text-on-surface-variant">Cảnh báo trễ check-in, thay đổi ca trực, duyệt hoàn tiền và phiên thiết bị.</p>
         </div>
       </div>
 
@@ -48,17 +50,20 @@ export const StaffNotificationsPage: React.FC = () => {
       ) : (
         <div className="space-y-3">
           {items.map((item) => (
-            <Card key={item.id}>
+            <Card
+              key={item.id}
+              className={item.status === 'Sent' ? 'border-l-4 border-l-primary bg-surface-container-low/75' : ''}
+            >
               <div className="flex flex-wrap items-start justify-between gap-3">
                 <div className="space-y-1">
                   <div className="flex flex-wrap items-center gap-2">
                     <StatusPill status={item.status} />
-                    <span className="text-xs text-[#44544c]">
+                    <span className="text-xs text-on-surface-variant">
                       <DateTimeText value={item.createdAt} />
                     </span>
                   </div>
-                  <h3 className="font-semibold text-[#0f1f18]">{item.title}</h3>
-                  <p className="text-sm text-[#44544c]">{item.body}</p>
+                  <h3 className="font-semibold text-on-surface">{item.title}</h3>
+                  <p className="text-sm text-on-surface-variant">{item.body}</p>
                 </div>
                 <div className="flex items-center gap-2">
                   {item.targetPath ? (

@@ -61,26 +61,28 @@ export const ReceptionShiftReconcilePage: React.FC = () => {
   const diff = parsedActual - s.netExpectedCash;
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-5">
       <div>
-        <h1 className="text-xl font-semibold text-[#0f1f18]">Chốt ca thu ngân cuối ngày (RC09)</h1>
-        <p className="text-xs text-[#44544c]">
-          Nhân sự trực ca: <strong>{s.cashierName}</strong> • Ngày <DateTimeText value={s.shiftDate} mode="date" />
+        <h1 className="font-headline-md text-2xl font-extrabold tracking-tight text-on-surface">
+          Chốt ca thu ngân cuối ngày (RC09)
+        </h1>
+        <p className="text-sm text-on-surface-variant">
+          Nhân sự trực ca: <strong className="text-on-surface">{s.cashierName}</strong> • Ngày <DateTimeText value={s.shiftDate} mode="date" />
         </p>
       </div>
 
-      <div className="grid gap-3 sm:grid-cols-3">
-        <Card>
-          <p className="text-xs text-[#44544c]">Tổng thu tiền mặt (hệ thống)</p>
-          <p className="mt-1 text-xl font-bold text-[#006a41]"><MoneyText amount={s.expectedCashCollected} /></p>
+      <div className="grid gap-4 sm:grid-cols-3">
+        <Card className="border-l-4 border-l-primary">
+          <p className="text-xs font-medium uppercase tracking-wider text-on-surface-variant">Tổng thu tiền mặt (hệ thống)</p>
+          <p className="font-data-tabular mt-1.5 text-2xl font-extrabold text-primary"><MoneyText amount={s.expectedCashCollected} /></p>
         </Card>
-        <Card>
-          <p className="text-xs text-[#44544c]">Tổng chi hoàn tiền mặt</p>
-          <p className="mt-1 text-xl font-bold text-[#ba1a1a]"><MoneyText amount={s.expectedCashRefunded} /></p>
+        <Card className="border-l-4 border-l-error">
+          <p className="text-xs font-medium uppercase tracking-wider text-on-surface-variant">Tổng chi hoàn tiền mặt</p>
+          <p className="font-data-tabular mt-1.5 text-2xl font-extrabold text-error"><MoneyText amount={s.expectedCashRefunded} /></p>
         </Card>
-        <Card>
-          <p className="text-xs text-[#44544c]">Tồn quỹ ròng lý thuyết</p>
-          <p className="mt-1 text-2xl font-bold text-[#0f1f18]"><MoneyText amount={s.netExpectedCash} /></p>
+        <Card className="bg-surface-container-low/80">
+          <p className="text-xs font-medium uppercase tracking-wider text-on-surface-variant">Tồn quỹ ròng lý thuyết</p>
+          <p className="font-data-tabular mt-1.5 text-2xl font-extrabold text-on-surface"><MoneyText amount={s.netExpectedCash} /></p>
         </Card>
       </div>
 

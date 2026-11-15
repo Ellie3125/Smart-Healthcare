@@ -25,10 +25,14 @@ export const ClsWaiversPage: React.FC = () => {
   });
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-5">
       <div>
-        <h1 className="text-xl font-semibold text-[#0f1f18]">Duyệt miễn / giảm Cận lâm sàng (AD16)</h1>
-        <p className="text-xs text-[#44544c]">Xem xét đề xuất miễn/giảm phí dịch vụ CLS trước khi bệnh nhân thanh toán hoặc hoàn lại.</p>
+        <h1 className="font-headline-md text-2xl font-extrabold tracking-tight text-on-surface">
+          Duyệt miễn / giảm Cận lâm sàng (AD16)
+        </h1>
+        <p className="text-sm text-on-surface-variant">
+          Xem xét đề xuất miễn/giảm phí dịch vụ CLS trước khi bệnh nhân thanh toán hoặc hoàn lại.
+        </p>
       </div>
 
       {query.isLoading ? (

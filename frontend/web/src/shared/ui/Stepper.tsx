@@ -52,7 +52,7 @@ export const Tabs: React.FC<{
   activeId: string;
   onChange: (id: string) => void;
 }> = ({ tabs, activeId, onChange }) => (
-  <div role="tablist" className="flex flex-wrap gap-1 border-b border-[#cddbd3]">
+  <div role="tablist" className="inline-flex flex-wrap gap-1.5 rounded-xl bg-surface-container-low p-1.5">
     {tabs.map((tab) => {
       const active = tab.id === activeId;
       return (
@@ -62,15 +62,19 @@ export const Tabs: React.FC<{
           role="tab"
           aria-selected={active}
           onClick={() => onChange(tab.id)}
-          className={`inline-flex items-center gap-1.5 border-b-2 px-4 py-2.5 text-sm font-medium transition-colors ${
+          className={`inline-flex items-center gap-1.5 rounded-lg px-4 py-2 text-sm font-medium transition-all ${
             active
-              ? 'border-[#006a41] text-[#006a41]'
-              : 'border-transparent text-[#44544c] hover:text-[#0f1f18]'
+              ? 'bg-primary text-white shadow-[0_2px_8px_rgba(0,106,65,0.2)]'
+              : 'text-on-surface-variant hover:bg-surface-container hover:text-on-surface'
           }`}
         >
           <span>{tab.label}</span>
           {tab.count !== undefined ? (
-            <span className="rounded-full bg-[#e9f2ed] px-2 py-0.5 text-xs tabular-nums text-[#0f1f18]">
+            <span
+              className={`rounded-full px-2 py-0.5 text-xs tabular-nums ${
+                active ? 'bg-white/20 text-white' : 'bg-surface-container-highest text-on-surface'
+              }`}
+            >
               {tab.count}
             </span>
           ) : null}

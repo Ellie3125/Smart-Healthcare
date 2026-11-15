@@ -170,7 +170,7 @@ export const ShiftsTab: React.FC = () => {
       {/* Search & Date Controls */}
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
         <div className="flex flex-wrap items-center gap-3 w-full sm:w-auto">
-          <div className="inline-flex rounded-lg border border-[#DDE7E1] bg-white p-0.5 text-xs">
+          <div className="inline-flex rounded-full bg-surface-container-low p-1 text-xs">
             {(
               [
                 { key: 'day', label: 'Theo ngày' },
@@ -182,8 +182,8 @@ export const ShiftsTab: React.FC = () => {
                 key={opt.key}
                 type="button"
                 onClick={() => setViewMode(opt.key)}
-                className={`px-2.5 py-1 rounded-md font-semibold transition-colors ${
-                  viewMode === opt.key ? 'bg-[#006a41] text-white' : 'text-[#5E6F66] hover:text-[#1C2B24]'
+                className={`px-3 py-1 rounded-full font-semibold transition-all ${
+                  viewMode === opt.key ? 'bg-primary text-white shadow-sm' : 'text-on-surface-variant hover:text-on-surface'
                 }`}
               >
                 {opt.label}
@@ -191,18 +191,18 @@ export const ShiftsTab: React.FC = () => {
             ))}
           </div>
 
-          <div className="flex items-center gap-1.5 bg-white border border-[#DDE7E1] px-3 py-1 rounded-lg">
-            <span className="material-symbols-outlined text-[#5E6F66] text-[18px]">calendar_today</span>
+          <div className="flex items-center gap-1.5 bg-surface-container-low/70 px-3 py-1.5 rounded-xl">
+            <span className="material-symbols-outlined text-on-surface-variant text-[18px]">calendar_today</span>
             <input
               type="date"
               value={selectedDate}
               onChange={(e) => setSelectedDate(e.target.value)}
-              className="text-xs bg-transparent focus:outline-none font-semibold text-[#1C2B24]"
+              className="text-xs bg-transparent focus:outline-none font-semibold text-on-surface"
             />
           </div>
 
           {viewMode !== 'day' && activeRange && (
-            <span className="text-[11px] font-medium px-2.5 py-1 rounded-md bg-[#E8F5EE] text-[#006a41] border border-[#DDE7E1]">
+            <span className="text-[11px] font-semibold px-3 py-1.5 rounded-xl bg-primary-container/60 text-primary font-data-tabular">
               {activeRange.fromDate} → {activeRange.toDate}
             </span>
           )}
@@ -210,7 +210,7 @@ export const ShiftsTab: React.FC = () => {
           <select
             value={roomIdFilter}
             onChange={(e) => setRoomIdFilter(e.target.value)}
-            className="h-9 px-3 rounded-lg border border-[#DDE7E1] bg-white text-xs focus:ring-2 focus:ring-[#006a41]/20"
+            className="h-10 px-3 rounded-xl border border-transparent bg-surface-container-low/70 text-xs text-on-surface focus:outline-none focus:bg-white focus:border-primary focus:ring-2 focus:ring-primary/15"
           >
             <option value="">Tất cả phòng</option>
             {rooms.map((r) => (
@@ -223,7 +223,7 @@ export const ShiftsTab: React.FC = () => {
           <select
             value={staffIdFilter}
             onChange={(e) => setStaffIdFilter(e.target.value)}
-            className="h-9 px-3 rounded-lg border border-[#DDE7E1] bg-white text-xs focus:ring-2 focus:ring-[#006a41]/20"
+            className="h-10 px-3 rounded-xl border border-transparent bg-surface-container-low/70 text-xs text-on-surface focus:outline-none focus:bg-white focus:border-primary focus:ring-2 focus:ring-primary/15"
           >
             <option value="">Tất cả nhân viên</option>
             {staffList.map((st) => (
@@ -236,7 +236,7 @@ export const ShiftsTab: React.FC = () => {
 
         <button
           onClick={handleOpenCreate}
-          className="h-9 px-4 rounded-lg bg-[#006a41] text-white text-xs font-semibold hover:bg-[#028654] transition-colors flex items-center gap-1.5 shadow-sm shrink-0"
+          className="h-10 px-4 rounded-xl bg-primary text-white text-xs font-semibold hover:bg-[#005231] transition-colors flex items-center gap-1.5 shadow-sm shrink-0"
         >
           <span className="material-symbols-outlined text-[18px]">add_task</span>
           <span>Phân Công Ca Trực</span>
@@ -262,11 +262,11 @@ export const ShiftsTab: React.FC = () => {
       )}
 
       {/* Shifts Table */}
-      <div className="bg-white rounded-xl border border-[#DDE7E1] shadow-sm overflow-hidden">
+      <div className="bg-surface-container-lowest rounded-2xl shadow-[0_1px_10px_rgba(15,31,24,0.04)] overflow-hidden">
         {isLoading ? (
-          <div className="py-16 text-center text-xs text-[#5E6F66]">Đang tải lịch phân ca trực...</div>
+          <div className="py-16 text-center text-xs text-on-surface-variant">Đang tải lịch phân ca trực...</div>
         ) : shifts.length === 0 ? (
-          <div className="py-16 text-center text-xs text-[#5E6F66]">
+          <div className="py-16 text-center text-xs text-on-surface-variant">
             {viewMode === 'day'
               ? `Không có ca trực nào được phân công trong ngày ${selectedDate}.`
               : `Không có ca trực nào được phân công từ ${activeRange?.fromDate ?? selectedDate} đến ${activeRange?.toDate ?? selectedDate}.`}
@@ -275,19 +275,19 @@ export const ShiftsTab: React.FC = () => {
           <div className="overflow-x-auto">
             <table className="w-full text-left border-collapse text-xs">
               <thead>
-                <tr className="bg-[#F7FAF8] border-b border-[#DDE7E1] text-[#5E6F66] font-semibold uppercase tracking-wider">
-                  <th className="py-3 px-4">Ngày Trực</th>
-                  <th className="py-3 px-4">Phòng Khám / CLS</th>
-                  <th className="py-3 px-4">Nhân Viên Trực</th>
-                  <th className="py-3 px-4">Ca Trực</th>
-                  <th className="py-3 px-4">Khung Giờ (UTC)</th>
-                  <th className="py-3 px-4">Trách Nhiệm</th>
-                  <th className="py-3 px-4 text-right">Thao Tác</th>
+                <tr className="bg-surface-container-low/85 text-on-surface-variant font-semibold uppercase tracking-wider text-[11px]">
+                  <th className="py-3.5 px-4">Ngày Trực</th>
+                  <th className="py-3.5 px-4">Phòng Khám / CLS</th>
+                  <th className="py-3.5 px-4">Nhân Viên Trực</th>
+                  <th className="py-3.5 px-4">Ca Trực</th>
+                  <th className="py-3.5 px-4">Khung Giờ (UTC)</th>
+                  <th className="py-3.5 px-4">Trách Nhiệm</th>
+                  <th className="py-3.5 px-4 text-right">Thao Tác</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-[#DDE7E1]">
+              <tbody className="divide-y divide-surface-container-high/50">
                 {shifts.map((s) => (
-                  <tr key={s.id} className="hover:bg-[#F9FBFA] transition-colors">
+                  <tr key={s.id} className="hover:bg-surface-container-low/45 transition-colors">
                     <td className="py-3 px-4 font-semibold text-[#1C2B24]">{s.shiftDate}</td>
                     <td className="py-3 px-4">
                       <span className="font-mono font-bold text-[#006a41] mr-1.5">{s.roomNumber}</span>
