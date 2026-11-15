@@ -217,10 +217,12 @@ export const BookingDoctorsPage: React.FC = () => {
                                 {doc.fullName.split(' ').pop()?.charAt(0) ?? 'B'}
                               </div>
                               <div>
-                                <span className="inline-flex items-center gap-1 rounded-full bg-surface-container-low px-2.5 py-0.5 text-xs font-medium text-[#005231]">
-                                  <Stethoscope className="h-3.5 w-3.5" aria-hidden="true" />
-                                  {doc.specialtyName}
-                                </span>
+                                {doc.specialtyName ? (
+                                  <span className="inline-flex items-center gap-1 rounded-full bg-surface-container-low px-2.5 py-0.5 text-xs font-medium text-[#005231]">
+                                    <Stethoscope className="h-3.5 w-3.5" aria-hidden="true" />
+                                    {doc.specialtyName}
+                                  </span>
+                                ) : null}
                                 <h3 className="mt-1.5 text-lg font-semibold text-on-surface leading-snug">
                                   {doc.fullName}
                                 </h3>
@@ -245,10 +247,12 @@ export const BookingDoctorsPage: React.FC = () => {
                               <Calendar className="h-4 w-4 text-primary" aria-hidden="true" />
                               <DateTimeText value={doc.serviceDate} mode="date" />
                             </span>
-                            <span className="inline-flex items-center gap-1.5">
-                              <Clock className="h-4 w-4 text-primary" aria-hidden="true" />
-                              {doc.roomName}
-                            </span>
+                            {doc.roomName ? (
+                              <span className="inline-flex items-center gap-1.5">
+                                <Clock className="h-4 w-4 text-primary" aria-hidden="true" />
+                                {doc.roomName}
+                              </span>
+                            ) : null}
                           </div>
                         </div>
 

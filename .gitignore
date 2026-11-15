@@ -91,3 +91,4 @@ playwright/.cache/
 coverage/
 **/coverage/
 *.lcov
+

@@ -24,6 +24,7 @@ using Scheduling.Application;
 using Scheduling.Infrastructure;
 using Scheduling.Infrastructure.Persistence;
 using Shared.Infrastructure;
+using SmartHealthcare.Api;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -65,7 +66,9 @@ builder.Services
     // DbContext tham gia IUnitOfWork (W1-06). Module khác tự thêm khi cần ghi cùng transaction.
     .AddUnitOfWorkParticipant<SchedulingDbContext>()
     .AddUnitOfWorkParticipant<WorkflowDbContext>()
-    .AddUnitOfWorkParticipant<IdentityPatients.Infrastructure.Persistence.IdentityPatientsDbContext>();
+    .AddUnitOfWorkParticipant<IdentityPatients.Infrastructure.Persistence.IdentityPatientsDbContext>()
+    // Tạo khoản thu + yêu cầu thanh toán cùng transaction với BookingAttempt (BookingPaymentService).
+    .AddUnitOfWorkParticipant<Billing.Infrastructure.Persistence.BillingDbContext>();
 
 builder.Services
     .AddIdentityPatientsApplication().AddIdentityPatientsApi()
@@ -77,6 +80,11 @@ builder.Services
     .AddBillingApplication().AddBillingApi()
     .AddNotificationsApplication().AddNotificationsApi()
     .AddDocumentsReportingApplication().AddDocumentsReportingApi();
+
+if (DemoData.IsEnabled(builder.Configuration, builder.Environment))
+{
+    builder.AddDemoData();
+}
 
 string[] moduleTags =
 [
@@ -134,6 +142,11 @@ if (app.Environment.IsDevelopment() || app.Configuration.GetValue<bool>("Seed:En
     using var scope = app.Services.CreateScope();
     var seedService = scope.ServiceProvider.GetRequiredService<IdentityPatientsSeedService>();
     await seedService.SeedAsync();
+}
+
+if (DemoData.IsEnabled(app.Configuration, app.Environment))
+{
+    await app.SeedDemoDataAsync();
 }
 
 app.UseExceptionHandler();
