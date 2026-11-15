@@ -1,8 +1,9 @@
 import React, { useState } from 'react';
 import { useMutation, useQuery } from '@tanstack/react-query';
-import { Link, useNavigate, useParams } from 'react-router-dom';
+import { Link, useLocation, useNavigate, useParams } from 'react-router-dom';
 import { CreditCard, ShieldCheck } from 'lucide-react';
-import { bookingApi } from '../../api/bookingApi';
+import { bookingApi, PENDING_PAYMENT_KEY } from '../../api/bookingApi';
+import type { BookingSummary } from '../../types/booking';
 import {
   Banner,
   Button,
@@ -16,7 +17,6 @@ import {
   Stepper,
   useToast,
 } from '../../shared/ui';
-import { createIdempotencyKey } from '../../shared/lib/money';
 import { extractPatientError } from '../../shared/lib/errors';
 
 export const BookingConfirmPage: React.FC = () => {
@@ -24,7 +24,8 @@ export const BookingConfirmPage: React.FC = () => {
   const navigate = useNavigate();
   const { pushToast } = useToast();
   const [expired, setExpired] = useState(false);
-  const [checkoutIdemKey] = useState(() => createIdempotencyKey('vnpay'));
+  // Thông tin đã chọn ở màn trước; mất khi mở lại bằng đường dẫn trực tiếp vì Backend chưa trả trong tiến trình.
+  const summary = useLocation().state as BookingSummary | null;
 
   const attemptQuery = useQuery({
     queryKey: ['patient', 'booking-attempt', bookingAttemptId],
@@ -33,8 +34,9 @@ export const BookingConfirmPage: React.FC = () => {
   });
 
   const checkoutMutation = useMutation({
-    mutationFn: () => bookingApi.createVnpayCheckout(bookingAttemptId, checkoutIdemKey),
+    mutationFn: () => bookingApi.createVnpayCheckout(bookingAttemptId),
     onSuccess: (res) => {
+      sessionStorage.setItem(PENDING_PAYMENT_KEY, res.paymentIntentId);
       if (res.paymentUrl.startsWith('/')) {
         navigate(res.paymentUrl);
       } else {
@@ -64,7 +66,9 @@ export const BookingConfirmPage: React.FC = () => {
   }
 
   const attempt = attemptQuery.data;
-  const isHoldExpired = expired || attempt.status === 'Expired';
+  const isPaid = attempt.status === 'Confirming' || attempt.status === 'Confirmed';
+  const isHoldExpired = !isPaid && (expired || (attempt.status !== 'Held' && attempt.status !== 'WaitingPayment'));
+  const pillStatus = isPaid ? 'Confirmed' : isHoldExpired ? 'Expired' : attempt.status === 'Held' ? 'Hold' : 'PendingPayment';
 
   return (
     <div className="space-y-6">
