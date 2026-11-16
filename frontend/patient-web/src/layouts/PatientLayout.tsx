@@ -62,7 +62,7 @@ export const PatientLayout: React.FC = () => {
     <div className="min-h-screen bg-surface flex flex-col font-body-md text-on-surface">
       {/* Stitch web_standard translucent header */}
       <header className="sticky top-0 w-full z-40 bg-surface-container-lowest/95 backdrop-blur-xl shadow-[0_1px_8px_rgba(0,0,0,0.04)]">
-        <div className="h-20 max-w-[1440px] mx-auto px-4 sm:px-6 lg:px-8 flex items-center justify-between gap-2 xl:gap-3">
+        <div className="h-20 max-w-[1440px] 2xl:max-w-[1600px] mx-auto px-4 sm:px-6 lg:px-8 flex items-center justify-between gap-3">
           <div className="flex items-center gap-2 xl:gap-4 min-w-0 flex-1">
             <button
               type="button"
@@ -81,13 +81,13 @@ export const PatientLayout: React.FC = () => {
                 <span className="font-headline-sm text-headline-sm text-primary leading-tight font-semibold tracking-tight whitespace-nowrap">
                   Smart Healthcare
                 </span>
-                <span className="hidden 2xl:block text-[11px] text-on-surface-variant font-normal">
+                <span className="hidden 3xl:block text-[11px] text-on-surface-variant font-normal">
                   Phòng khám Ngoại trú Chuẩn Quốc tế
                 </span>
               </div>
             </Link>
 
-            <nav aria-label="Điều hướng cổng bệnh nhân" className="hidden lg:flex items-center gap-1 min-w-0">
+            <nav aria-label="Điều hướng cổng bệnh nhân" className="hidden lg:flex items-center gap-1 min-w-0 overflow-hidden">
               {PATIENT_NAV_ITEMS.map(({ to, label, shortLabel, icon: Icon }) => (
                 <NavLink
                   key={to}
@@ -95,7 +95,7 @@ export const PatientLayout: React.FC = () => {
                   title={label}
                   aria-label={label}
                   className={({ isActive }) =>
-                    `inline-flex items-center gap-1.5 rounded-xl px-2.5 xl:px-2.5 2xl:px-3 py-1.5 xl:py-2 text-xs xl:text-sm font-medium whitespace-nowrap transition-colors shrink-0 ${
+                    `inline-flex items-center gap-1.5 rounded-xl px-2.5 py-1.5 text-xs xl:text-sm font-medium whitespace-nowrap transition-colors shrink-0 ${
                       isActive
                         ? 'bg-primary-container text-on-primary-container font-semibold shadow-sm'
                         : 'text-on-surface-variant hover:text-on-surface hover:bg-surface-container'
@@ -103,36 +103,35 @@ export const PatientLayout: React.FC = () => {
                   }
                 >
                   <Icon className="h-4 w-4 shrink-0" aria-hidden="true" />
-                  <span className="hidden xl:inline 2xl:hidden">{shortLabel}</span>
-                  <span className="hidden 2xl:inline">{label}</span>
+                  <span className="hidden xl:inline">{shortLabel}</span>
                 </NavLink>
               ))}
             </nav>
           </div>
 
-          <div className="flex items-center gap-2 sm:gap-2.5 shrink-0">
+          <div className="flex items-center gap-2 sm:gap-3 shrink-0">
             <a
               href="tel:19006868"
-              className="hidden 2xl:flex items-center gap-2 px-3 py-1.5 rounded-full bg-surface-container hover:bg-surface-container-high transition-colors text-on-surface"
+              className="hidden 2xl:flex items-center gap-2 px-3 py-1.5 rounded-full bg-surface-container hover:bg-surface-container-high transition-colors text-on-surface shrink-0"
+              title="Cấp cứu 24/7: 1900 6868"
             >
-              <PhoneCall className="h-4 w-4 text-primary" aria-hidden="true" />
+              <PhoneCall className="h-3.5 w-3.5 text-primary shrink-0" aria-hidden="true" />
               <div className="flex flex-col leading-none">
-                <span className="text-[10px] text-on-surface-variant">Cấp cứu 24/7</span>
+                <span className="text-[9px] text-on-surface-variant font-medium">Cấp cứu 24/7</span>
                 <span className="text-xs font-semibold text-primary tabular-nums">1900 6868</span>
               </div>
             </a>
 
             <Link
               to="/notifications"
-              className="relative inline-flex min-h-[40px] items-center gap-1.5 rounded-full bg-surface-container-low px-2.5 2xl:px-3 py-1.5 text-sm font-medium text-on-surface hover:bg-surface-container transition-colors"
+              className="relative inline-flex h-9 w-9 items-center justify-center rounded-full bg-surface-container-low text-on-surface hover:bg-surface-container transition-colors shrink-0"
               title="Thông báo"
               aria-label="Thông báo"
             >
               <Bell className="h-4 w-4 text-primary shrink-0" aria-hidden="true" />
-              <span className="hidden 2xl:inline">Thông báo</span>
               {unreadCount > 0 ? (
-                <span className="rounded-full bg-error px-1.5 py-0.5 text-[11px] font-semibold tabular-nums text-white">
-                  {unreadCount}
+                <span className="absolute -top-1 -right-1 flex h-4 min-w-4 items-center justify-center rounded-full bg-error px-1 text-[10px] font-bold tabular-nums text-white shadow-sm">
+                  {unreadCount > 99 ? '99+' : unreadCount}
                 </span>
               ) : null}
             </Link>
@@ -140,14 +139,14 @@ export const PatientLayout: React.FC = () => {
             <div className="hidden sm:block h-6 w-px bg-surface-container-highest shrink-0" aria-hidden="true" />
 
             <div className="hidden md:flex items-center gap-2 shrink-0">
-              <div className="w-8 h-8 rounded-full bg-primary flex items-center justify-center text-on-primary shrink-0" title={user?.userName ?? 'Bệnh nhân'}>
+              <div className="w-8 h-8 rounded-full bg-primary flex items-center justify-center text-on-primary shrink-0 shadow-xs" title={user?.userName ?? 'Bệnh nhân'}>
                 <span className="material-symbols-outlined text-[18px]">person</span>
               </div>
               <div className="hidden 2xl:flex flex-col text-left leading-tight">
-                <span className="text-sm font-semibold text-on-surface truncate max-w-[140px]">
+                <span className="text-sm font-semibold text-on-surface truncate max-w-[120px]">
                   {user?.userName ?? 'Bệnh nhân'}
                 </span>
-                <span className="text-[11px] text-on-surface-variant">Cổng bệnh nhân</span>
+                <span className="text-[10px] text-on-surface-variant">Cổng bệnh nhân</span>
               </div>
             </div>
 
