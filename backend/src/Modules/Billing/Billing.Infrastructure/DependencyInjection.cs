@@ -24,6 +24,8 @@ public static class DependencyInjection
         services.AddScoped<PaymentService>();
         services.AddScoped<PaymentCheckoutService>();
         services.AddScoped<ClsDayEndService>();
+        services.AddScoped<ICashierStore, EfCashierStore>();
+        services.AddScoped<CashierService>();
         services.AddScoped<ExamChargeLinker>();
         services.AddScoped<IEncounterChargeLinker>(sp => sp.GetRequiredService<ExamChargeLinker>());
         // Worker phát AppointmentConfirmed qua Outbox tới handler này (AddOutboxEvent<AppointmentConfirmed>).

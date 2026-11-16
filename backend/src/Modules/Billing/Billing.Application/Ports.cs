@@ -16,6 +16,28 @@ public interface IPriceCatalog
     Task<IReadOnlyList<PriceCandidate>> GetClsCandidatesAsync(IReadOnlyCollection<Guid> medicalServiceIds, DateTime atUtc, CancellationToken ct);
 }
 
+/// <summary>Một phiếu thu tiền mặt tại quầy.</summary>
+public sealed record CounterReceipt(
+    string ReceiptNumber,
+    Guid PaymentIntentId,
+    Guid PatientId,
+    Guid? EncounterId,
+    decimal Amount,
+    DateTime CollectedAtUtc);
+
+/// <summary>Ghi vết và đọc phiếu thu tiền mặt tại quầy.</summary>
+public interface ICashierStore
+{
+    /// <summary>
+    /// Ghi shared.AuditLog cho phiếu thu trong cùng transaction với thay đổi của Billing (Giải pháp kỹ thuật v2.13 mục 5.5).
+    /// Gọi bên trong <see cref="IPaymentStore.InTransactionAsync{T}"/>.
+    /// </summary>
+    Task WriteCollectionAuditAsync(Guid staffUserId, Guid paymentTransactionId, string newValuesJson, string? clientIp, CancellationToken ct);
+
+    /// <summary>Phiếu thu tiền mặt đã ghi nhận do <paramref name="staffUserId"/> thu trong [fromUtc, toUtc), theo thời điểm thu.</summary>
+    Task<IReadOnlyList<CounterReceipt>> GetReceiptsAsync(Guid staffUserId, DateTime fromUtc, DateTime toUtc, CancellationToken ct);
+}
+
 /// <summary>Lưu và đọc khoản thu (billing.BillingItem).</summary>
 public interface IChargeStore
 {
@@ -37,6 +59,9 @@ public interface IChargeStore
     /// <paramref name="bookingAttemptId"/>, cộng các khoản đang gắn <paramref name="appointmentId"/> (lịch cũ khi đổi lịch).
     /// </summary>
     Task<IReadOnlyList<Guid>> FindExamChargeIdsAsync(Guid bookingAttemptId, Guid? appointmentId, CancellationToken ct);
+
+    /// <summary>Khoản CLS tạo từ <paramref name="fromUtc"/> trở đi của mọi bệnh nhân, tối đa <paramref name="take"/> (không khóa).</summary>
+    Task<IReadOnlyList<BillingItem>> GetClsSinceAsync(DateTime fromUtc, int take, CancellationToken ct);
 
     /// <summary>Id phí khám đang gắn lịch hẹn <paramref name="appointmentId"/>.</summary>
     Task<IReadOnlyList<Guid>> FindExamChargeIdsByAppointmentAsync(Guid appointmentId, CancellationToken ct);
