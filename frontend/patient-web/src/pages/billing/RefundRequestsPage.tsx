@@ -73,10 +73,13 @@ export const RefundRequestsPage: React.FC = () => {
   const refunds = query.data ?? [];
 
   return (
-    <div className="space-y-5">
+    <div className="space-y-6">
       <div>
-        <h1 className="text-2xl font-semibold text-[#0f1f18]">Theo dõi & Nhận hoàn tiền</h1>
-        <p className="mt-1 text-sm text-[#3e4941]">
+        <span className="inline-flex items-center gap-1.5 rounded-full bg-secondary-container/75 px-3 py-0.5 text-xs font-semibold text-[#005231] mb-2">
+          Hoàn tiền tự động theo chính sách
+        </span>
+        <h1 className="text-2xl sm:text-3xl font-bold text-on-surface tracking-tight">Theo dõi &amp; Nhận hoàn tiền</h1>
+        <p className="mt-1 text-sm text-on-surface-variant">
           Kiểm tra tiến độ duyệt hoàn và chọn kênh nhận tiền phù hợp. Không cần tải lên sao kê hay hóa đơn giấy.
         </p>
       </div>
@@ -86,24 +89,26 @@ export const RefundRequestsPage: React.FC = () => {
       ) : (
         <div className="space-y-4">
           {refunds.map((rf) => (
-            <Card key={rf.id}>
+            <Card key={rf.id} className="hover:border-primary/40 transition-colors">
               <div className="flex flex-wrap items-start justify-between gap-4">
                 <div className="space-y-1.5">
                   <div className="flex flex-wrap items-center gap-2">
-                    <span className="font-mono text-xs font-semibold text-[#006a41]">{rf.referenceCode}</span>
+                    <span className="font-mono text-xs font-semibold text-primary bg-surface-container-low px-2.5 py-0.5 rounded-full">
+                      {rf.referenceCode}
+                    </span>
                     <StatusPill status={rf.status} />
                   </div>
-                  <p className="font-semibold text-[#0f1f18]">{rf.reason}</p>
-                  <p className="text-sm text-[#3e4941]">
+                  <p className="font-semibold text-on-surface">{rf.reason}</p>
+                  <p className="text-sm text-on-surface-variant">
                     Ngày tạo: <DateTimeText value={rf.createdAt} /> • Kênh nhận:{' '}
-                    <strong>{rf.bankAccountSummary || 'Chưa chọn kênh nhận'}</strong>
+                    <strong className="text-on-surface">{rf.bankAccountSummary || 'Chưa chọn kênh nhận'}</strong>
                   </p>
                   {rf.rejectionReason ? (
                     <Banner tone="danger">Lý do từ chối: {rf.rejectionReason}</Banner>
                   ) : null}
                 </div>
                 <div className="flex flex-col items-end gap-2">
-                  <MoneyText amount={rf.amount} className="text-xl text-[#006a41]" />
+                  <MoneyText amount={rf.amount} className="text-xl font-bold text-primary" />
                   {(rf.status === 'Pending' || rf.status === 'Approved') ? (
                     <Button
                       variant="secondary"
@@ -160,7 +165,7 @@ export const RefundRequestsPage: React.FC = () => {
           </FormField>
 
           {channel === 'BankTransfer' ? (
-            <div className="space-y-3 rounded-xl bg-[#f8fbf9] p-3.5">
+            <div className="space-y-3 rounded-xl bg-surface-container-low/75 p-4">
               <FormField label="Tên ngân hàng" required>
                 {(props) => (
                   <Input

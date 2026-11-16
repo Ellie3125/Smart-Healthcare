@@ -31,9 +31,9 @@ export function DataTable<T>({
   }
 
   return (
-    <div className="overflow-x-auto rounded-xl border border-[#cddbd3] bg-white">
+    <div className="overflow-x-auto rounded-2xl border border-surface-container-highest/70 bg-white shadow-[0_1px_8px_rgba(15,31,24,0.03)]">
       <table className="min-w-full divide-y divide-[#e9f2ed] text-sm">
-        <thead className="bg-[#e9f2ed]">
+        <thead className="bg-surface-container-low text-on-surface-variant">
           <tr>
             {columns.map((col) => (
               <th

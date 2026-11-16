@@ -144,35 +144,35 @@ export const EncounterDetailPage: React.FC = () => {
               </div>
             ) : null}
 
-            <div className="space-y-3 text-sm">
-              <div>
-                <h3 className="font-semibold text-[#0f1f18]">Triệu chứng & Khám lâm sàng</h3>
-                <p className="mt-1 text-[#3e4941]">{d.symptoms || '—'}</p>
-                {d.clinicalNotes ? <p className="mt-1 text-[#3e4941]">{d.clinicalNotes}</p> : null}
+            <div className="space-y-4 text-sm">
+              <div className="rounded-xl bg-surface-container-low/65 p-4">
+                <h3 className="font-semibold text-on-surface">Triệu chứng &amp; Khám lâm sàng</h3>
+                <p className="mt-1 text-on-surface-variant">{d.symptoms || '—'}</p>
+                {d.clinicalNotes ? <p className="mt-1 text-on-surface-variant">{d.clinicalNotes}</p> : null}
               </div>
 
-              <div>
-                <h3 className="font-semibold text-[#0f1f18]">Chẩn đoán ICD-10</h3>
-                <ul className="mt-1 space-y-1">
+              <div className="rounded-xl bg-surface-container-low/65 p-4">
+                <h3 className="font-semibold text-on-surface">Chẩn đoán ICD-10</h3>
+                <ul className="mt-1.5 space-y-1">
                   {(d.diagnoses ?? []).map((dx) => (
-                    <li key={dx.icdCode} className="text-[#0f1f18]">
-                      <strong>{dx.icdCode}</strong> — {dx.description}
+                    <li key={dx.icdCode} className="text-on-surface">
+                      <strong className="text-primary">{dx.icdCode}</strong> — {dx.description}
                       {dx.isPrimary ? ' (Chẩn đoán chính)' : ''}
                     </li>
                   ))}
                 </ul>
               </div>
 
-              <div>
-                <h3 className="font-semibold text-[#0f1f18]">Kết luận & Hướng dẫn theo dõi</h3>
-                <p className="mt-1 text-[#0f1f18]">{d.conclusion}</p>
+              <div className="rounded-xl bg-secondary-container/40 p-4">
+                <h3 className="font-semibold text-[#005231]">Kết luận &amp; Hướng dẫn theo dõi</h3>
+                <p className="mt-1 text-on-surface">{d.conclusion}</p>
                 {d.followUpInstruction ? (
-                  <p className="mt-1 text-[#3e4941]">{d.followUpInstruction}</p>
+                  <p className="mt-1 text-on-surface-variant">{d.followUpInstruction}</p>
                 ) : null}
               </div>
 
               {d.publishedAt ? (
-                <p className="text-xs text-[#3e4941]">
+                <p className="text-xs text-on-surface-variant">
                   Phát hành lúc <DateTimeText value={d.publishedAt} /> (Phiên bản v{d.version})
                 </p>
               ) : null}
@@ -185,21 +185,21 @@ export const EncounterDetailPage: React.FC = () => {
         <Card title="Kết quả Cận lâm sàng đã phát hành">
           <div className="space-y-4">
             {d.clsResults.map((res) => (
-              <div key={res.id} className="rounded-xl border border-[#bdcabf] p-4">
+              <div key={res.id} className="rounded-2xl bg-surface-container-low/75 p-4 sm:p-5">
                 <div className="flex flex-wrap items-center justify-between gap-2">
-                  <h3 className="font-semibold text-[#0f1f18]">
+                  <h3 className="font-semibold text-on-surface">
                     {res.serviceName} ({res.serviceCode})
                   </h3>
                   <StatusPill status={res.status} />
                 </div>
-                {res.summaryText ? <p className="mt-2 text-sm text-[#0f1f18]">{res.summaryText}</p> : null}
+                {res.summaryText ? <p className="mt-2 text-sm text-on-surface">{res.summaryText}</p> : null}
                 {res.technicalConclusion ? (
-                  <p className="mt-1 text-sm text-[#3e4941]">Kết luận CLS: {res.technicalConclusion}</p>
+                  <p className="mt-1 text-sm text-on-surface-variant">Kết luận CLS: {res.technicalConclusion}</p>
                 ) : null}
                 {res.attachments.length > 0 ? (
                   <div className="mt-3 flex flex-wrap gap-2">
                     {res.attachments.map((att) => (
-                      <div key={att.fileId} className="flex flex-wrap items-center gap-2 rounded-lg bg-[#e5f8ed] px-3 py-2 text-xs">
+                      <div key={att.fileId} className="flex flex-wrap items-center gap-2 rounded-xl bg-surface-container-lowest px-3 py-2 text-xs shadow-sm">
                         <span className="font-medium text-[#0f1f18]">{att.fileName}</span>
                         <Button
                           size="sm"

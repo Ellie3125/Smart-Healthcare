@@ -52,15 +52,24 @@ export const ReceptionCheckInPage: React.FC = () => {
   const rows = (query.data ?? []).filter((r) => Boolean(r.appointmentId));
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-5">
       <div>
-        <h1 className="text-xl font-semibold text-[#0f1f18]">Check-in tại quầy & Cấp số thứ tự (RC03)</h1>
-        <p className="text-xs text-[#44544c]">
+        <h1 className="font-headline-md text-2xl font-extrabold tracking-tight text-on-surface">
+          Check-in tại quầy &amp; Cấp số thứ tự (RC03)
+        </h1>
+        <p className="text-sm text-on-surface-variant">
           Bắt buộc đối chiếu giấy tờ tùy thân gốc trước khi xác nhận check-in. Ca quá CheckInDeadline phải xử lý tại trung tâm ngoại lệ.
         </p>
       </div>
 
       <Card>
+        <div className="flex flex-wrap items-center justify-between gap-2 pb-3 mb-3 border-b border-surface-container-high/50 text-xs text-on-surface-variant">
+          <span className="inline-flex items-center gap-1.5 font-semibold text-primary">
+            <span className="h-2 w-2 rounded-full bg-primary" />
+            Sẵn sàng quét mã QR / barcode lịch hẹn
+          </span>
+          <span>Khổ in nhiệt 80mm tự động khi cấp STT</span>
+        </div>
         <FormField label="Tìm theo SĐT / Tên / Mã lịch hẹn">
           {(props) => (
             <Input

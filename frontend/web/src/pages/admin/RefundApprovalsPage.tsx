@@ -49,10 +49,14 @@ export const RefundApprovalsPage: React.FC = () => {
   });
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-5">
       <div>
-        <h1 className="text-xl font-semibold text-[#0f1f18]">Duyệt yêu cầu hoàn tiền (AD12)</h1>
-        <p className="text-xs text-[#44544c]">Số tiền hoàn do hệ thống tính toán theo chính sách hủy lịch; Quản trị viên phê duyệt hoặc từ chối kèm lý do.</p>
+        <h1 className="font-headline-md text-2xl font-extrabold tracking-tight text-on-surface">
+          Duyệt yêu cầu hoàn tiền (AD12)
+        </h1>
+        <p className="text-sm text-on-surface-variant">
+          Số tiền hoàn do hệ thống tính toán theo chính sách hủy lịch; Quản trị viên phê duyệt hoặc từ chối kèm lý do.
+        </p>
       </div>
 
       {query.isLoading ? (

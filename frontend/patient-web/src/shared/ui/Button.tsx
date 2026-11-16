@@ -12,11 +12,13 @@ export interface ButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElemen
 }
 
 const VARIANT_CLASSES: Record<ButtonVariant, string> = {
-  primary: 'bg-[#006a41] text-white hover:bg-[#005231] focus-visible:ring-[#006a41]',
-  secondary: 'bg-[#9ef5c0] text-[#005231] hover:bg-[#82d8a5] focus-visible:ring-[#006a41]',
-  outline: 'bg-white text-[#0f1f18] border border-[#bdcabf] hover:bg-[#e5f8ed] focus-visible:ring-[#006a41]',
-  ghost: 'bg-transparent text-[#3e4941] hover:bg-[#e5f8ed] focus-visible:ring-[#006a41]',
-  danger: 'bg-[#ba1a1a] text-white hover:bg-[#93000a] focus-visible:ring-[#ba1a1a]',
+  primary:
+    'bg-primary text-white shadow-[0_2px_8px_rgba(0,106,65,0.18)] hover:bg-[#005231] hover:shadow-[0_4px_12px_rgba(0,106,65,0.24)] focus-visible:ring-primary',
+  secondary: 'bg-secondary-container text-[#005231] hover:bg-[#82d8a5] focus-visible:ring-primary',
+  outline:
+    'bg-white text-on-surface border border-surface-container-highest shadow-[0_1px_3px_rgba(15,31,24,0.04)] hover:bg-surface-container-low focus-visible:ring-primary',
+  ghost: 'bg-transparent text-on-surface-variant hover:bg-surface-container-low focus-visible:ring-primary',
+  danger: 'bg-error text-white shadow-[0_2px_8px_rgba(186,26,26,0.18)] hover:bg-[#93000a] focus-visible:ring-error',
   warning: 'bg-[#fef3c7] text-[#9a5b00] border border-[#f59e0b]/40 hover:bg-[#fde68a] focus-visible:ring-[#9a5b00]',
 };
 

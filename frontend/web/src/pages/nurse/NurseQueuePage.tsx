@@ -35,15 +35,25 @@ export const NurseQueuePage: React.FC = () => {
   });
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-5">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
-          <h1 className="text-xl font-semibold text-[#0f1f18]">Hàng chờ đo sinh hiệu Điều dưỡng (NU01)</h1>
-          <p className="text-xs text-[#44544c]">Gọi bệnh nhân vào bàn đo sinh hiệu và mở biểu mẫu ghi nhận trước khi vào phòng bác sĩ.</p>
+          <h1 className="font-headline-md text-2xl font-extrabold tracking-tight text-on-surface">
+            Hàng chờ đo sinh hiệu Điều dưỡng (NU01)
+          </h1>
+          <p className="text-sm text-on-surface-variant">
+            Gọi bệnh nhân vào bàn đo sinh hiệu và mở biểu mẫu ghi nhận trước khi vào phòng bác sĩ.
+          </p>
         </div>
-        <Button variant="outline" size="sm" onClick={() => query.refetch()}>
-          Làm mới hàng chờ
-        </Button>
+        <div className="flex items-center gap-2.5">
+          <span className="inline-flex items-center gap-1.5 rounded-full bg-surface-container-low px-3.5 py-1.5 text-xs font-semibold text-primary">
+            <span className="h-2 w-2 rounded-full bg-primary" />
+            {(query.data ?? []).length} bệnh nhân trong hàng chờ
+          </span>
+          <Button variant="outline" size="sm" onClick={() => query.refetch()}>
+            Làm mới hàng chờ
+          </Button>
+        </div>
       </div>
 
       {query.isLoading ? (
@@ -59,7 +69,11 @@ export const NurseQueuePage: React.FC = () => {
             {
               key: 'ticket',
               header: 'Số vé',
-              render: (r) => <span className="font-mono text-sm font-bold text-[#006a41]">{r.ticketNumber}</span>,
+              render: (r) => (
+                <span className="inline-flex rounded-lg bg-surface-container-low px-2.5 py-1 font-data-tabular font-mono text-sm font-bold text-primary">
+                  {r.ticketNumber}
+                </span>
+              ),
             },
             {
               key: 'patient',

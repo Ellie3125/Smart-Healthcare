@@ -23,36 +23,38 @@ export const AdminPage: React.FC = () => {
   return (
     <div className="space-y-6">
       {/* Top Banner & Header */}
-      <div className="bg-white rounded-2xl border border-[#DDE7E1] p-6 shadow-sm flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+      <div className="bg-surface-container-lowest rounded-2xl p-6 shadow-[0_1px_10px_rgba(15,31,24,0.04)] flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
         <div>
-          <div className="flex items-center gap-2 mb-1">
-            <span className="material-symbols-outlined text-[#006a41] text-[24px]">admin_panel_settings</span>
-            <h1 className="font-headline-md text-headline-md font-bold text-[#1C2B24]">
+          <div className="flex items-center gap-2.5 mb-1">
+            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-surface-container-low text-primary">
+              <span className="material-symbols-outlined text-[22px]">admin_panel_settings</span>
+            </div>
+            <h1 className="font-headline-md text-2xl font-extrabold tracking-tight text-on-surface">
               Cổng Quản Trị Hệ Thống Y Tế
             </h1>
           </div>
-          <p className="font-body-md text-[#5E6F66] text-xs sm:text-sm">
+          <p className="font-body-md text-on-surface-variant text-sm">
             Quản trị nhân sự, bác sĩ chuyên khoa, cơ sở phòng ban, tài khoản thiết bị phòng và phân công ca trực.
           </p>
         </div>
-        <div className="px-3.5 py-1.5 rounded-lg bg-[#E8F5EE] border border-[#DDE7E1] text-xs text-[#006a41] font-semibold flex items-center gap-2">
-          <span className="w-2 h-2 rounded-full bg-[#10B981] animate-pulse"></span>
-          <span>Hệ thống Module Identity & Patients (Schema identity)</span>
+        <div className="px-4 py-2 rounded-full bg-surface-container-low text-xs text-primary font-semibold flex items-center gap-2 shrink-0">
+          <span className="w-2 h-2 rounded-full bg-primary animate-pulse"></span>
+          <span>Cấu hình Danh mục &amp; Nhân sự</span>
         </div>
       </div>
 
-      {/* Tab Navigation */}
-      <div className="border-b border-[#DDE7E1] flex gap-2 overflow-x-auto pb-px">
+      {/* Stitch Pill Segmented Tab Navigation */}
+      <div className="flex flex-wrap gap-1.5 rounded-2xl bg-surface-container-low p-1.5 overflow-x-auto">
         {tabs.map((t) => {
           const isActive = activeTab === t.id;
           return (
             <button
               key={t.id}
               onClick={() => setActiveTab(t.id)}
-              className={`flex items-center gap-2 px-4 py-2.5 rounded-t-xl text-xs sm:text-sm font-semibold transition-colors shrink-0 cursor-pointer ${
+              className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs sm:text-sm font-semibold transition-all shrink-0 cursor-pointer ${
                 isActive
-                  ? 'bg-white text-[#006a41] border-t-2 border-l border-r border-[#006a41] border-l-[#DDE7E1] border-r-[#DDE7E1] shadow-xs'
-                  : 'text-[#5E6F66] hover:text-[#1C2B24] hover:bg-[#E8F5EE]/50'
+                  ? 'bg-surface-container-lowest text-primary shadow-sm'
+                  : 'text-on-surface-variant hover:text-on-surface hover:bg-surface-container-lowest/50'
               }`}
             >
               <span className="material-symbols-outlined text-[18px]">{t.icon}</span>

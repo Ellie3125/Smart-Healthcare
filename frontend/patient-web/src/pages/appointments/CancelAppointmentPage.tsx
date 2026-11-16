@@ -75,15 +75,15 @@ export const CancelAppointmentPage: React.FC = () => {
       <Card title="Hủy lịch khám & Xem trước hoàn tiền">
         <div className="space-y-4">
           <div className="grid gap-3 sm:grid-cols-2">
-            <div className="rounded-xl bg-[#f8fbf9] p-4">
-              <p className="text-xs text-[#3e4941]">Phí đã thanh toán</p>
-              <p className="mt-1 text-lg font-semibold text-[#0f1f18]">
+            <div className="rounded-xl bg-surface-container-low/75 p-4">
+              <p className="text-xs text-on-surface-variant">Phí đã thanh toán</p>
+              <p className="mt-1 text-lg font-semibold text-on-surface">
                 <MoneyText amount={preview.originalAmount} />
               </p>
             </div>
-            <div className="rounded-xl bg-[#e5f8ed] p-4">
-              <p className="text-xs text-[#005231]">Số tiền hoàn dự kiến ({preview.refundRatePercent}%)</p>
-              <p className="mt-1 text-xl font-bold text-[#006a41]">
+            <div className="rounded-xl bg-secondary-container/60 p-4">
+              <p className="text-xs font-medium text-[#005231]">Số tiền hoàn dự kiến ({preview.refundRatePercent}%)</p>
+              <p className="mt-1 text-xl font-bold text-primary">
                 <MoneyText amount={preview.refundAmount} />
               </p>
             </div>

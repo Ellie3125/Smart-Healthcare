@@ -80,19 +80,37 @@ export const DoctorDayQuotasPage: React.FC = () => {
   const before0630 = isBeforeCutoffVN(serviceDate, 6, 30);
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-5">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
-          <h1 className="text-xl font-semibold text-[#0f1f18]">Suất khám theo ngày & Điều chỉnh phiên (AD06–AD07)</h1>
-          <p className="text-xs text-[#44544c]">
+          <h1 className="font-headline-md text-2xl font-extrabold tracking-tight text-on-surface">
+            Suất khám theo ngày &amp; Điều chỉnh phiên (AD06–AD07)
+          </h1>
+          <p className="text-sm text-on-surface-variant">
             Mỗi ngày bác sĩ nhận tối đa 30 lượt dùng chung giữa đặt online và đăng ký trực tiếp tại quầy.
           </p>
         </div>
-        <div className="w-48">
+        <div className="w-52">
           <FormField label="Ngày khám">
             {(props) => <DatePicker {...props} value={serviceDate} onChange={(e) => setServiceDate(e.target.value)} />}
           </FormField>
         </div>
+      </div>
+
+      {/* Stitch a0eb2b9e: Quota status legend bar */}
+      <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl bg-surface-container-low px-4 py-2.5 text-xs text-on-surface-variant">
+        <div className="flex flex-wrap items-center gap-4">
+          <span className="inline-flex items-center gap-1.5">
+            <span className="h-2.5 w-2.5 rounded-full bg-primary" /> Đang mở nhận lịch
+          </span>
+          <span className="inline-flex items-center gap-1.5">
+            <span className="h-2.5 w-2.5 rounded-full bg-[#f59e0b]" /> Đổi/Hủy phiên trước 06:30
+          </span>
+          <span className="inline-flex items-center gap-1.5">
+            <span className="h-2.5 w-2.5 rounded-full bg-outline" /> Khóa nhận mới
+          </span>
+        </div>
+        <span className="font-data-tabular font-semibold text-on-surface">Tổng phiên ngày: {rows.length} bác sĩ</span>
       </div>
 
       {!before0630 ? (
@@ -125,11 +143,20 @@ export const DoctorDayQuotasPage: React.FC = () => {
               key: 'quota',
               header: 'Quota (Online / Quầy / Còn)',
               align: 'right',
-              render: (r) => (
-                <span className="tabular-nums font-medium">
-                  {r.onlineBookedCount} / {r.walkInBookedCount} / <strong className="text-[#006a41]">{r.remainingSlots}</strong> ({r.totalSlots})
-                </span>
-              ),
+              render: (r) => {
+                const used = r.onlineBookedCount + r.walkInBookedCount;
+                const pct = r.totalSlots > 0 ? Math.min(100, Math.round((used / r.totalSlots) * 100)) : 0;
+                return (
+                  <div className="inline-flex flex-col items-end gap-1">
+                    <span className="font-data-tabular tabular-nums font-medium text-on-surface">
+                      {r.onlineBookedCount} / {r.walkInBookedCount} / <strong className="text-primary">{r.remainingSlots}</strong> ({r.totalSlots})
+                    </span>
+                    <div className="h-1.5 w-28 overflow-hidden rounded-full bg-surface-container-high">
+                      <div className="h-full rounded-full bg-primary" style={{ width: `${pct}%` }} />
+                    </div>
+                  </div>
+                );
+              },
             },
             { key: 'status', header: 'Trạng thái', render: (r) => <StatusPill status={r.status} /> },
             {

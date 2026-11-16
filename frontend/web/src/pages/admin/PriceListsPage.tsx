@@ -50,11 +50,13 @@ export const PriceListsPage: React.FC = () => {
   });
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-5">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
-          <h1 className="text-xl font-semibold text-[#0f1f18]">Quản lý Bảng giá (AD09)</h1>
-          <p className="text-xs text-[#44544c]">Áp dụng khung giá khám theo học hàm/học vị và ngày hiệu lực.</p>
+          <h1 className="font-headline-md text-2xl font-extrabold tracking-tight text-on-surface">
+            Quản lý Bảng giá (AD09)
+          </h1>
+          <p className="text-sm text-on-surface-variant">Áp dụng khung giá khám theo học hàm/học vị và ngày hiệu lực.</p>
         </div>
         <Button leftIcon={<Plus className="h-4 w-4" />} onClick={() => setOpen(true)}>
           Tạo bảng giá
@@ -80,9 +82,9 @@ export const PriceListsPage: React.FC = () => {
             >
               <div className="grid gap-3 sm:grid-cols-3">
                 {pl.consultationPrices.map((p) => (
-                  <div key={p.rankName} className="rounded-lg bg-[#f4f8f6] p-3">
-                    <p className="text-xs text-[#44544c]">{p.rankName}</p>
-                    <p className="mt-1 text-base font-semibold text-[#006a41]">
+                  <div key={p.rankName} className="rounded-xl bg-surface-container-low/75 p-3.5">
+                    <p className="text-xs text-on-surface-variant">{p.rankName}</p>
+                    <p className="font-data-tabular mt-1 text-base font-bold text-primary">
                       <MoneyText amount={p.price} />
                     </p>
                   </div>

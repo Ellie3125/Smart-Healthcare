@@ -36,10 +36,10 @@ export const App: React.FC = () => {
 
   if (isLoading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-[#F7FAF8]">
+      <div className="min-h-screen flex items-center justify-center bg-surface">
         <div className="flex flex-col items-center gap-3">
-          <div className="w-8 h-8 border-3 border-[#006a41] border-t-transparent rounded-full animate-spin"></div>
-          <span className="text-sm font-medium text-[#5E6F66]">Đang khởi tạo hệ thống...</span>
+          <div className="w-9 h-9 border-[3px] border-primary border-t-transparent rounded-full animate-spin" />
+          <span className="text-sm font-medium text-on-surface-variant">Đang khởi tạo hệ thống...</span>
         </div>
       </div>
     );

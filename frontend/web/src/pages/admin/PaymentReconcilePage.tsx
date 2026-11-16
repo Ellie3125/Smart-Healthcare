@@ -45,10 +45,12 @@ export const PaymentReconcilePage: React.FC = () => {
   });
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-5">
       <div>
-        <h1 className="text-xl font-semibold text-[#0f1f18]">Đối soát thanh toán VNPAY (AD13)</h1>
-        <p className="text-xs text-[#44544c]">
+        <h1 className="font-headline-md text-2xl font-extrabold tracking-tight text-on-surface">
+          Đối soát thanh toán VNPAY (AD13)
+        </h1>
+        <p className="text-sm text-on-surface-variant">
           Sử dụng truy vấn chính thức `querydr` để đồng bộ kết quả từ VNPAY. Không hỗ trợ sửa tay trạng thái thanh toán.
         </p>
       </div>

@@ -53,11 +53,13 @@ export const MedicalServicesPage: React.FC = () => {
   });
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-5">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
-          <h1 className="text-xl font-semibold text-[#0f1f18]">Danh mục dịch vụ Cận lâm sàng (AD08)</h1>
-          <p className="text-xs text-[#44544c]">Bác sĩ chỉ được chỉ định dịch vụ gắn phòng máy đang hoạt động.</p>
+          <h1 className="font-headline-md text-2xl font-extrabold tracking-tight text-on-surface">
+            Danh mục dịch vụ Cận lâm sàng (AD08)
+          </h1>
+          <p className="text-sm text-on-surface-variant">Bác sĩ chỉ được chỉ định dịch vụ gắn phòng máy đang hoạt động.</p>
         </div>
         <Button leftIcon={<Plus className="h-4 w-4" />} onClick={() => setOpen(true)}>
           Thêm dịch vụ CLS

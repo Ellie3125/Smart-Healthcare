@@ -26,10 +26,14 @@ export const ReceptionSearchPage: React.FC = () => {
   });
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-5">
       <div>
-        <h1 className="text-xl font-semibold text-[#0f1f18]">Tìm kiếm hợp nhất Bệnh nhân & Lịch khám (RC01)</h1>
-        <p className="text-xs text-[#44544c]">Tra cứu nhanh theo họ tên, số điện thoại hoặc mã lịch hẹn để điều phối check-in / thu ngân / hủy.</p>
+        <h1 className="font-headline-md text-2xl font-extrabold tracking-tight text-on-surface">
+          Tìm kiếm hợp nhất Bệnh nhân &amp; Lịch khám (RC01)
+        </h1>
+        <p className="text-sm text-on-surface-variant">
+          Tra cứu nhanh theo họ tên, số điện thoại hoặc mã lịch hẹn để điều phối check-in / thu ngân / hủy.
+        </p>
       </div>
 
       <Card>

@@ -14,17 +14,17 @@ export const SessionReplacedPage: React.FC = () => {
   }, []);
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-[#f4f8f6] p-4">
+    <div className="flex min-h-screen items-center justify-center bg-surface p-4">
       <div className="w-full max-w-md">
-        <Card>
+        <Card className="p-8">
           <div className="flex flex-col items-center gap-3 text-center">
-            <div className="rounded-full bg-[#ffdad6] p-4 text-[#ba1a1a]" aria-hidden="true">
+            <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-error-container text-error" aria-hidden="true">
               <AlertTriangle className="h-8 w-8" />
             </div>
-            <h1 className="text-xl font-semibold text-[#0f1f18]">
+            <h1 className="font-headline-sm text-xl font-extrabold tracking-tight text-on-surface">
               Phiên phòng máy đã bị thay thế
             </h1>
-            <p className="text-sm text-[#44544c]">
+            <p className="text-sm leading-relaxed text-on-surface-variant">
               Tài khoản phòng này vừa được đăng nhập tại một thiết bị khác (mỗi phòng chỉ duy trì một phiên hoạt động). Phiên hiện tại đã đăng xuất an toàn để bảo vệ dữ liệu bệnh nhân.
             </p>
             <Link to="/login" className="mt-2 w-full">

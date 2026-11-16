@@ -54,10 +54,14 @@ export const ReceptionCancelPage: React.FC = () => {
   const rows = (query.data ?? []).filter((r) => r.appointmentId && r.appointmentStatus !== 'Cancelled');
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-5">
       <div>
-        <h1 className="text-xl font-semibold text-[#0f1f18]">Hủy lịch tại quầy (RC07)</h1>
-        <p className="text-xs text-[#44544c]">Hủy lịch đã check-in bắt buộc ghi rõ lý do nghiệp vụ để phục vụ kiểm toán hoàn tiền.</p>
+        <h1 className="font-headline-md text-2xl font-extrabold tracking-tight text-on-surface">
+          Hủy lịch tại quầy (RC07)
+        </h1>
+        <p className="text-sm text-on-surface-variant">
+          Hủy lịch đã check-in bắt buộc ghi rõ lý do nghiệp vụ để phục vụ kiểm toán hoàn tiền.
+        </p>
       </div>
 
       {query.isLoading ? (

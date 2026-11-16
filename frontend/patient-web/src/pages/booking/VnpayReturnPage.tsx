@@ -76,7 +76,7 @@ export const VnpayReturnPage: React.FC = () => {
 
         {result && currentState !== 'Verifying' ? (
           <div className="space-y-4">
-            <div className="flex items-start gap-3 rounded-2xl border border-[#bdcabf] bg-[#f8fbf9] p-4">
+            <div className="flex items-start gap-3 rounded-2xl bg-surface-container-low/75 p-4">
               {currentState === 'Paid' || currentState === 'AlreadyProcessed' ? (
                 <CheckCircle2 className="mt-0.5 h-6 w-6 shrink-0 text-[#006a41]" aria-hidden="true" />
               ) : (

@@ -53,26 +53,29 @@ export const PrescriptionDetailPage: React.FC = () => {
       >
         <div className="space-y-3">
           {rx.items.map((item, idx) => (
-            <div key={item.id} className="rounded-xl border border-[#bdcabf] bg-[#f8fbf9] p-4">
+            <div key={item.id} className="rounded-2xl bg-surface-container-low/75 p-4 sm:p-5">
               <div className="flex flex-wrap items-center justify-between gap-2">
-                <h3 className="font-semibold text-[#0f1f18]">
-                  {idx + 1}. {item.drugName}
+                <h3 className="font-semibold text-on-surface flex items-center gap-2">
+                  <span className="inline-flex h-6 w-6 items-center justify-center rounded-lg bg-primary text-xs font-bold text-white">
+                    {idx + 1}
+                  </span>
+                  <span>{item.drugName}</span>
                 </h3>
-                <span className="rounded-full bg-[#e5f8ed] px-3 py-0.5 text-xs font-semibold tabular-nums text-[#005231]">
+                <span className="rounded-full bg-secondary-container/75 px-3 py-1 text-xs font-semibold tabular-nums text-[#005231]">
                   Số lượng: {item.quantity} {item.unit}
                 </span>
               </div>
-              <p className="mt-1 text-xs text-[#3e4941]">Hoạt chất: {item.activeIngredient}</p>
-              <p className="mt-2 text-sm text-[#0f1f18]">
+              <p className="mt-1.5 text-xs text-on-surface-variant">Hoạt chất: {item.activeIngredient}</p>
+              <p className="mt-2 text-sm text-on-surface">
                 Liều dùng: <strong>{item.dosage}</strong> • {item.frequency} • Trong {item.durationDays} ngày
               </p>
-              <p className="mt-1 text-sm text-[#3e4941]">Hướng dẫn: {item.usageInstruction}</p>
+              <p className="mt-1 text-sm text-on-surface-variant">Hướng dẫn: {item.usageInstruction}</p>
             </div>
           ))}
         </div>
 
         {rx.notes ? (
-          <p className="mt-4 rounded-xl bg-[#e5f8ed] p-3 text-sm text-[#005231]">
+          <p className="mt-4 rounded-xl bg-secondary-container/50 p-4 text-sm text-[#005231] font-medium">
             Lời dặn bác sĩ: {rx.notes}
           </p>
         ) : null}

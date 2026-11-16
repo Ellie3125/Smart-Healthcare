@@ -48,10 +48,14 @@ export const ReceptionCashierPage: React.FC = () => {
   });
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-5">
       <div>
-        <h1 className="text-xl font-semibold text-[#0f1f18]">Quầy thu tiền mặt & In biên lai (RC04)</h1>
-        <p className="text-xs text-[#44544c]">Số tiền cần thu được khóa theo bảng giá hệ thống, thu ngân không được chỉnh sửa số tiền.</p>
+        <h1 className="font-headline-md text-2xl font-extrabold tracking-tight text-on-surface">
+          Quầy thu tiền mặt &amp; In biên lai (RC04)
+        </h1>
+        <p className="text-sm text-on-surface-variant">
+          Số tiền cần thu được khóa theo bảng giá hệ thống, thu ngân không được chỉnh sửa số tiền.
+        </p>
       </div>
 
       <Banner tone="info">

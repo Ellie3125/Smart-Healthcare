@@ -38,11 +38,13 @@ export const ReportsPage: React.FC = () => {
   };
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-5">
       <div className="flex flex-wrap items-end justify-between gap-3">
         <div>
-          <h1 className="text-xl font-semibold text-[#0f1f18]">Báo cáo vận hành & Doanh thu (AD14)</h1>
-          <p className="text-xs text-[#44544c]">Tổng hợp từ bảng report_snapshots; hỗ trợ xuất CSV an toàn cho Excel.</p>
+          <h1 className="font-headline-md text-2xl font-extrabold tracking-tight text-on-surface">
+            Báo cáo vận hành &amp; Doanh thu (AD14)
+          </h1>
+          <p className="text-sm text-on-surface-variant">Tổng hợp từ bảng report_snapshots; hỗ trợ xuất CSV an toàn cho Excel.</p>
         </div>
         <div className="flex flex-wrap items-end gap-3">
           <FormField label="Từ ngày">
@@ -63,40 +65,40 @@ export const ReportsPage: React.FC = () => {
         <ErrorState message={extractFriendlyError(query.error).message} onRetry={() => query.refetch()} />
       ) : (
         <>
-          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
-            <Card>
-              <p className="text-xs text-[#44544c]">Tổng lịch khám</p>
-              <p className="mt-1 text-2xl font-bold tabular-nums text-[#0f1f18]">{data.totalAppointments}</p>
+          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
+            <Card className="bg-surface-container-lowest">
+              <p className="text-xs font-medium text-on-surface-variant">Tổng lịch khám</p>
+              <p className="font-data-tabular mt-1.5 text-2xl font-extrabold tabular-nums text-on-surface">{data.totalAppointments}</p>
             </Card>
-            <Card>
-              <p className="text-xs text-[#44544c]">Đã check-in</p>
-              <p className="mt-1 text-2xl font-bold tabular-nums text-[#006a41]">{data.checkedInCount}</p>
+            <Card className="border-l-4 border-l-primary">
+              <p className="text-xs font-medium text-on-surface-variant">Đã check-in</p>
+              <p className="font-data-tabular mt-1.5 text-2xl font-extrabold tabular-nums text-primary">{data.checkedInCount}</p>
             </Card>
-            <Card>
-              <p className="text-xs text-[#44544c]">Đã hủy</p>
-              <p className="mt-1 text-2xl font-bold tabular-nums text-[#ba1a1a]">{data.cancelledCount}</p>
+            <Card className="border-l-4 border-l-error">
+              <p className="text-xs font-medium text-on-surface-variant">Đã hủy</p>
+              <p className="font-data-tabular mt-1.5 text-2xl font-extrabold tabular-nums text-error">{data.cancelledCount}</p>
             </Card>
-            <Card>
-              <p className="text-xs text-[#44544c]">Tổng doanh thu</p>
-              <p className="mt-1 text-xl font-bold text-[#006a41]"><MoneyText amount={data.totalRevenue} /></p>
+            <Card className="bg-surface-container-low/80">
+              <p className="text-xs font-medium text-on-surface-variant">Tổng doanh thu</p>
+              <p className="font-data-tabular mt-1.5 text-xl font-extrabold text-primary"><MoneyText amount={data.totalRevenue} /></p>
             </Card>
-            <Card>
-              <p className="text-xs text-[#44544c]">Tổng đã hoàn</p>
-              <p className="mt-1 text-xl font-bold text-[#9a5b00]"><MoneyText amount={data.totalRefunded} /></p>
+            <Card className="border-l-4 border-l-[#f59e0b]">
+              <p className="text-xs font-medium text-on-surface-variant">Tổng đã hoàn</p>
+              <p className="font-data-tabular mt-1.5 text-xl font-extrabold text-[#9a5b00]"><MoneyText amount={data.totalRefunded} /></p>
             </Card>
           </div>
 
           <Card title="Biểu đồ doanh thu theo ngày">
             <div className="space-y-3">
               {data.dailySeries.map((d) => (
-                <div key={d.date} className="space-y-1">
+                <div key={d.date} className="space-y-1.5">
                   <div className="flex justify-between text-xs">
-                    <span className="font-medium tabular-nums">{d.date}</span>
-                    <MoneyText amount={d.revenue} />
+                    <span className="font-data-tabular font-semibold text-on-surface">{d.date}</span>
+                    <MoneyText amount={d.revenue} className="text-primary" />
                   </div>
-                  <div className="h-3 w-full overflow-hidden rounded-full bg-[#e9f2ed]">
+                  <div className="h-3 w-full overflow-hidden rounded-full bg-surface-container-low">
                     <div
-                      className="h-full rounded-full bg-[#006a41]"
+                      className="h-full rounded-full bg-gradient-to-r from-[#006a41] to-[#1a8f5c]"
                       style={{ width: `${Math.round((d.revenue / maxRevenue) * 100)}%` }}
                     />
                   </div>

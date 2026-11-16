@@ -1,32 +1,93 @@
-.claude/settings.local.json
+# ===== IDE, Editor & OS (Cấu hình môi trường cá nhân không liên quan đến code) =====
+.vs/
+.vscode/
+.idea/
+*.suo
+*.user
+*.userosscache
+*.sln.docstates
+*.userprefs
+*.DotSettings.user
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+$RECYCLE.BIN/
+.DS_Store
 
-# ===== Agent rules =====
+# ===== Agent & AI Tool Configurations =====
+.claude/
+.agents/
+.gemini/
 AGENTS.md
 **/AGENTS.md
 CLAUDE.md
 **/CLAUDE.md
 GEMINI.md
 **/GEMINI.md
-.claude/
-.agents/
+ui-ux-pro-max-skill-main/
+
+# ===== Ghi chú cá nhân, Task lists, Prompt & Mockup ngoài lề =====
 docs/ai/
-# Tài liệu nghiệp vụ và giải pháp kỹ thuật 
 docs/business/
 docs/architecture/
-# Hồ sơ công việc của agent 
 docs/tasks/
 docs/evidence/
-# ===== end agent rules =====
+Viec-can-lam-*.md
+Smart-Healthcare-Prompt-*.md
+huong-dan-*.md
+result.md
+legacy-ui/
+scratch/
+powershell.cmd
+Giải pháp kỹ thuật*.md
+Phạm vi nghiệp vụ*.md
+erd-*.md
 
-# ===== Secret cục bộ (CLA-GOV-011) =====
+# ===== Secrets & Biến môi trường cục bộ (CLA-GOV-011) =====
 .env
 .env.*
 !.env.example
 !.env.*.example
+*.local
+appsettings.*.local.json
+appsettings.local.json
+local.settings.json
+docker-compose.override.yml
 
-# ===== Node =====
+# ===== .NET Build & Test Artifacts =====
+bin/
+**/bin/
+obj/
+**/obj/
+TestResults/
+**/TestResults/
+
+# ===== Frontend Dependencies, Build Outputs & Caches =====
 node_modules/
-
-# ===== Frontend build =====
+**/node_modules/
 dist/
+**/dist/
+build/
+**/build/
+out/
+**/out/
 *.tsbuildinfo
+.vite/
+**/.vite/
+.eslintcache
+.turbo/
+npm-debug.log*
+yarn-debug.log*
+pnpm-debug.log*
+
+# ===== Playwright & Test Reports =====
+test-results/
+**/test-results/
+playwright-report/
+**/playwright-report/
+blob-report/
+**/blob-report/
+playwright/.cache/
+coverage/
+**/coverage/
+*.lcov

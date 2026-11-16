@@ -122,7 +122,7 @@ export const ChatbotWorkspace: React.FC<{ compact?: boolean }> = ({ compact = fa
         <Skeleton rows={4} />
       ) : (
         <div
-          className={`space-y-3 overflow-y-auto rounded-2xl border border-[#bdcabf] bg-[#f8fbf9] p-4 ${
+          className={`space-y-3 overflow-y-auto rounded-2xl bg-surface-container-low/50 p-4 ${
             compact ? 'max-h-80' : 'min-h-[380px] max-h-[540px]'
           }`}
           aria-live="polite"
@@ -133,12 +133,12 @@ export const ChatbotWorkspace: React.FC<{ compact?: boolean }> = ({ compact = fa
               className={`flex flex-col ${msg.role === 'user' ? 'items-end' : 'items-start'}`}
             >
               <div
-                className={`max-w-[85%] rounded-2xl px-4 py-3 text-sm ${
+                className={`max-w-[85%] rounded-2xl px-4 py-3 text-sm shadow-sm ${
                   msg.role === 'user'
-                    ? 'bg-[#006a41] text-white'
+                    ? 'rounded-tr-sm bg-primary text-white'
                     : msg.isRedFlagEmergency
-                      ? 'border-2 border-[#b6171e] bg-[#ffdad6] text-[#93000a]'
-                      : 'border border-[#bdcabf] bg-white text-[#0f1f18]'
+                      ? 'rounded-tl-sm border-2 border-error bg-error-container text-[#93000a]'
+                      : 'rounded-tl-sm bg-surface-container-lowest text-on-surface'
                 }`}
               >
                 {msg.isRedFlagEmergency ? (
@@ -163,7 +163,7 @@ export const ChatbotWorkspace: React.FC<{ compact?: boolean }> = ({ compact = fa
                 ) : null}
 
                 {msg.suggestedSpecialty && !msg.isRedFlagEmergency ? (
-                  <div className="mt-2 rounded-xl bg-[#e5f8ed] px-3 py-2 text-xs text-[#005231]">
+                  <div className="mt-2 rounded-xl bg-surface-container-low px-3 py-2 text-xs text-primary">
                     Chuyên khoa gợi ý: <strong>{msg.suggestedSpecialty}</strong>
                   </div>
                 ) : null}
@@ -173,7 +173,7 @@ export const ChatbotWorkspace: React.FC<{ compact?: boolean }> = ({ compact = fa
                 ) : null}
 
                 {msg.proposal && !msg.isRedFlagEmergency ? (
-                  <div className="mt-3 space-y-2 rounded-xl border border-[#8ef8bb] bg-[#ebfef2] p-3 text-xs text-[#0f1f18]">
+                  <div className="mt-3 space-y-2 rounded-xl bg-surface-container-low/80 p-3 text-xs text-on-surface shadow-sm">
                     <p className="font-semibold text-[#005231]">Đề xuất đặt lịch khám</p>
                     <p>
                       {msg.proposal.doctorName} ({msg.proposal.specialtyName})
@@ -232,7 +232,7 @@ export const ChatbotWorkspace: React.FC<{ compact?: boolean }> = ({ compact = fa
               key={sug}
               type="button"
               onClick={() => handleSend(sug)}
-              className="inline-flex items-center gap-1.5 rounded-full border border-[#8ef8bb] bg-[#e5f8ed] px-3 py-1.5 text-xs font-medium text-[#005231] hover:bg-[#d4f7e2]"
+              className="inline-flex items-center gap-1.5 rounded-full bg-surface-container-lowest px-3.5 py-1.5 text-xs font-medium text-on-surface shadow-sm ring-1 ring-outline-variant/25 transition-colors hover:bg-surface-container-low hover:text-primary"
             >
               <Sparkles className="h-3.5 w-3.5" aria-hidden="true" />
               {sug}
@@ -273,12 +273,14 @@ export const ChatbotWorkspace: React.FC<{ compact?: boolean }> = ({ compact = fa
 };
 
 export const ChatbotPage: React.FC = () => (
-  <div className="mx-auto max-w-4xl space-y-5">
-    <div className="flex items-center gap-2.5">
-      <Bot className="h-6 w-6 text-[#006a41]" aria-hidden="true" />
+  <div className="mx-auto max-w-4xl space-y-6">
+    <div className="flex items-center gap-3">
+      <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-surface-container-low text-primary" aria-hidden="true">
+        <Bot className="h-5 w-5" />
+      </div>
       <div>
-        <h1 className="text-2xl font-semibold text-[#0f1f18]">Trợ lý hỗ trợ khám bệnh</h1>
-        <p className="text-sm text-[#3e4941]">Hỏi gợi ý chuyên khoa, tra quy trình hoặc nhận đề xuất giữ chỗ nhanh.</p>
+        <h1 className="font-headline-md text-2xl font-extrabold tracking-tight text-on-surface">Trợ lý hỗ trợ khám bệnh</h1>
+        <p className="text-sm text-on-surface-variant">Hỏi gợi ý chuyên khoa, tra quy trình hoặc nhận đề xuất giữ chỗ nhanh.</p>
       </div>
     </div>
     <Card>

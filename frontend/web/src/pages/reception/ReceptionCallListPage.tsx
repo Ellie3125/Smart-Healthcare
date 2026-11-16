@@ -43,10 +43,14 @@ export const ReceptionCallListPage: React.FC = () => {
   });
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-5">
       <div>
-        <h1 className="text-xl font-semibold text-[#0f1f18]">Danh sách cần gọi điện (RC10)</h1>
-        <p className="text-xs text-[#44544c]">Liên hệ bệnh nhân khi phiên khám thay đổi/hủy trước 06:30 hoặc cần xác nhận lại lịch.</p>
+        <h1 className="font-headline-md text-2xl font-extrabold tracking-tight text-on-surface">
+          Danh sách cần gọi điện (RC10)
+        </h1>
+        <p className="text-sm text-on-surface-variant">
+          Liên hệ bệnh nhân khi phiên khám thay đổi/hủy trước 06:30 hoặc cần xác nhận lại lịch.
+        </p>
       </div>
 
       {query.isLoading ? (

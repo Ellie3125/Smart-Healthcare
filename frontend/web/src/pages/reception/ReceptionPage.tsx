@@ -265,23 +265,22 @@ export const ReceptionPage: React.FC = () => {
     <div className="space-y-6">
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
         <div>
-          <h1 className="font-headline-md text-headline-md font-bold text-[#1C2B24]">
-            Quầy Tiếp Đón &amp; Xác Minh Hồ Sơ Bệnh Nhân
+          <h1 className="font-headline-md text-2xl font-extrabold tracking-tight text-on-surface">
+            Bàn làm việc Tiếp đón &amp; Xác minh Hồ sơ
           </h1>
-          <p className="font-body-md text-[#5E6F66] mt-1 text-sm">
-            Đối chiếu thẻ CCCD vật lý tại quầy, xác minh người đại diện và điều
-            chỉnh nhân khẩu hồ sơ đã xác minh.
+          <p className="font-body-md text-on-surface-variant mt-1 text-sm">
+            Đối chiếu thẻ CCCD vật lý tại quầy, xác minh người đại diện và điều chỉnh nhân khẩu hồ sơ đã xác minh.
           </p>
         </div>
 
-        <div className="flex rounded-lg border border-[#DDE7E1] bg-white p-1 shrink-0">
+        <div className="inline-flex rounded-full bg-surface-container-low p-1 shrink-0">
           <button
             type="button"
             onClick={() => setActiveTab("verifications")}
-            className={`px-3.5 py-1.5 rounded-md text-xs font-semibold transition-colors ${
+            className={`px-4 py-1.5 rounded-full text-xs font-semibold transition-all ${
               activeTab === "verifications"
-                ? "bg-[#006a41] text-white"
-                : "text-[#5E6F66] hover:text-[#1C2B24]"
+                ? "bg-primary text-white shadow-sm"
+                : "text-on-surface-variant hover:text-on-surface"
             }`}
           >
             Hàng đợi xác minh CCCD
@@ -289,10 +288,10 @@ export const ReceptionPage: React.FC = () => {
           <button
             type="button"
             onClick={() => setActiveTab("checkin")}
-            className={`px-3.5 py-1.5 rounded-md text-xs font-semibold transition-colors ${
+            className={`px-4 py-1.5 rounded-full text-xs font-semibold transition-all ${
               activeTab === "checkin"
-                ? "bg-[#006a41] text-white"
-                : "text-[#5E6F66] hover:text-[#1C2B24]"
+                ? "bg-primary text-white shadow-sm"
+                : "text-on-surface-variant hover:text-on-surface"
             }`}
           >
             Tiếp đón khám bệnh
@@ -300,16 +299,29 @@ export const ReceptionPage: React.FC = () => {
         </div>
       </div>
 
+      {/* Stitch 86a0f8a4 HIS Operational Status Strip */}
+      <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl bg-surface-container-low px-4 py-2.5 text-xs text-on-surface-variant">
+        <div className="flex flex-wrap items-center gap-3">
+          <span className="inline-flex items-center gap-1.5 font-semibold text-primary">
+            <span className="h-2 w-2 rounded-full bg-primary" />
+            Mạng nội bộ bệnh viện (HIS Online)
+          </span>
+          <span className="hidden sm:inline text-outline-variant">|</span>
+          <span>Phím tắt: <strong>[F9]</strong> Lập phiếu &amp; thu phí • Đối chiếu CCCD gốc trước xác minh</span>
+        </div>
+        <span className="font-data-tabular font-medium text-on-surface">30 suất/ngày dùng chung trực tuyến &amp; quầy</span>
+      </div>
+
       {activeTab === "verifications" ? (
         <div className="space-y-4">
           {/* Filters */}
           <form
             onSubmit={handleSearch}
-            className="bg-white p-4 rounded-xl border border-[#DDE7E1] shadow-sm flex flex-wrap gap-3 items-center justify-between"
+            className="bg-surface-container-lowest p-4 rounded-2xl shadow-[0_1px_10px_rgba(15,31,24,0.04)] flex flex-wrap gap-3 items-center justify-between"
           >
             <div className="flex flex-wrap items-center gap-3 flex-1">
               <div className="relative min-w-[240px] flex-1 max-w-md">
-                <span className="material-symbols-outlined text-[18px] text-[#5E6F66] absolute left-3 top-2.5">
+                <span className="material-symbols-outlined text-[18px] text-on-surface-variant absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none w-5 h-5 flex items-center justify-center overflow-hidden shrink-0 select-none">
                   search
                 </span>
                 <input
@@ -317,7 +329,7 @@ export const ReceptionPage: React.FC = () => {
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
                   placeholder="Tìm theo họ tên, số CCCD hoặc SĐT..."
-                  className="w-full h-9 pl-9 pr-3 rounded-lg border border-[#DDE7E1] text-xs focus:ring-2 focus:ring-[#006a41]/20"
+                  className="w-full h-10 pl-10 pr-3 rounded-xl border border-transparent bg-surface-container-low/70 text-xs text-on-surface focus:bg-white focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/15"
                 />
               </div>
 
@@ -327,7 +339,7 @@ export const ReceptionPage: React.FC = () => {
                   setStatusFilter(e.target.value);
                   setPage(1);
                 }}
-                className="h-9 px-3 rounded-lg border border-[#DDE7E1] bg-white text-xs focus:ring-2 focus:ring-[#006a41]/20"
+                className="h-10 px-3 rounded-xl border border-transparent bg-surface-container-low/70 text-xs font-medium text-on-surface focus:bg-white focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/15"
               >
                 <option value="Pending">Chờ xác minh (Pending)</option>
                 <option value="Verified">Đã xác minh (Verified)</option>
@@ -338,14 +350,14 @@ export const ReceptionPage: React.FC = () => {
 
               <button
                 type="submit"
-                className="h-9 px-4 rounded-lg bg-[#006a41] text-white text-xs font-semibold hover:bg-[#028654]"
+                className="h-10 px-4 rounded-xl bg-primary text-white text-xs font-semibold hover:bg-[#005231] transition-colors shadow-sm"
               >
                 Tìm kiếm
               </button>
             </div>
 
-            <div className="text-xs text-[#5E6F66]">
-              Tổng số: <strong className="text-[#1C2B24]">{totalCount}</strong>{" "}
+            <div className="text-xs text-on-surface-variant">
+              Tổng số: <strong className="font-data-tabular text-on-surface">{totalCount}</strong>{" "}
               hồ sơ
             </div>
           </form>
@@ -375,34 +387,34 @@ export const ReceptionPage: React.FC = () => {
           )}
 
           {/* Table */}
-          <div className="bg-white rounded-xl border border-[#DDE7E1] overflow-hidden shadow-sm">
+          <div className="bg-surface-container-lowest rounded-2xl overflow-hidden shadow-[0_1px_10px_rgba(15,31,24,0.04)]">
             {isLoading ? (
-              <div className="py-12 text-center text-xs text-[#5E6F66]">
+              <div className="py-12 text-center text-xs text-on-surface-variant">
                 Đang tải danh sách xác minh...
               </div>
             ) : items.length === 0 ? (
-              <div className="py-12 text-center text-xs text-[#5E6F66]">
+              <div className="py-12 text-center text-xs text-on-surface-variant">
                 Không có hồ sơ nào phù hợp điều kiện lọc.
               </div>
             ) : (
               <div className="overflow-x-auto">
                 <table className="w-full text-left border-collapse text-xs">
                   <thead>
-                    <tr className="bg-[#F7FAF8] border-b border-[#DDE7E1] text-[#5E6F66] font-semibold uppercase tracking-wider">
-                      <th className="py-3 px-4">Bệnh Nhân</th>
-                      <th className="py-3 px-4">Ngày Sinh / GT</th>
-                      <th className="py-3 px-4">CCCD (Che)</th>
-                      <th className="py-3 px-4">SĐT &amp; Địa Chỉ</th>
-                      <th className="py-3 px-4">Quan Hệ</th>
-                      <th className="py-3 px-4">Trạng Thái</th>
-                      <th className="py-3 px-4 text-right">Thao Tác</th>
+                    <tr className="bg-surface-container-low/85 text-on-surface-variant font-semibold uppercase tracking-wider text-[11px]">
+                      <th className="py-3.5 px-4">Bệnh Nhân</th>
+                      <th className="py-3.5 px-4">Ngày Sinh / GT</th>
+                      <th className="py-3.5 px-4">CCCD (Che)</th>
+                      <th className="py-3.5 px-4">SĐT &amp; Địa Chỉ</th>
+                      <th className="py-3.5 px-4">Quan Hệ</th>
+                      <th className="py-3.5 px-4">Trạng Thái</th>
+                      <th className="py-3.5 px-4 text-right">Thao Tác</th>
                     </tr>
                   </thead>
-                  <tbody className="divide-y divide-[#DDE7E1]">
+                  <tbody className="divide-y divide-surface-container-high/50">
                     {items.map((item) => (
                       <tr
                         key={item.representativeId}
-                        className="hover:bg-[#F9FBFA]"
+                        className="hover:bg-surface-container-low/45 transition-colors"
                       >
                         <td className="py-3 px-4 font-semibold text-[#1C2B24]">
                           {item.patientFullName}
@@ -526,51 +538,54 @@ export const ReceptionPage: React.FC = () => {
       ) : (
         <div className="space-y-6">
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <div className="bg-white p-5 rounded-xl border border-[#DDE7E1] shadow-sm">
-              <span className="text-[12px] font-semibold text-[#5E6F66] uppercase">
+            <div className="bg-surface-container-lowest p-5 rounded-2xl shadow-[0_1px_10px_rgba(15,31,24,0.04)]">
+              <span className="text-[11px] font-semibold text-on-surface-variant uppercase tracking-wider">
                 Số vé trong ngày
               </span>
-              <div className="text-3xl font-bold text-[#006a41] mt-2">
+              <div className="font-data-tabular text-3xl font-extrabold text-primary mt-2">
                 24 / 30
               </div>
-              <span className="text-xs text-[#5E6F66] mt-1 block">
+              <div className="mt-2.5 h-2 w-full overflow-hidden rounded-full bg-surface-container-high">
+                <div className="h-full rounded-full bg-primary" style={{ width: "80%" }} />
+              </div>
+              <span className="text-xs text-on-surface-variant mt-1.5 block">
                 Hạn mức phiên sáng (POL-01)
               </span>
             </div>
-            <div className="bg-white p-5 rounded-xl border border-[#DDE7E1] shadow-sm">
-              <span className="text-[12px] font-semibold text-[#5E6F66] uppercase">
+            <div className="bg-surface-container-lowest p-5 rounded-2xl shadow-[0_1px_10px_rgba(15,31,24,0.04)]">
+              <span className="text-[11px] font-semibold text-on-surface-variant uppercase tracking-wider">
                 Đã check-in
               </span>
-              <div className="text-3xl font-bold text-[#1C2B24] mt-2">18</div>
-              <span className="text-xs text-[#5E6F66] mt-1 block">
+              <div className="font-data-tabular text-3xl font-extrabold text-on-surface mt-2">18</div>
+              <span className="text-xs text-on-surface-variant mt-2 block">
                 Sẵn sàng phân luồng đo sinh hiệu
               </span>
             </div>
-            <div className="bg-white p-5 rounded-xl border border-[#DDE7E1] shadow-sm">
-              <span className="text-[12px] font-semibold text-[#5E6F66] uppercase">
+            <div className="bg-surface-container-lowest p-5 rounded-2xl shadow-[0_1px_10px_rgba(15,31,24,0.04)]">
+              <span className="text-[11px] font-semibold text-on-surface-variant uppercase tracking-wider">
                 Thời gian khóa đăng ký
               </span>
-              <div className="text-3xl font-bold text-[#D32F2F] mt-2">
+              <div className="font-data-tabular text-3xl font-extrabold text-error mt-2">
                 09:30
               </div>
-              <span className="text-xs text-[#5E6F66] mt-1 block">
+              <span className="text-xs text-on-surface-variant mt-2 block">
                 BookingCutoff ngày D (POL-02)
               </span>
             </div>
           </div>
 
-          <div className="bg-white rounded-xl border border-[#DDE7E1] overflow-hidden shadow-sm">
-            <div className="p-4 border-b border-[#DDE7E1] flex items-center justify-between">
-              <h2 className="font-semibold text-[#1C2B24]">
+          <div className="bg-surface-container-lowest rounded-2xl overflow-hidden shadow-[0_1px_10px_rgba(15,31,24,0.04)]">
+            <div className="p-4 border-b border-surface-container-high/60 flex items-center justify-between">
+              <h2 className="font-semibold text-on-surface">
                 Danh sách bệnh nhân đăng ký hôm nay
               </h2>
-              <span className="text-xs text-[#5E6F66]">
-                Dữ liệu mẫu check-in (module Scheduling phụ trách tuần sau)
+              <span className="text-xs text-on-surface-variant">
+                Dữ liệu tham khảo check-in trong ca
               </span>
             </div>
             <div className="overflow-x-auto">
               <table className="w-full text-left text-sm">
-                <thead className="bg-[#F7FAF8] text-[#5E6F66] border-b border-[#DDE7E1]">
+                <thead className="bg-surface-container-low/85 text-on-surface-variant text-xs uppercase tracking-wider">
                   <tr>
                     <th className="py-3 px-4 font-semibold">Số vé</th>
                     <th className="py-3 px-4 font-semibold">Họ và tên</th>
@@ -578,20 +593,20 @@ export const ReceptionPage: React.FC = () => {
                     <th className="py-3 px-4 font-semibold">Trạng thái</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-[#DDE7E1]">
+                <tbody className="divide-y divide-surface-container-high/50">
                   {mockTickets.map((t) => (
-                    <tr key={t.ticketNumber} className="hover:bg-[#F7FAF8]/60">
-                      <td className="py-3 px-4 font-bold text-[#006a41]">
+                    <tr key={t.ticketNumber} className="hover:bg-surface-container-low/45 transition-colors">
+                      <td className="py-3 px-4 font-bold text-primary font-data-tabular">
                         {t.ticketNumber}
                       </td>
-                      <td className="py-3 px-4 font-medium text-[#1C2B24]">
+                      <td className="py-3 px-4 font-medium text-on-surface">
                         {t.patientName}
                       </td>
-                      <td className="py-3 px-4 text-[#5E6F66]">
+                      <td className="py-3 px-4 text-on-surface-variant font-data-tabular">
                         {t.serviceTime}
                       </td>
                       <td className="py-3 px-4">
-                        <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-semibold bg-[#E8F5EE] text-[#006a41]">
+                        <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold bg-surface-container-low text-primary">
                           {t.status}
                         </span>
                       </td>

@@ -66,7 +66,7 @@ export const EmptyState: React.FC<{
   action?: React.ReactNode;
   icon?: React.ReactNode;
 }> = ({ title, description, action, icon }) => (
-  <div className="flex flex-col items-center justify-center rounded-xl border border-dashed border-[#cddbd3] bg-[#f8fbf9] px-6 py-10 text-center">
+  <div className="flex flex-col items-center justify-center rounded-2xl border border-dashed border-outline-variant/80 bg-surface-container-low/40 px-6 py-10 text-center">
     <div className="mb-3 rounded-full bg-[#e9f2ed] p-3 text-[#006a41]" aria-hidden="true">
       {icon ?? <Inbox className="h-6 w-6" />}
     </div>

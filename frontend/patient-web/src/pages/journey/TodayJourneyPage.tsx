@@ -68,26 +68,36 @@ export const TodayJourneyPage: React.FC = () => {
   const j = journeyQuery.data;
 
   return (
-    <div className="space-y-5">
+    <div className="space-y-6">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
-          <h1 className="text-2xl font-semibold text-[#0f1f18]">Hành trình khám hôm nay</h1>
-          <p className="mt-1 text-sm text-[#3e4941]">
-            Người khám: <strong>{j.patientName}</strong> • Ngày <DateTimeText value={j.serviceDate} mode="date" />
+          <span className="inline-flex items-center gap-1.5 rounded-full bg-secondary-container/75 px-3 py-0.5 text-xs font-semibold text-[#005231] mb-2">
+            Theo dõi thời gian thực
+          </span>
+          <h1 className="text-2xl sm:text-3xl font-bold text-on-surface tracking-tight">Hành trình khám hôm nay</h1>
+          <p className="mt-1 text-sm text-on-surface-variant">
+            Người khám: <strong className="text-on-surface">{j.patientName}</strong> • Ngày{' '}
+            <DateTimeText value={j.serviceDate} mode="date" />
           </p>
         </div>
-        <span className="inline-flex items-center gap-1.5 rounded-full border border-[#bdcabf] bg-white px-3 py-1.5 text-xs font-medium text-[#3e4941]">
-          <Radio className={`h-3.5 w-3.5 ${rtStatus === 'connected' ? 'text-[#006a41]' : 'text-[#9a5b00]'}`} aria-hidden="true" />
+        <span className="inline-flex items-center gap-2 rounded-full bg-surface-container-lowest px-3.5 py-1.5 text-xs font-semibold text-on-surface shadow-sm">
+          <span
+            className={`w-2 h-2 rounded-full ${rtStatus === 'connected' ? 'bg-primary animate-pulse' : 'bg-[#9a5b00]'}`}
+            aria-hidden="true"
+          />
+          <Radio className={`h-3.5 w-3.5 ${rtStatus === 'connected' ? 'text-primary' : 'text-[#9a5b00]'}`} aria-hidden="true" />
           {rtStatus === 'connected' ? 'Đang kết nối trực tiếp' : 'Đang đồng bộ lại'}
         </span>
       </div>
 
-      <div aria-live="polite" className="rounded-2xl border border-[#8ef8bb] bg-[#e5f8ed] p-4 text-sm text-[#005231]">
-        <div className="flex items-start gap-2.5">
-          <Activity className="mt-0.5 h-5 w-5 shrink-0" aria-hidden="true" />
+      <div aria-live="polite" className="rounded-2xl bg-secondary-container/55 p-5 text-sm text-[#005231] shadow-sm">
+        <div className="flex items-start gap-3">
+          <div className="w-10 h-10 rounded-xl bg-primary text-white flex items-center justify-center shrink-0">
+            <Activity className="h-5 w-5" aria-hidden="true" />
+          </div>
           <div>
-            <p className="font-semibold">Thông báo lượt gọi hiện tại</p>
-            <p className="mt-0.5">{liveAnnouncement || j.currentCallText || 'Vui lòng theo dõi bảng gọi số tại khu vực chờ.'}</p>
+            <p className="font-bold text-base">Thông báo lượt gọi hiện tại</p>
+            <p className="mt-1">{liveAnnouncement || j.currentCallText || 'Vui lòng theo dõi bảng gọi số tại khu vực chờ.'}</p>
           </div>
         </div>
       </div>
@@ -108,26 +118,26 @@ export const TodayJourneyPage: React.FC = () => {
         </Banner>
       ) : null}
 
-      <Card title="Các chặng thực hiện trong ngày">
-        <ol className="space-y-4">
+      <Card title="Các chặng thực hiện trong ngày" subtitle="Tiến trình khám chữa bệnh tại phòng khám">
+        <ol className="relative space-y-4">
           {j.steps.map((step, index) => (
             <li
               key={step.id}
-              className="flex flex-wrap items-start justify-between gap-3 rounded-xl border border-[#e5f8ed] bg-[#f8fbf9] p-4"
+              className="flex flex-wrap items-start justify-between gap-3 rounded-2xl bg-surface-container-low/75 p-4 transition-colors hover:bg-surface-container-low"
             >
-              <div className="flex items-start gap-3">
-                <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-[#006a41] text-xs font-semibold text-white">
+              <div className="flex items-start gap-3.5">
+                <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-primary text-xs font-bold text-white shadow-sm">
                   {index + 1}
                 </span>
                 <div>
-                  <p className="font-semibold text-[#0f1f18]">{step.title}</p>
-                  <p className="text-sm text-[#3e4941]">{step.location}</p>
-                  {step.detail ? <p className="mt-1 text-xs text-[#3e4941]">{step.detail}</p> : null}
+                  <p className="font-semibold text-on-surface">{step.title}</p>
+                  <p className="text-sm text-on-surface-variant">{step.location}</p>
+                  {step.detail ? <p className="mt-1 text-xs text-on-surface-variant">{step.detail}</p> : null}
                 </div>
               </div>
               <div className="flex items-center gap-2">
                 {step.queueNumber ? (
-                  <span className="rounded-lg bg-white px-2.5 py-1 text-xs font-semibold tabular-nums text-[#006a41] border border-[#8ef8bb]">
+                  <span className="rounded-xl bg-surface-container-lowest px-3 py-1 text-xs font-bold tabular-nums text-primary shadow-sm">
                     Số {step.queueNumber}
                   </span>
                 ) : null}

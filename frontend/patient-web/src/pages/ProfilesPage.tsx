@@ -142,17 +142,27 @@ export const ProfilesPage: React.FC = () => {
   return (
     <div className="space-y-6">
       {/* Header Bar */}
-      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 bg-white p-6 rounded-2xl border border-[#DDE7E1] shadow-sm">
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 bg-surface-container-lowest p-6 rounded-2xl border border-surface-container-highest/70 shadow-[0_1px_10px_rgba(15,31,24,0.04)]">
         <div>
-          <h1 className="text-xl sm:text-2xl font-bold text-[#1C2B24]">Danh Sách Hồ Sơ Của Tôi</h1>
-          <p className="text-sm text-[#5E6F66] mt-1">
+          <span className="inline-flex items-center gap-1 rounded-full bg-secondary-container/75 px-2.5 py-0.5 text-[11px] font-semibold uppercase tracking-wide text-[#005231] mb-2">
+            Hồ sơ y bạ gia đình
+          </span>
+          <h1 className="text-2xl font-bold text-on-surface tracking-tight">Danh Sách Hồ Sơ Của Tôi</h1>
+          <p className="text-sm text-on-surface-variant mt-1">
             Quản lý hồ sơ sức khỏe bản thân và các thành viên được bạn đại diện
           </p>
         </div>
-        <div className="flex items-center gap-3 w-full sm:w-auto">
+        <div className="flex flex-wrap items-center gap-2.5 w-full sm:w-auto">
+          <Link
+            to="/booking"
+            className="flex-1 sm:flex-none h-10 px-4 rounded-xl border border-surface-container-highest bg-surface-container-low text-on-surface font-semibold text-sm hover:bg-surface-container transition-colors flex items-center justify-center gap-2"
+          >
+            <span className="material-symbols-outlined text-[19px] text-primary">calendar_add_on</span>
+            <span>Đặt lịch khám</span>
+          </Link>
           <Link
             to="/profiles/add-relative"
-            className="flex-1 sm:flex-none h-10 px-4 rounded-xl bg-[#006a41] text-white font-semibold text-sm hover:bg-[#028654] transition-colors flex items-center justify-center gap-2 shadow-sm"
+            className="flex-1 sm:flex-none h-10 px-4 rounded-xl bg-primary text-white font-semibold text-sm hover:bg-[#005231] transition-colors flex items-center justify-center gap-2 shadow-[0_2px_8px_rgba(0,106,65,0.2)]"
           >
             <span className="material-symbols-outlined text-[20px]">person_add</span>
             <span>Thêm Người Thân</span>
@@ -161,7 +171,7 @@ export const ProfilesPage: React.FC = () => {
       </div>
 
       {errorMsg && (
-        <div className="p-4 rounded-xl bg-[#FEE2E2] border border-[#FECACA] flex items-start gap-3 text-sm text-[#B91C1C]">
+        <div className="p-4 rounded-xl bg-error-container border border-[#ffb4ab]/75 flex items-start gap-3 text-sm text-[#93000a]">
           <span className="material-symbols-outlined text-[20px] shrink-0 mt-0.5">error</span>
           <div className="flex-1">{errorMsg}</div>
         </div>
@@ -169,30 +179,30 @@ export const ProfilesPage: React.FC = () => {
 
       {/* Profile Cards */}
       {isLoading ? (
-        <div className="py-16 text-center text-[#5E6F66]">
-          <div className="w-8 h-8 border-3 border-[#006a41] border-t-transparent rounded-full animate-spin mx-auto mb-3"></div>
+        <div className="py-16 text-center text-on-surface-variant">
+          <div className="w-8 h-8 border-[3px] border-primary border-t-transparent rounded-full animate-spin mx-auto mb-3" />
           <p className="text-sm">Đang tải danh sách hồ sơ y tế...</p>
         </div>
       ) : profiles.length === 0 ? (
-        <div className="p-10 text-center bg-white rounded-2xl border-2 border-dashed border-[#DDE7E1]">
-          <div className="w-16 h-16 rounded-2xl bg-[#E8F5EE] border border-[#DDE7E1] flex items-center justify-center text-[#006a41] mx-auto mb-4">
+        <div className="p-10 text-center bg-surface-container-lowest rounded-2xl border-2 border-dashed border-outline-variant/80 shadow-sm">
+          <div className="w-16 h-16 rounded-2xl bg-surface-container-low flex items-center justify-center text-primary mx-auto mb-4">
             <span className="material-symbols-outlined text-[36px]">contact_page</span>
           </div>
-          <h2 className="text-lg font-bold text-[#1C2B24] mb-1">Chưa có hồ sơ y tế nào</h2>
-          <p className="text-sm text-[#5E6F66] max-w-md mx-auto mb-6">
+          <h2 className="text-lg font-bold text-on-surface mb-1">Chưa có hồ sơ y tế nào</h2>
+          <p className="text-sm text-on-surface-variant max-w-md mx-auto mb-6">
             Tạo hồ sơ cho chính bạn hoặc thêm hồ sơ người thân (con, bố mẹ, vợ/chồng) để bắt đầu sử dụng dịch vụ.
           </p>
           <div className="flex justify-center gap-3">
             <Link
               to="/profiles/new"
-              className="h-10 px-4 rounded-xl bg-[#006a41] text-white font-semibold text-sm hover:bg-[#028654] transition-colors flex items-center gap-2"
+              className="h-10 px-4 rounded-xl bg-primary text-white font-semibold text-sm hover:bg-[#005231] transition-colors flex items-center gap-2 shadow-sm"
             >
               <span className="material-symbols-outlined text-[18px]">add</span>
               <span>Tạo Hồ Sơ Bản Thân</span>
             </Link>
             <Link
               to="/profiles/add-relative"
-              className="h-10 px-4 rounded-xl border border-[#DDE7E1] bg-white text-[#1C2B24] font-semibold text-sm hover:bg-[#F1F4F2] transition-colors flex items-center gap-2"
+              className="h-10 px-4 rounded-xl border border-surface-container-highest bg-white text-on-surface font-semibold text-sm hover:bg-surface-container-low transition-colors flex items-center gap-2"
             >
               <span className="material-symbols-outlined text-[18px]">group_add</span>
               <span>Thêm Người Thân</span>
@@ -206,18 +216,18 @@ export const ProfilesPage: React.FC = () => {
             return (
               <div
                 key={p.patientId}
-                className="bg-white rounded-2xl border border-[#DDE7E1] shadow-sm p-5 sm:p-6 flex flex-col justify-between hover:border-[#006a41]/40 transition-colors"
+                className="bg-surface-container-lowest rounded-2xl border border-surface-container-highest/70 shadow-[0_1px_10px_rgba(15,31,24,0.04)] p-5 sm:p-6 flex flex-col justify-between hover:border-primary/40 hover:shadow-md transition-all"
               >
                 <div>
                   {/* Top: Name & Status */}
                   <div className="flex items-start justify-between gap-3 mb-3">
                     <div className="flex items-center gap-3">
-                      <div className="w-12 h-12 rounded-xl bg-[#E8F5EE] border border-[#DDE7E1] flex items-center justify-center text-[#006a41] shrink-0 font-bold text-lg">
+                      <div className="w-12 h-12 rounded-xl bg-secondary-container/70 flex items-center justify-center text-[#005231] shrink-0 font-bold text-lg">
                         {p.fullName.charAt(0).toUpperCase()}
                       </div>
                       <div>
-                        <h2 className="text-lg font-bold text-[#1C2B24] leading-snug">{p.fullName}</h2>
-                        <span className="text-xs font-semibold text-[#006a41] bg-[#E8F5EE] px-2 py-0.5 rounded-md border border-[#DDE7E1]">
+                        <h2 className="text-lg font-bold text-on-surface leading-snug">{p.fullName}</h2>
+                        <span className="inline-block mt-0.5 text-xs font-semibold text-primary bg-surface-container-low px-2.5 py-0.5 rounded-full">
                           {getRelationshipName(p.relationship)}
                         </span>
                       </div>
@@ -226,30 +236,30 @@ export const ProfilesPage: React.FC = () => {
                   </div>
 
                   {/* Information Details */}
-                  <div className="space-y-2 text-xs sm:text-sm text-[#5E6F66] bg-[#F7FAF8] p-3.5 rounded-xl border border-[#DDE7E1] mt-3">
+                  <div className="space-y-2 text-xs sm:text-sm text-on-surface-variant bg-surface-container-low/65 p-4 rounded-xl mt-3">
                     <div className="flex justify-between">
-                      <span className="text-[#5E6F66]">Ngày sinh:</span>
-                      <span className="font-semibold text-[#1C2B24]">{p.dateOfBirth}</span>
+                      <span>Ngày sinh:</span>
+                      <span className="font-semibold text-on-surface tabular-nums">{p.dateOfBirth}</span>
                     </div>
                     <div className="flex justify-between">
-                      <span className="text-[#5E6F66]">Giới tính:</span>
-                      <span className="font-semibold text-[#1C2B24]">
+                      <span>Giới tính:</span>
+                      <span className="font-semibold text-on-surface">
                         {p.gender === 'Male' ? 'Nam' : p.gender === 'Female' ? 'Nữ' : 'Khác'}
                       </span>
                     </div>
                     <div className="flex justify-between">
-                      <span className="text-[#5E6F66]">Số CCCD / Mã ĐD:</span>
-                      <span className="font-semibold text-[#1C2B24]">
-                        {p.nationalId ? p.nationalId : <em className="text-gray-400 font-normal">Chưa khai báo</em>}
+                      <span>Số CCCD / Mã ĐD:</span>
+                      <span className="font-semibold text-on-surface tabular-nums">
+                        {p.nationalId ? p.nationalId : <em className="text-outline font-normal">Chưa khai báo</em>}
                       </span>
                     </div>
                     <div className="flex justify-between">
-                      <span className="text-[#5E6F66]">Số điện thoại:</span>
-                      <span className="font-semibold text-[#1C2B24]">{p.phoneNumber}</span>
+                      <span>Số điện thoại:</span>
+                      <span className="font-semibold text-on-surface tabular-nums">{p.phoneNumber}</span>
                     </div>
-                    <div className="flex justify-between">
-                      <span className="text-[#5E6F66]">Địa chỉ:</span>
-                      <span className="font-semibold text-[#1C2B24] truncate max-w-[200px]" title={p.address}>
+                    <div className="flex justify-between gap-3">
+                      <span>Địa chỉ:</span>
+                      <span className="font-semibold text-on-surface truncate max-w-[220px]" title={p.address}>
                         {p.address}
                       </span>
                     </div>
@@ -260,12 +270,12 @@ export const ProfilesPage: React.FC = () => {
                 </div>
 
                 {/* Bottom Actions */}
-                <div className="mt-5 pt-4 border-t border-[#DDE7E1] flex items-center justify-between gap-2">
+                <div className="mt-5 pt-4 border-t border-surface-container-low flex items-center justify-between gap-2">
                   <div className="flex items-center gap-2">
                     {isAccessible && (
                       <Link
                         to={`/profiles/${p.patientId}/edit`}
-                        className="h-8 px-3 rounded-lg border border-[#DDE7E1] text-[#1C2B24] hover:bg-[#F1F4F2] text-xs font-semibold flex items-center gap-1 transition-colors"
+                        className="h-9 px-3.5 rounded-xl bg-surface-container-low text-on-surface hover:bg-surface-container text-xs font-semibold flex items-center gap-1.5 transition-colors"
                       >
                         <span className="material-symbols-outlined text-[16px]">edit</span>
                         <span>Sửa</span>
@@ -274,7 +284,7 @@ export const ProfilesPage: React.FC = () => {
                     {p.verificationStatus === 'Rejected' && (
                       <button
                         onClick={() => handleResubmit(p.patientId, p.fullName)}
-                        className="h-8 px-3 rounded-lg bg-[#006a41] text-white hover:bg-[#028654] text-xs font-semibold flex items-center gap-1 transition-colors"
+                        className="h-9 px-3.5 rounded-xl bg-primary text-white hover:bg-[#005231] text-xs font-semibold flex items-center gap-1.5 transition-colors shadow-sm"
                       >
                         <span className="material-symbols-outlined text-[16px]">refresh</span>
                         <span>Gửi lại xác minh</span>
@@ -282,7 +292,7 @@ export const ProfilesPage: React.FC = () => {
                     )}
                     <Link
                       to={`/profiles/${p.patientId}/verification`}
-                      className="h-8 px-3 rounded-lg border border-[#DDE7E1] text-[#006a41] hover:bg-[#E8F5EE] text-xs font-semibold flex items-center gap-1 transition-colors"
+                      className="h-9 px-3.5 rounded-xl bg-secondary-container/60 text-[#005231] hover:bg-secondary-container text-xs font-semibold flex items-center gap-1.5 transition-colors"
                     >
                       <span className="material-symbols-outlined text-[16px]">verified_user</span>
                       <span>Xác minh</span>
@@ -292,7 +302,7 @@ export const ProfilesPage: React.FC = () => {
                   {p.relationship !== 'Self' && (
                     <button
                       onClick={() => handleUnlink(p.patientId, p.fullName)}
-                      className="h-8 px-2.5 rounded-lg text-[#D32F2F] hover:bg-[#FDE8E8] text-xs font-medium flex items-center gap-1 transition-colors"
+                      className="h-9 px-3 rounded-xl text-tertiary hover:bg-error-container text-xs font-medium flex items-center gap-1 transition-colors"
                       title="Hủy quản lý hồ sơ này"
                     >
                       <span className="material-symbols-outlined text-[16px]">person_remove</span>

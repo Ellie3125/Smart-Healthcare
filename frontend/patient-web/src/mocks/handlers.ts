@@ -19,6 +19,21 @@ export function resetPatientMockStore() {
 }
 
 export const patientHandlers = [
+  // Auth Profile
+  http.get('/me', () => {
+    if (typeof window !== 'undefined') {
+      const raw = localStorage.getItem('patient_user');
+      if (raw) {
+        try {
+          return HttpResponse.json(JSON.parse(raw));
+        } catch {
+          // fallback
+        }
+      }
+    }
+    return HttpResponse.json({ userId: 'u-patient-1', userName: 'nguyenvana', role: 'Patient' });
+  }),
+
   http.get('/api/identity/patient/profiles', () => HttpResponse.json(MOCK_PROFILES)),
 
   // Dạng thật của `GET /api/patient/profiles` (PatientProfileDto).

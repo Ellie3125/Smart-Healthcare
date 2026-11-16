@@ -9,6 +9,21 @@ export function resetStaffMockStore() {
 }
 
 export const staffHandlers = [
+  // Auth Profile
+  http.get('/me', () => {
+    if (typeof window !== 'undefined') {
+      const raw = localStorage.getItem('user');
+      if (raw) {
+        try {
+          return HttpResponse.json(JSON.parse(raw));
+        } catch {
+          // fallback
+        }
+      }
+    }
+    return HttpResponse.json({ userId: 'u-admin-1', userName: 'admin', role: 'Admin' });
+  }),
+
   // S03 Notifications
   http.get('/api/notifications/staff/notifications', () =>
     HttpResponse.json({
