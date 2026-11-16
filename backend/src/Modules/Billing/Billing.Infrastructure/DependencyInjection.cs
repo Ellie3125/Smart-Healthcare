@@ -5,6 +5,8 @@ using Billing.Infrastructure.Persistence;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
+using Scheduling.Contracts;
+using Shared.Abstractions;
 
 namespace Billing.Infrastructure;
 
@@ -21,6 +23,13 @@ public static class DependencyInjection
         services.AddScoped<IPaymentStore, EfPaymentStore>();
         services.AddScoped<PaymentService>();
         services.AddScoped<PaymentCheckoutService>();
+        services.AddScoped<ClsDayEndService>();
+        services.AddScoped<ICashierStore, EfCashierStore>();
+        services.AddScoped<CashierService>();
+        services.AddScoped<ExamChargeLinker>();
+        services.AddScoped<IEncounterChargeLinker>(sp => sp.GetRequiredService<ExamChargeLinker>());
+        // Worker phát AppointmentConfirmed qua Outbox tới handler này (AddOutboxEvent<AppointmentConfirmed>).
+        services.AddScoped<IIntegrationEventHandler<AppointmentConfirmed>, AppointmentConfirmedHandler>();
         services.AddScoped<IBillingModule, BillingModule>();
 
         // Cổng thanh toán VNPAY. Thiếu cấu hình thì Api vẫn chạy; chỉ tạo liên kết và IPN trả GatewayUnavailable.

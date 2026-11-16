@@ -11,6 +11,10 @@ public sealed class BillingItem
     public Guid? AppointmentId { get; set; }
     // ID chéo module: clinical.ServiceOrderItem, không FK
     public Guid? ServiceOrderItemId { get; set; }
+    // ID chéo module: clinical.ServiceOrder (đợt chỉ định), không FK. Chỉ khoản CLS; bệnh nhân trả phí CLS theo từng đợt.
+    public Guid? ServiceOrderId { get; set; }
+    // ID chéo module: identity.Patient, không FK. Chỉ khoản CLS: Billing không gọi Clinical để biết lượt khám của ai.
+    public Guid? PatientId { get; set; }
     public Guid PriceListItemId { get; set; }
     public ItemType ItemType { get; set; }
     public string ItemNameSnapshot { get; set; } = null!;
@@ -38,7 +42,9 @@ public sealed class BillingItem
         DateTime createdAtUtc,
         Guid? encounterId = null,
         Guid? appointmentId = null,
-        Guid? serviceOrderItemId = null)
+        Guid? serviceOrderItemId = null,
+        Guid? serviceOrderId = null,
+        Guid? patientId = null)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(itemNameSnapshot);
         if (itemNameSnapshot.Length > ItemNameMaxLength)
@@ -63,6 +69,8 @@ public sealed class BillingItem
             EncounterId = encounterId,
             AppointmentId = appointmentId,
             ServiceOrderItemId = serviceOrderItemId,
+            ServiceOrderId = serviceOrderId,
+            PatientId = patientId,
         };
     }
 

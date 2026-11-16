@@ -5,6 +5,7 @@ using Hangfire.SqlServer;
 using Microsoft.Data.SqlClient;
 using Notifications.Infrastructure;
 using Notifications.Infrastructure.Persistence;
+using Scheduling.Contracts;
 using Scheduling.Infrastructure;
 using Scheduling.Infrastructure.Persistence;
 using Shared.Infrastructure;
@@ -40,6 +41,9 @@ public static class WorkerServices
             // PaymentVerifiedHandler báo giá lại phí khám qua IBillingModule (W2-06).
             .AddBillingInfrastructure(connectionString)
             .AddOutboxDispatcher(configuration.GetSection(OutboxOptions.Section).Get<OutboxOptions>() ?? new OutboxOptions())
-            .AddOutboxEvent<PaymentVerified>();
+            .AddOutboxEvent<PaymentVerified>()
+            // Billing gắn phí khám đã thu với lịch hẹn (ExamChargeLinker). Module khác nhận sự kiện này thì chỉ đăng ký handler,
+            // không gọi AddOutboxEvent lần nữa.
+            .AddOutboxEvent<AppointmentConfirmed>();
     }
 }

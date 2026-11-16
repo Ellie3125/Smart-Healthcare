@@ -14,6 +14,8 @@ public class BillingModuleTests
     private static readonly Guid Ultrasound = Guid.NewGuid();
     private static readonly Guid XRay = Guid.NewGuid();
     private static readonly Guid Encounter = Guid.NewGuid();
+    private static readonly Guid Patient = Guid.NewGuid();
+    private static readonly Guid Order = Guid.NewGuid();
 
     private readonly FakeCatalog _catalog = new();
     private readonly FakeChargeStore _store = new();
@@ -47,7 +49,7 @@ public class BillingModuleTests
         var soi1 = Guid.NewGuid();
         var soi2 = Guid.NewGuid();
 
-        var result = await _module.CreateClsChargesAsync(new CreateClsCharges(Encounter, Mid,
+        var result = await _module.CreateClsChargesAsync(new CreateClsCharges(Encounter, Patient, Order, Mid,
         [
             new ClsChargeLine(soi1, Ultrasound, "Siêu âm ổ bụng", 1),
             new ClsChargeLine(soi2, XRay, "X-quang ngực", 2),
@@ -56,12 +58,44 @@ public class BillingModuleTests
         Assert.Equal([200_000m, 240_000m], result.Select(r => r.TotalAmount));
         Assert.All(result, r => Assert.Equal(Encounter, r.EncounterId));
         Assert.Equal([soi1, soi2], result.Select(r => r.ServiceOrderItemId!.Value));
+        Assert.All(_store.Items, i => Assert.Equal((Patient, Order), (i.PatientId!.Value, i.ServiceOrderId!.Value)));
+    }
+
+    [Fact]
+    public async Task Cls_charges_need_patient_and_service_order()
+    {
+        var line = new ClsChargeLine(Guid.NewGuid(), Ultrasound, "Siêu âm", 1);
+
+        var noPatient = await Assert.ThrowsAsync<BillingException>(() =>
+            _module.CreateClsChargesAsync(new CreateClsCharges(Encounter, Guid.Empty, Order, Mid, [line]), Ct));
+        var noOrder = await Assert.ThrowsAsync<BillingException>(() =>
+            _module.CreateClsChargesAsync(new CreateClsCharges(Encounter, Patient, Guid.Empty, Mid, [line]), Ct));
+
+        Assert.Equal(BillingErrorCode.InvalidRequest, noPatient.Code);
+        Assert.Equal(BillingErrorCode.InvalidRequest, noOrder.Code);
+        Assert.Empty(_store.Items);
+    }
+
+    [Fact]
+    public async Task Charge_of_another_service_order_or_patient_is_not_reused()
+    {
+        var soi = Guid.NewGuid();
+        await _module.CreateClsChargesAsync(new CreateClsCharges(Encounter, Patient, Order, Mid, [new ClsChargeLine(soi, Ultrasound, "Siêu âm", 1)]), Ct);
+
+        var otherOrder = await Assert.ThrowsAsync<BillingException>(() =>
+            _module.CreateClsChargesAsync(new CreateClsCharges(Encounter, Patient, Guid.NewGuid(), Mid, [new ClsChargeLine(soi, Ultrasound, "Siêu âm", 1)]), Ct));
+        var otherPatient = await Assert.ThrowsAsync<BillingException>(() =>
+            _module.CreateClsChargesAsync(new CreateClsCharges(Encounter, Guid.NewGuid(), Order, Mid, [new ClsChargeLine(soi, Ultrasound, "Siêu âm", 1)]), Ct));
+
+        Assert.Equal(BillingErrorCode.InvalidRequest, otherOrder.Code);
+        Assert.Equal(BillingErrorCode.InvalidRequest, otherPatient.Code);
+        Assert.Single(_store.Items);
     }
 
     [Fact]
     public async Task Repeating_cls_request_returns_existing_charges_without_duplicates()
     {
-        var command = new CreateClsCharges(Encounter, Mid, [new ClsChargeLine(Guid.NewGuid(), Ultrasound, "Siêu âm ổ bụng", 1)]);
+        var command = new CreateClsCharges(Encounter, Patient, Order, Mid, [new ClsChargeLine(Guid.NewGuid(), Ultrasound, "Siêu âm ổ bụng", 1)]);
 
         var first = await _module.CreateClsChargesAsync(command, Ct);
         var second = await _module.CreateClsChargesAsync(command, Ct);
@@ -75,7 +109,7 @@ public class BillingModuleTests
     public async Task Price_change_after_charge_does_not_change_the_charge()
     {
         var soi = Guid.NewGuid();
-        await _module.CreateClsChargesAsync(new CreateClsCharges(Encounter, Mid, [new ClsChargeLine(soi, Ultrasound, "Siêu âm ổ bụng", 1)]), Ct);
+        await _module.CreateClsChargesAsync(new CreateClsCharges(Encounter, Patient, Order, Mid, [new ClsChargeLine(soi, Ultrasound, "Siêu âm ổ bụng", 1)]), Ct);
 
         _catalog.Items.Clear();
         _catalog.Items.Add(ClsFee(List("BG-TANG-GIA", Jan1), Ultrasound, 250_000m));
@@ -87,7 +121,7 @@ public class BillingModuleTests
     [Fact]
     public async Task Missing_cls_price_fails_whole_request()
     {
-        var command = new CreateClsCharges(Encounter, Mid,
+        var command = new CreateClsCharges(Encounter, Patient, Order, Mid,
         [
             new ClsChargeLine(Guid.NewGuid(), Ultrasound, "Siêu âm ổ bụng", 1),
             new ClsChargeLine(Guid.NewGuid(), Guid.NewGuid(), "Dịch vụ chưa có giá", 1),
@@ -103,7 +137,7 @@ public class BillingModuleTests
     [InlineData(-1)]
     public async Task Non_positive_quantity_is_rejected(int quantity)
     {
-        var command = new CreateClsCharges(Encounter, Mid, [new ClsChargeLine(Guid.NewGuid(), Ultrasound, "Siêu âm", quantity)]);
+        var command = new CreateClsCharges(Encounter, Patient, Order, Mid, [new ClsChargeLine(Guid.NewGuid(), Ultrasound, "Siêu âm", quantity)]);
         var error = await Assert.ThrowsAsync<BillingException>(() => _module.CreateClsChargesAsync(command, Ct));
         Assert.Equal(BillingErrorCode.InvalidRequest, error.Code);
     }
@@ -112,10 +146,10 @@ public class BillingModuleTests
     public async Task Charge_of_another_encounter_is_not_reused()
     {
         var soi = Guid.NewGuid();
-        await _module.CreateClsChargesAsync(new CreateClsCharges(Encounter, Mid, [new ClsChargeLine(soi, Ultrasound, "Siêu âm", 1)]), Ct);
+        await _module.CreateClsChargesAsync(new CreateClsCharges(Encounter, Patient, Order, Mid, [new ClsChargeLine(soi, Ultrasound, "Siêu âm", 1)]), Ct);
 
         var error = await Assert.ThrowsAsync<BillingException>(() =>
-            _module.CreateClsChargesAsync(new CreateClsCharges(Guid.NewGuid(), Mid, [new ClsChargeLine(soi, Ultrasound, "Siêu âm", 1)]), Ct));
+            _module.CreateClsChargesAsync(new CreateClsCharges(Guid.NewGuid(), Patient, Order, Mid, [new ClsChargeLine(soi, Ultrasound, "Siêu âm", 1)]), Ct));
         Assert.Equal(BillingErrorCode.InvalidRequest, error.Code);
     }
 
@@ -131,7 +165,7 @@ public class BillingModuleTests
         }
 
         var error = await Assert.ThrowsAsync<BillingException>(() =>
-            _module.CreateClsChargesAsync(new CreateClsCharges(Encounter, Mid, [new ClsChargeLine(soi, Ultrasound, "Siêu âm", 1)]), Ct));
+            _module.CreateClsChargesAsync(new CreateClsCharges(Encounter, Patient, Order, Mid, [new ClsChargeLine(soi, Ultrasound, "Siêu âm", 1)]), Ct));
 
         Assert.Equal(BillingErrorCode.DuplicateCharge, error.Code);
         Assert.Contains(soi.ToString(), error.Message);
@@ -147,7 +181,7 @@ public class BillingModuleTests
         cancelled.Status = BillingItemStatus.Cancelled;
         _store.Items.Add(cancelled);
 
-        var result = await _module.CreateClsChargesAsync(new CreateClsCharges(Encounter, Mid, [new ClsChargeLine(soi, Ultrasound, "Siêu âm", 1)]), Ct);
+        var result = await _module.CreateClsChargesAsync(new CreateClsCharges(Encounter, Patient, Order, Mid, [new ClsChargeLine(soi, Ultrasound, "Siêu âm", 1)]), Ct);
 
         Assert.NotEqual(cancelled.Id, result[0].ChargeId);
         Assert.Equal(ChargeStatus.Pending, result[0].Status);
@@ -177,6 +211,25 @@ public class BillingModuleTests
 
         public Task<IReadOnlyList<BillingItem>> GetByEncounterAsync(Guid encounterId, CancellationToken ct) =>
             Task.FromResult<IReadOnlyList<BillingItem>>(Items.Where(i => i.EncounterId == encounterId).ToList());
+
+        public Task<IReadOnlyList<BillingItem>> GetClsByServiceOrderAsync(Guid serviceOrderId, CancellationToken ct) =>
+            Task.FromResult<IReadOnlyList<BillingItem>>(Items.Where(i => i.ServiceOrderId == serviceOrderId && i.ItemType == ItemType.CLSService).ToList());
+
+        public Task<IReadOnlyList<BillingItem>> GetClsByPatientAsync(Guid patientId, DateTime fromUtc, CancellationToken ct) =>
+            Task.FromResult<IReadOnlyList<BillingItem>>(Items
+                .Where(i => i.PatientId == patientId && i.ItemType == ItemType.CLSService && i.CreatedAtUtc >= fromUtc).ToList());
+
+        public Task<IReadOnlyList<Guid>> FindUnpaidClsBeforeAsync(DateTime beforeUtc, int take, CancellationToken ct) =>
+            throw new InvalidOperationException("BillingModule không dùng hàm này.");
+
+        public Task<IReadOnlyList<Guid>> FindExamChargeIdsAsync(Guid bookingAttemptId, Guid? appointmentId, CancellationToken ct) =>
+            throw new InvalidOperationException("BillingModule không dùng hàm này.");
+
+        public Task<IReadOnlyList<Guid>> FindExamChargeIdsByAppointmentAsync(Guid appointmentId, CancellationToken ct) =>
+            throw new InvalidOperationException("BillingModule không dùng hàm này.");
+
+        public Task<IReadOnlyList<BillingItem>> GetClsSinceAsync(DateTime fromUtc, int take, CancellationToken ct) =>
+            throw new InvalidOperationException("BillingModule không dùng hàm này.");
 
         public void Add(BillingItem item)
         {
