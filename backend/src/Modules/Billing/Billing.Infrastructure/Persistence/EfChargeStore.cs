@@ -53,6 +53,13 @@ internal sealed class EfChargeStore(BillingDbContext db) : IChargeStore
         return paid.Distinct().ToList();
     }
 
+    public async Task<IReadOnlyList<BillingItem>> GetClsSinceAsync(DateTime fromUtc, int take, CancellationToken ct) =>
+        await db.Set<BillingItem>().AsNoTracking()
+            .Where(b => b.ItemType == ItemType.CLSService && b.CreatedAtUtc >= fromUtc && b.ServiceOrderId != null)
+            .OrderByDescending(b => b.CreatedAtUtc)
+            .Take(take)
+            .ToListAsync(ct);
+
     public async Task<IReadOnlyList<Guid>> FindExamChargeIdsByAppointmentAsync(Guid appointmentId, CancellationToken ct) =>
         await db.Set<BillingItem>()
             .Where(b => b.AppointmentId == appointmentId && b.ItemType == ItemType.ConsultationFee)

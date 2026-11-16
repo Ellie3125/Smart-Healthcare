@@ -228,6 +228,9 @@ public class BillingModuleTests
         public Task<IReadOnlyList<Guid>> FindExamChargeIdsByAppointmentAsync(Guid appointmentId, CancellationToken ct) =>
             throw new InvalidOperationException("BillingModule không dùng hàm này.");
 
+        public Task<IReadOnlyList<BillingItem>> GetClsSinceAsync(DateTime fromUtc, int take, CancellationToken ct) =>
+            throw new InvalidOperationException("BillingModule không dùng hàm này.");
+
         public void Add(BillingItem item)
         {
             item.Id = Guid.NewGuid();

@@ -33,6 +33,7 @@ public static class DependencyInjection
             .Produces<VnpayIpnResponse>();
 
         group.MapPatientPaymentEndpoints();
+        group.MapStaffCashierEndpoints();
         return group;
     }
 
