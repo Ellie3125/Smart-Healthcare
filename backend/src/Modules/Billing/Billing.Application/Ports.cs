@@ -32,6 +32,15 @@ public interface IChargeStore
     /// <summary>Id các khoản CLS còn Pending tạo trước <paramref name="beforeUtc"/>, tối đa <paramref name="take"/>, theo Id (không khóa).</summary>
     Task<IReadOnlyList<Guid>> FindUnpaidClsBeforeAsync(DateTime beforeUtc, int take, CancellationToken ct);
 
+    /// <summary>
+    /// Id phí khám đã thu cho một lượt đặt lịch: khoản ConsultationFee được phân bổ trong yêu cầu thanh toán Succeeded của
+    /// <paramref name="bookingAttemptId"/>, cộng các khoản đang gắn <paramref name="appointmentId"/> (lịch cũ khi đổi lịch).
+    /// </summary>
+    Task<IReadOnlyList<Guid>> FindExamChargeIdsAsync(Guid bookingAttemptId, Guid? appointmentId, CancellationToken ct);
+
+    /// <summary>Id phí khám đang gắn lịch hẹn <paramref name="appointmentId"/>.</summary>
+    Task<IReadOnlyList<Guid>> FindExamChargeIdsByAppointmentAsync(Guid appointmentId, CancellationToken ct);
+
     void Add(BillingItem item);
 
     Task SaveChangesAsync(CancellationToken ct);

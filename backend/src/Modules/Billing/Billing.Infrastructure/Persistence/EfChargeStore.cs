@@ -36,6 +36,29 @@ internal sealed class EfChargeStore(BillingDbContext db) : IChargeStore
             .Take(take)
             .ToListAsync(ct);
 
+    public async Task<IReadOnlyList<Guid>> FindExamChargeIdsAsync(Guid bookingAttemptId, Guid? appointmentId, CancellationToken ct)
+    {
+        var paid = await (
+                from intent in db.Set<PaymentIntent>()
+                join transaction in db.Set<PaymentTransaction>() on intent.Id equals transaction.PaymentIntentId
+                join allocation in db.Set<PaymentAllocation>() on transaction.Id equals allocation.PaymentTransactionId
+                join item in db.Set<BillingItem>() on allocation.BillingItemId equals item.Id
+                where intent.BookingAttemptId == bookingAttemptId && intent.Status == PaymentIntentStatus.Succeeded
+                      && item.ItemType == ItemType.ConsultationFee
+                select item.Id)
+            .ToListAsync(ct);
+        if (appointmentId is { } previous)
+            paid.AddRange(await FindExamChargeIdsByAppointmentAsync(previous, ct));
+
+        return paid.Distinct().ToList();
+    }
+
+    public async Task<IReadOnlyList<Guid>> FindExamChargeIdsByAppointmentAsync(Guid appointmentId, CancellationToken ct) =>
+        await db.Set<BillingItem>()
+            .Where(b => b.AppointmentId == appointmentId && b.ItemType == ItemType.ConsultationFee)
+            .Select(b => b.Id)
+            .ToListAsync(ct);
+
     public void Add(BillingItem item) => db.Set<BillingItem>().Add(item);
 
     public Task SaveChangesAsync(CancellationToken ct) => db.SaveChangesAsync(ct);
