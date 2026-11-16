@@ -76,6 +76,9 @@ public sealed record ClsChargeLine(
     string ServiceNameSnapshot,
     int Quantity);
 
+/// <param name="AppointmentId">Lịch hẹn của lượt khám (Encounter.AppointmentId).</param>
+public sealed record LinkEncounter(Guid AppointmentId, Guid EncounterId, Guid PatientId);
+
 public sealed record ChargeDto(
     Guid ChargeId,
     ChargeType ChargeType,

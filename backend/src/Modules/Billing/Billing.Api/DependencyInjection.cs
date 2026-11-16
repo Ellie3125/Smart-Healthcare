@@ -19,7 +19,8 @@ public static class DependencyInjection
     // Chỉ Api dùng (cần IIdentityPatientsModule để kiểm quyền); Worker không đăng ký.
     public static IServiceCollection AddBillingApi(this IServiceCollection services) =>
         services.AddScoped<PatientPaymentService>()
-            .AddScoped<PatientClsPaymentService>();
+            .AddScoped<PatientClsPaymentService>()
+            .AddScoped<PatientCostSummaryService>();
 
     public static RouteGroupBuilder MapBillingEndpoints(this IEndpointRouteBuilder app)
     {

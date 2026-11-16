@@ -44,6 +44,27 @@ internal static class PatientPaymentEndpoints
             .ProducesProblem(StatusCodes.Status404NotFound)
             .ProducesProblem(StatusCodes.Status409Conflict)
             .ProducesProblem(StatusCodes.Status503ServiceUnavailable);
+
+        // Phạm vi nghiệp vụ §5.5: năm chỉ tiêu chi phí của lượt khám, kèm từng khoản.
+        billing.MapGet("/patient/encounters/{encounterId:guid}/cost-summary", CostSummaryAsync)
+            .RequireAuthorization(Policies.PatientOnly)
+            .WithSummary("Tổng hợp chi phí lượt khám: phải trả, đã trả, đã hoàn, thực thu, còn phải trả, tiền chờ hoàn (Patient).")
+            .Produces<EncounterCostSummary>()
+            .ProducesProblem(StatusCodes.Status404NotFound);
+    }
+
+    private static async Task<IResult> CostSummaryAsync(Guid encounterId, ClaimsPrincipal user, HttpResponse response,
+        [FromServices] PatientCostSummaryService costs, CancellationToken ct)
+    {
+        if (!TryGetUserId(user, out var userId))
+            return TypedResults.Unauthorized();
+
+        var summary = await costs.GetAsync(encounterId, userId, ct);
+        if (summary is null)
+            return Problem(StatusCodes.Status404NotFound, "EncounterNotFound", "Không tìm thấy chi phí của lượt khám.");
+
+        response.Headers.CacheControl = "no-store";
+        return TypedResults.Ok(summary);
     }
 
     private static async Task<IResult> ListClsBatchesAsync([FromQuery] Guid? patientId, ClaimsPrincipal user, HttpResponse response,

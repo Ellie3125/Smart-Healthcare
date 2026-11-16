@@ -7,6 +7,8 @@
     <ProjectReference Include="..\Billing.Contracts\Billing.Contracts.csproj" />
     <!-- Kiểm quyền của người trả trên hồ sơ bệnh nhân (MED-05). -->
     <ProjectReference Include="..\..\IdentityPatients\IdentityPatients.Contracts\IdentityPatients.Contracts.csproj" />
+    <!-- Nhận AppointmentConfirmed để gắn phí khám đã thu với lịch hẹn. -->
+    <ProjectReference Include="..\..\Scheduling\Scheduling.Contracts\Scheduling.Contracts.csproj" />
   </ItemGroup>
   <ItemGroup>
     <InternalsVisibleTo Include="Billing.Tests" />

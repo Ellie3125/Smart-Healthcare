@@ -222,6 +222,12 @@ public class BillingModuleTests
         public Task<IReadOnlyList<Guid>> FindUnpaidClsBeforeAsync(DateTime beforeUtc, int take, CancellationToken ct) =>
             throw new InvalidOperationException("BillingModule không dùng hàm này.");
 
+        public Task<IReadOnlyList<Guid>> FindExamChargeIdsAsync(Guid bookingAttemptId, Guid? appointmentId, CancellationToken ct) =>
+            throw new InvalidOperationException("BillingModule không dùng hàm này.");
+
+        public Task<IReadOnlyList<Guid>> FindExamChargeIdsByAppointmentAsync(Guid appointmentId, CancellationToken ct) =>
+            throw new InvalidOperationException("BillingModule không dùng hàm này.");
+
         public void Add(BillingItem item)
         {
             item.Id = Guid.NewGuid();
