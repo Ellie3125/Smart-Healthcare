@@ -1,5 +1,3 @@
-using Microsoft.AspNetCore.Builder;
-using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Routing;
 using Microsoft.Extensions.DependencyInjection;
 
@@ -11,6 +9,8 @@ public static class DependencyInjection
 
     public static IServiceCollection AddDocumentsReportingApi(this IServiceCollection services) => services;
 
-    public static RouteGroupBuilder MapDocumentsReportingEndpoints(this IEndpointRouteBuilder app) =>
-        app.MapGroup("/api/documents-reporting").WithTags(Tag);
+    public static void MapDocumentsReportingEndpoints(this IEndpointRouteBuilder app)
+    {
+        DocumentsEndpoints.MapEndpoints(app);
+    }
 }

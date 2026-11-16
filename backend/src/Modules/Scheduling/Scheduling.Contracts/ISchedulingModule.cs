@@ -51,4 +51,10 @@ public interface ISchedulingModule
     /// MedicalServiceUnavailable (dịch vụ không tồn tại, ngừng hoạt động hoặc không còn phòng hoạt động).
     /// </remarks>
     Task<ClsTicketsCreated> CreateClsTicketsAsync(CreateClsTickets command, CancellationToken ct);
+
+    /// <summary>
+    /// Kiểm tra và đối soát vé CLS theo phòng thực hiện (GP §6.5).
+    /// Dùng cho module DocumentsReporting kiểm tra vé khi phòng CLS tải tệp kết quả.
+    /// </summary>
+    Task<ClsQueueTicketValidationDto?> ValidateClsTicketForRoomAsync(Guid queueTicketId, Guid roomId, CancellationToken ct = default);
 }

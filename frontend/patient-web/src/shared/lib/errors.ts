@@ -38,6 +38,12 @@ const PATIENT_ERROR_MAP: Record<string, string> = {
   FORBIDDEN: 'Bạn không có quyền truy cập nội dung này.',
   NOT_FOUND: 'Không tìm thấy thông tin bạn đang tìm.',
   SERVICE_UNAVAILABLE: 'Dịch vụ tạm thời gián đoạn. Vui lòng thử lại sau ít phút.',
+  DOCTOR_NOT_CONCLUDED: 'Bác sĩ khám ban đầu chưa hoàn tất kết luận sau CLS. Tệp kết quả chưa thể hiển thị cho bệnh nhân.',
+  DOCTORNOTCONCLUDED: 'Bác sĩ khám ban đầu chưa hoàn tất kết luận sau CLS. Tệp kết quả chưa thể hiển thị cho bệnh nhân.',
+  RESULT_NOT_PUBLISHED: 'Tệp kết quả chưa được phát hành chính thức.',
+  RESULTNOTPUBLISHED: 'Tệp kết quả chưa được phát hành chính thức.',
+  PAYLOAD_TOO_LARGE: 'Dung lượng tệp vượt quá giới hạn tối đa 20MB.',
+  UNSUPPORTED_MEDIA_TYPE: 'Định dạng tệp không được hỗ trợ. Chỉ chấp nhận PDF, JPG hoặc PNG.',
 };
 
 export function mapPatientErrorCode(code?: string, fallback?: string): string {
@@ -66,7 +72,8 @@ export function extractPatientError(err: unknown): {
     const resp = (err as { response?: { status?: number; data?: ProblemDetails } }).response;
     const status = resp?.status ?? 500;
     const problem = resp?.data;
-    const code = (problem?.code || (status === 403 ? 'FORBIDDEN' : status === 401 ? 'UNAUTHORIZED' : 'HTTP_ERROR')).toUpperCase();
+    const fallback = status === 403 ? 'FORBIDDEN' : status === 401 ? 'UNAUTHORIZED' : status === 413 ? 'PAYLOAD_TOO_LARGE' : status === 415 ? 'UNSUPPORTED_MEDIA_TYPE' : 'HTTP_ERROR';
+    const code = (problem?.code || fallback).toUpperCase();
     return {
       status,
       code,

@@ -61,12 +61,13 @@ builder.Services
     .AddMedicationCatalogInfrastructure(connectionString)
     .AddBillingInfrastructure(connectionString)
     .AddNotificationsInfrastructure(connectionString)
-    .AddDocumentsReportingInfrastructure(connectionString)
+    .AddDocumentsReportingInfrastructure(connectionString, builder.Configuration)
     .AddSharedInfrastructure(connectionString)
     // DbContext tham gia IUnitOfWork (W1-06). Module khác tự thêm khi cần ghi cùng transaction.
     .AddUnitOfWorkParticipant<SchedulingDbContext>()
     .AddUnitOfWorkParticipant<WorkflowDbContext>()
     .AddUnitOfWorkParticipant<IdentityPatients.Infrastructure.Persistence.IdentityPatientsDbContext>()
+    .AddUnitOfWorkParticipant<DocumentsReporting.Infrastructure.Persistence.DocumentsDbContext>()
     // Tạo khoản thu + yêu cầu thanh toán cùng transaction với BookingAttempt (BookingPaymentService).
     .AddUnitOfWorkParticipant<Billing.Infrastructure.Persistence.BillingDbContext>();
 

@@ -139,6 +139,14 @@ describe('Patient Web critical workflows (P06–P26 & TV01)', () => {
     expect(screen.queryByText(/Kết luận & Hướng dẫn theo dõi/i)).not.toBeInTheDocument();
   });
 
+  it('P22-DOC: renders published CLS attachments with preview and download buttons for concluded encounters', async () => {
+    renderWithProviders(<EncounterDetailPage />, ['/records/enc-hist-1'], '/records/:encounterId');
+    expect(await screen.findByText(/Kết quả Cận lâm sàng/i)).toBeInTheDocument();
+    expect(await screen.findByText(/Phieu-ket-qua-sinh-hoa-20261015\.pdf/i)).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /Xem tệp/i })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /Tải về/i })).toBeInTheDocument();
+  });
+
   it('P23: renders read-only prescription with zero online drug store actions', async () => {
     renderWithProviders(<PrescriptionDetailPage />, ['/records/enc-hist-1/prescription'], '/records/:encounterId/prescription');
     expect(await screen.findByText(/Amlodipin 5mg/i)).toBeInTheDocument();

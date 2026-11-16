@@ -1,8 +1,9 @@
 import React, { useEffect, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { Link, useParams } from 'react-router-dom';
-import { ArrowLeft, Download, Eye, Pill } from 'lucide-react';
+import { ArrowLeft, Pill } from 'lucide-react';
 import { clinicalApi } from '../../api/clinicalApi';
+import { ClsAttachmentViewer } from '../../components/ClsAttachmentViewer';
 import {
   Banner,
   Button,
@@ -181,8 +182,13 @@ export const EncounterDetailPage: React.FC = () => {
         )}
       </Card>
 
-      {d.isPublished && d.clsResults.length > 0 ? (
-        <Card title="Kết quả Cận lâm sàng đã phát hành">
+      {d.clsResults && d.clsResults.length > 0 ? (
+        <Card title="Kết quả Cận lâm sàng">
+          {!d.isPublished ? (
+            <Banner tone="info" title="Chờ bác sĩ khám ban đầu hoàn tất kết luận sau CLS">
+              Theo quy định chuyên môn, bệnh nhân và người đại diện chỉ xem được tệp kết quả sau khi bác sĩ khám ban đầu hoàn tất và phát hành kết luận sau CLS.
+            </Banner>
+          ) : null}
           <div className="space-y-4">
             {d.clsResults.map((res) => (
               <div key={res.id} className="rounded-2xl bg-surface-container-low/75 p-4 sm:p-5">
@@ -194,33 +200,26 @@ export const EncounterDetailPage: React.FC = () => {
                 </div>
                 {res.summaryText ? <p className="mt-2 text-sm text-on-surface">{res.summaryText}</p> : null}
                 {res.technicalConclusion ? (
-                  <p className="mt-1 text-sm text-on-surface-variant">Kết luận CLS: {res.technicalConclusion}</p>
+                  <p className="mt-1 text-sm text-on-surface-variant">Kết luận kỹ thuật: {res.technicalConclusion}</p>
                 ) : null}
-                {res.attachments.length > 0 ? (
-                  <div className="mt-3 flex flex-wrap gap-2">
-                    {res.attachments.map((att) => (
-                      <div key={att.fileId} className="flex flex-wrap items-center gap-2 rounded-xl bg-surface-container-lowest px-3 py-2 text-xs shadow-sm">
-                        <span className="font-medium text-[#0f1f18]">{att.fileName}</span>
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          loading={downloadingFileId === att.fileId}
-                          leftIcon={<Eye className="h-3.5 w-3.5" />}
-                          onClick={() => handleFileAction(res.id, att.fileId, att.fileName, 'preview')}
-                        >
-                          Xem tệp
-                        </Button>
-                        <Button
-                          size="sm"
-                          variant="secondary"
-                          loading={downloadingFileId === att.fileId}
-                          leftIcon={<Download className="h-3.5 w-3.5" />}
-                          onClick={() => handleFileAction(res.id, att.fileId, att.fileName, 'download')}
-                        >
-                          Tải về
-                        </Button>
-                      </div>
-                    ))}
+                {res.attachments && res.attachments.length > 0 ? (
+                  <div className="mt-3 space-y-2">
+                    <p className="text-xs font-semibold uppercase tracking-wider text-on-surface-variant">
+                      Tệp kết quả ({res.attachments.length})
+                    </p>
+                    <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+                      {res.attachments.map((att) => (
+                        <ClsAttachmentViewer
+                          key={att.fileId}
+                          resultId={res.id}
+                          attachment={att}
+                          isDoctorConcluded={Boolean(d.isPublished)}
+                          isLoading={downloadingFileId === att.fileId}
+                          onPreview={(rId, fId, name) => handleFileAction(rId, fId, name, 'preview')}
+                          onDownload={(rId, fId, name) => handleFileAction(rId, fId, name, 'download')}
+                        />
+                      ))}
+                    </div>
                   </div>
                 ) : null}
               </div>
