@@ -21,6 +21,7 @@ public static class DependencyInjection
         services.AddScoped<IPaymentStore, EfPaymentStore>();
         services.AddScoped<PaymentService>();
         services.AddScoped<PaymentCheckoutService>();
+        services.AddScoped<ClsDayEndService>();
         services.AddScoped<IBillingModule, BillingModule>();
 
         // Cổng thanh toán VNPAY. Thiếu cấu hình thì Api vẫn chạy; chỉ tạo liên kết và IPN trả GatewayUnavailable.

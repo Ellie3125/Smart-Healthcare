@@ -58,9 +58,13 @@ public sealed record CreateExamCharge(
     string ItemNameSnapshot,
     DateTime PricedAtUtc);
 
+/// <param name="PatientId">Bệnh nhân của lượt khám; Billing dùng để hiện đợt CLS chờ thanh toán trên web bệnh nhân và kiểm quyền người trả.</param>
+/// <param name="ServiceOrderId">Đợt chỉ định (clinical.ServiceOrder); bệnh nhân thanh toán theo từng đợt.</param>
 /// <param name="PricedAtUtc">Thời điểm áp giá, UTC; thường là lúc bác sĩ chỉ định.</param>
 public sealed record CreateClsCharges(
     Guid EncounterId,
+    Guid PatientId,
+    Guid ServiceOrderId,
     DateTime PricedAtUtc,
     IReadOnlyList<ClsChargeLine> Lines);
 

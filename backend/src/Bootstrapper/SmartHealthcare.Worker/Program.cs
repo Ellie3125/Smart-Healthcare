@@ -1,3 +1,4 @@
+using Billing.Application;
 using Hangfire;
 using Scheduling.Application.Holds;
 using Shared.Infrastructure;
@@ -21,6 +22,11 @@ var host = builder.Build();
 // Hết hạn giữ chỗ (W2-02, Giải pháp §5.1). Hangfire chạy tối đa mỗi phút; lệnh xác nhận vẫn tự kiểm ExpiresAt.
 host.Services.GetRequiredService<IRecurringJobManager>().AddOrUpdate<HoldService>(
     "scheduling-expire-holds", service => service.ExpireDueAsync(CancellationToken.None), Cron.Minutely());
+
+// Cuối ngày khám D (Giải pháp §5.5): hủy khoản phí CLS chưa trả của các ngày đã qua. 17:05 UTC = 00:05 giờ Việt Nam.
+// Worker tắt đúng lúc đó thì Hangfire chạy bù một lần khi khởi động lại; job tự tính mốc theo giờ hiện tại nên chạy bù vẫn đúng.
+host.Services.GetRequiredService<IRecurringJobManager>().AddOrUpdate<ClsDayEndService>(
+    "billing-cls-day-end", service => service.CancelUnpaidAsync(CancellationToken.None), "5 17 * * *");
 
 // Phát Outbox tới handler (W3-00, Giải pháp §8.3). Mỗi lần chạy xử lý tới khi hết bản ghi tới hạn; nhiều worker không nhận trùng.
 host.Services.GetRequiredService<IRecurringJobManager>().AddOrUpdate<OutboxDispatcher>(
