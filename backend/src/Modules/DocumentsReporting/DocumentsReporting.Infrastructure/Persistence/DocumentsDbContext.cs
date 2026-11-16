@@ -1,3 +1,4 @@
+using DocumentsReporting.Domain.Entities;
 using Microsoft.EntityFrameworkCore;
 using Shared.Infrastructure.Persistence;
 
@@ -6,6 +7,8 @@ namespace DocumentsReporting.Infrastructure.Persistence;
 public sealed class DocumentsDbContext(DbContextOptions<DocumentsDbContext> options) : DbContext(options)
 {
     public const string Schema = "documents";
+
+    public DbSet<ResultAttachment> ResultAttachments => Set<ResultAttachment>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {

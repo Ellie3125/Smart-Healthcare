@@ -86,3 +86,18 @@ public sealed record QueueTicketDto(
 /// <param name="ClsTickets">Mỗi dòng của lệnh một vé, theo thứ tự Lines.</param>
 /// <param name="ReturnTicket">Vé quay lại của đợt chỉ định, chưa kích hoạt.</param>
 public sealed record ClsTicketsCreated(IReadOnlyList<QueueTicketDto> ClsTickets, QueueTicketDto ReturnTicket);
+
+/// <summary>Thông tin đối soát và kiểm tra vé CLS theo phòng (GP §6.5).</summary>
+public sealed record ClsQueueTicketValidationDto(
+    Guid QueueTicketId,
+    Guid RoomId,
+    Guid EncounterId,
+    Guid PatientId,
+    Guid ServiceOrderItemId,
+    Guid CLSResultId,
+    string TicketNumber,
+    string? PatientName,
+    DateOnly? PatientDateOfBirth,
+    bool IsServiceFinished,
+    bool IsResultReturned);
+

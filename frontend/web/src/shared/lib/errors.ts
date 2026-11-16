@@ -48,6 +48,15 @@ const ERROR_CODE_VI: Record<string, string> = {
   NOT_FOUND: 'Không tìm thấy dữ liệu yêu cầu.',
   VALIDATION_ERROR: 'Thông tin nhập vào chưa hợp lệ. Vui lòng kiểm tra lại.',
   SERVICE_UNAVAILABLE: 'Dịch vụ tạm thời gián đoạn. Vui lòng thử lại sau ít phút.',
+  TICKET_ROOM_MISMATCH: 'Vé này không thuộc quyền quản lý của phòng hiện tại.',
+  TICKET_NOT_SERVICED: 'Chỉ được tải tệp kết quả cho vé đã hoàn tất kỹ thuật (ServiceFinished).',
+  RESULT_ALREADY_PUBLISHED: 'Kết quả đã phát hành chính thức, không thể tải thêm hoặc sửa đổi tệp.',
+  FILE_TOO_LARGE: 'Kích thước tệp vượt quá giới hạn 20MB cho phép.',
+  PAYLOAD_TOO_LARGE: 'Dung lượng tệp vượt quá giới hạn tối đa 20MB.',
+  INVALID_FILE_TYPE: 'Định dạng tệp không được hỗ trợ. Chỉ chấp nhận PDF, JPG hoặc PNG.',
+  UNSUPPORTED_MEDIA_TYPE: 'Định dạng tệp không được hỗ trợ. Chỉ chấp nhận PDF, JPG hoặc PNG.',
+  CANNOT_VIEW_PUBLISHED_IN_ROOM: 'Tài khoản phòng không xem lại tệp đã phát hành để bảo vệ bí mật y tế.',
+  DOCTOR_NOT_CONCLUDED: 'Bác sĩ khám ban đầu chưa hoàn tất kết luận sau CLS.',
 };
 
 export function mapErrorCodeToMessage(code?: string, fallback?: string): string {
@@ -67,7 +76,7 @@ export function extractFriendlyError(err: unknown): {
   currentVersion?: number;
 } {
   if (err instanceof ApiHttpError) {
-    const code = err.code || (err.status === 409 ? 'VERSION_CONFLICT' : 'UNKNOWN_ERROR');
+    const code = err.code || (err.status === 409 ? 'VERSION_CONFLICT' : err.status === 401 ? 'UNAUTHORIZED' : err.status === 403 ? 'FORBIDDEN' : err.status === 413 ? 'PAYLOAD_TOO_LARGE' : err.status === 415 ? 'UNSUPPORTED_MEDIA_TYPE' : 'UNKNOWN_ERROR');
     return {
       status: err.status,
       code,
@@ -81,7 +90,7 @@ export function extractFriendlyError(err: unknown): {
     const resp = (err as { response?: { status?: number; data?: ProblemDetails } }).response;
     const status = resp?.status ?? 500;
     const problem = resp?.data;
-    const code = problem?.code || (status === 409 ? 'VERSION_CONFLICT' : status === 403 ? 'FORBIDDEN' : 'UNKNOWN_ERROR');
+    const code = problem?.code || (status === 409 ? 'VERSION_CONFLICT' : status === 403 ? 'FORBIDDEN' : status === 401 ? 'UNAUTHORIZED' : status === 413 ? 'PAYLOAD_TOO_LARGE' : status === 415 ? 'UNSUPPORTED_MEDIA_TYPE' : 'UNKNOWN_ERROR');
     return {
       status,
       code,

@@ -1,8 +1,9 @@
 import React, { useEffect, useState } from 'react';
 import { useMutation, useQuery } from '@tanstack/react-query';
 import { Link, useSearchParams } from 'react-router-dom';
-import { ArrowLeft, Send, Upload } from 'lucide-react';
+import { ArrowLeft, Send } from 'lucide-react';
 import { clinicalStaffApi } from '../../api/clinicalStaffApi';
+import { ResultFileUploader } from '../../components/room/ResultFileUploader';
 import {
   Banner,
   Button,
@@ -18,9 +19,6 @@ import {
 } from '../../shared/ui';
 import { createIdempotencyKey } from '../../shared/lib/idempotency';
 import { extractFriendlyError } from '../../shared/lib/errors';
-
-const MAX_CLS_FILE_BYTES = 20 * 1024 * 1024;
-const ALLOWED_MIME_TYPES = new Set(['application/pdf', 'image/jpeg', 'image/png']);
 
 /**
  * CL04 — Nhập kết quả CLS & Upload tệp Draft qua Backend (`PDF/JPG/PNG <= 20MB`):
@@ -65,15 +63,6 @@ export const RoomResultUploadPage: React.FC = () => {
     onError: (err) => pushToast(extractFriendlyError(err).message, 'danger'),
   });
 
-  const uploadMutation = useMutation({
-    mutationFn: (file: File) => clinicalStaffApi.uploadRoomDraftFile(orderItemId, file),
-    onSuccess: () => {
-      pushToast('Đã tải tệp nháp lên máy chủ an toàn.', 'success');
-      query.refetch();
-    },
-    onError: (err) => pushToast(extractFriendlyError(err).message, 'danger'),
-  });
-
   const publishMutation = useMutation({
     mutationFn: () =>
       clinicalStaffApi.publishRoomResult(
@@ -88,20 +77,6 @@ export const RoomResultUploadPage: React.FC = () => {
     },
     onError: (err) => pushToast(extractFriendlyError(err).message, 'danger'),
   });
-
-  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    if (!ALLOWED_MIME_TYPES.has(file.type)) {
-      pushToast('Chỉ chấp nhận định dạng PDF, JPG hoặc PNG.', 'danger');
-      return;
-    }
-    if (file.size > MAX_CLS_FILE_BYTES) {
-      pushToast('Dung lượng tệp vượt quá giới hạn tối đa 20MB.', 'danger');
-      return;
-    }
-    uploadMutation.mutate(file);
-  };
 
   if (query.isLoading) {
     return (
@@ -161,36 +136,15 @@ export const RoomResultUploadPage: React.FC = () => {
               )}
             </FormField>
 
-            <div className="rounded-2xl border border-dashed border-outline-variant/60 bg-surface-container-low/65 p-4 sm:p-5 overflow-hidden">
-              <label htmlFor="cls-draft-file" className="block text-sm font-semibold text-on-surface">
-                Đính kèm tệp kết quả nháp (PDF / JPG / PNG, tối đa 20MB)
-              </label>
-              <div className="mt-2 flex flex-wrap items-center gap-3">
-                <input
-                  id="cls-draft-file"
-                  type="file"
-                  accept=".pdf,.jpg,.jpeg,.png"
-                  onChange={handleFileChange}
-                  disabled={uploadMutation.isPending}
-                  className="max-w-full text-xs text-on-surface"
-                />
-                {uploadMutation.isPending ? (
-                  <span className="inline-flex items-center gap-1 text-xs text-[#006a41]">
-                    <Upload className="h-3.5 w-3.5" aria-hidden="true" />
-                    Đang tải lên Backend...
-                  </span>
-                ) : null}
-              </div>
-              {d.draftFiles.length > 0 ? (
-                <ul className="mt-3 space-y-1 text-xs text-[#0f1f18]">
-                  {d.draftFiles.map((f) => (
-                    <li key={f.fileId} className="font-mono break-all">
-                      • {f.fileName} ({Math.round(f.sizeBytes / 1024)} KB)
-                    </li>
-                  ))}
-                </ul>
-              ) : null}
-            </div>
+            <ResultFileUploader
+              queueTicketId={orderItemId}
+              patientInfo={{
+                fullName: d.patientName,
+                ticketCode: d.ticketNumber,
+              }}
+              onUploadSuccess={() => query.refetch()}
+              disabled={isPublished}
+            />
 
             <div className="flex flex-wrap justify-end gap-2">
               <Button variant="outline" loading={saveDraftMutation.isPending} onClick={() => saveDraftMutation.mutate()}>

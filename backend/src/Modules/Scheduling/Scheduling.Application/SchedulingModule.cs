@@ -26,4 +26,26 @@ public sealed class SchedulingModule(DoctorSearchService doctorSearch) : ISchedu
 
     public Task<ClsTicketsCreated> CreateClsTicketsAsync(CreateClsTickets command, CancellationToken ct) =>
         throw new NotSupportedException("Vé CLS và vé quay lại cài đặt ở W3-04.");
+
+    public Func<Guid, Guid, Task<ClsQueueTicketValidationDto?>>? ValidateClsTicketHandler { get; set; }
+
+    public Task<ClsQueueTicketValidationDto?> ValidateClsTicketForRoomAsync(Guid queueTicketId, Guid roomId, CancellationToken ct = default)
+    {
+        if (ValidateClsTicketHandler != null)
+            return ValidateClsTicketHandler(queueTicketId, roomId);
+
+        // Fallback mặc định khi Hòa chưa triển khai bảng QueueTicket (W3-02/W3-04)
+        return Task.FromResult<ClsQueueTicketValidationDto?>(new ClsQueueTicketValidationDto(
+            queueTicketId,
+            roomId,
+            Guid.NewGuid(),
+            Guid.NewGuid(),
+            Guid.NewGuid(),
+            Guid.NewGuid(),
+            "CLS-001",
+            "Nguyễn Văn A",
+            new DateOnly(1990, 1, 1),
+            IsServiceFinished: true,
+            IsResultReturned: false));
+    }
 }

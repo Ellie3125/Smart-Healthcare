@@ -1,0 +1,18 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <IsPackable>false</IsPackable>
+  </PropertyGroup>
+  <ItemGroup>
+    <PackageReference Include="xunit.v3" />
+    <PackageReference Include="Microsoft.EntityFrameworkCore.InMemory" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\..\src\Modules\DocumentsReporting\DocumentsReporting.Application\DocumentsReporting.Application.csproj" />
+    <ProjectReference Include="..\..\src\Modules\DocumentsReporting\DocumentsReporting.Infrastructure\DocumentsReporting.Infrastructure.csproj" />
+    <ProjectReference Include="..\..\src\Modules\DocumentsReporting\DocumentsReporting.Contracts\DocumentsReporting.Contracts.csproj" />
+    <ProjectReference Include="..\..\src\Modules\DocumentsReporting\DocumentsReporting.Api\DocumentsReporting.Api.csproj" />
+    <ProjectReference Include="..\..\src\Shared\Shared.Infrastructure\Shared.Infrastructure.csproj" />
+    <ProjectReference Include="..\..\src\Shared\Shared.Abstractions\Shared.Abstractions.csproj" />
+  </ItemGroup>
+</Project>

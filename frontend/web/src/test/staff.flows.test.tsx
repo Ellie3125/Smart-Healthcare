@@ -154,4 +154,52 @@ describe('Staff Web critical workflows (S04b, AD, RC, NU, DR, CL)', () => {
       expect(screen.getByText(/Kết quả đã phát hành — Đã khóa xem tại phòng thực hiện/i)).toBeInTheDocument();
     });
   });
+
+  it('DOC-W3: ResultFileUploader renders patient match info, allows file selection and lists draft files', async () => {
+    server.use(
+      http.get('/api/clinical/staff/room/results/:id', () =>
+        HttpResponse.json({
+          orderItemId: 'cls-ord-draft',
+          ticketNumber: 'CLS-088',
+          patientName: 'Trần Thị Mai',
+          serviceCode: 'SA-OB',
+          serviceName: 'Siêu âm ổ bụng tổng quát',
+          resultStatus: 'Draft',
+          summaryText: '',
+          technicalConclusion: '',
+          readingDoctorName: 'BS.CKI Trần Quốc Khánh',
+          availableShiftDoctors: ['BS.CKI Trần Quốc Khánh'],
+          version: 1,
+          draftFiles: [],
+        }),
+      ),
+      http.get('/api/documents/staff/room/tickets/:id/files', () =>
+        HttpResponse.json([
+          {
+            id: 'file-sa-1',
+            clsResultId: 'cls-ord-draft',
+            queueTicketId: 'cls-ord-draft',
+            encounterId: 'enc-1',
+            patientId: 'p-1',
+            fileName: 'SieuAm-OB-TranThiMai.png',
+            contentType: 'image/png',
+            sizeBytes: 1048576,
+            sha256Hash: 'a1b2c3d4e5f6',
+            attachmentVersion: 1,
+            uploadStatus: 'Uploaded',
+            isPublished: false,
+            uploadedAtUtc: '2026-11-16T10:00:00Z',
+          },
+        ]),
+      ),
+    );
+
+    renderStaff(<RoomResultUploadPage />, ['/room/upload?orderItemId=cls-ord-draft']);
+    expect(await screen.findByText(/Đối chiếu hồ sơ:/i)).toBeInTheDocument();
+    expect(screen.getAllByText(/Trần Thị Mai/i).length).toBeGreaterThanOrEqual(1);
+    expect(screen.getByText(/Mã vé: CLS-088/i)).toBeInTheDocument();
+    expect(await screen.findByText(/SieuAm-OB-TranThiMai\.png/i)).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /Chọn tệp từ máy/i })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /Xóa/i })).toBeInTheDocument();
+  });
 });

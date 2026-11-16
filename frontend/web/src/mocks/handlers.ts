@@ -494,8 +494,10 @@ export const staffHandlers = [
     ),
   ),
   http.get('/api/documents/staff/cls-results/:resultId/files/:fileId/download', () => {
-    const blob = new Blob(['%PDF-1.4\n% Staff Sample CLS File\n'], { type: 'application/pdf' });
-    return new HttpResponse(blob, { status: 200, headers: { 'Content-Type': 'application/pdf' } });
+    return new HttpResponse('%PDF-1.4\n% Staff Sample CLS File\n', {
+      status: 200,
+      headers: { 'Content-Type': 'application/pdf' },
+    });
   }),
 
   // CL Room CLS
@@ -526,15 +528,57 @@ export const staffHandlers = [
     return HttpResponse.json(draft);
   }),
   http.post('/api/documents/staff/room/results/:orderItemId/files', ({ params }) => {
-    const draft = store.roomDrafts[String(params.orderItemId)];
+    const draft = store.roomDrafts[String(params.orderItemId)] ?? store.roomDrafts['cls-ord-1'];
     if (!draft) return HttpResponse.json({ code: 'NOT_FOUND' }, { status: 404 });
-    draft.draftFiles.push({
+    const newFile = {
       fileId: `rf-${Date.now()}`,
       fileName: 'ket-qua-moi.pdf',
       mimeType: 'application/pdf',
       sizeBytes: 120000,
+    };
+    draft.draftFiles.push(newFile);
+    return HttpResponse.json({
+      fileId: newFile.fileId,
+      queueTicketId: String(params.orderItemId),
+      encounterId: 'enc-1',
+      patientId: 'p-1',
+      clsResultId: String(params.orderItemId),
+      fileName: newFile.fileName,
+      contentType: newFile.mimeType,
+      sizeBytes: newFile.sizeBytes,
+      sha256: 'e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855',
+      uploadStatus: 'Uploaded',
+      isPublished: false,
+      uploadedAtUtc: new Date().toISOString(),
+      attachmentVersion: 1,
     });
-    return HttpResponse.json(draft);
+  }),
+  http.get('/api/documents/staff/room/tickets/:queueTicketId/files', ({ params }) => {
+    const draft = store.roomDrafts[String(params.queueTicketId)] ?? store.roomDrafts['cls-ord-1'];
+    if (!draft) return HttpResponse.json([]);
+    return HttpResponse.json(
+      draft.draftFiles.map((f, idx) => ({
+        id: f.fileId,
+        clsResultId: String(params.queueTicketId),
+        queueTicketId: String(params.queueTicketId),
+        encounterId: 'enc-1',
+        patientId: 'p-1',
+        fileName: f.fileName,
+        contentType: f.mimeType,
+        sizeBytes: f.sizeBytes,
+        sha256Hash: `hash-${f.fileId}-sha256`,
+        attachmentVersion: 1,
+        uploadStatus: 'Uploaded',
+        isPublished: draft.resultStatus === 'Published',
+        uploadedAtUtc: new Date().toISOString(),
+      })),
+    );
+  }),
+  http.delete('/api/documents/staff/room/files/:fileId', ({ params }) => {
+    Object.values(store.roomDrafts).forEach((d) => {
+      d.draftFiles = d.draftFiles.filter((f) => f.fileId !== params.fileId);
+    });
+    return HttpResponse.json({ success: true });
   }),
   http.post('/api/clinical/staff/room/results/:orderItemId/publish', ({ params }) => {
     const draft = store.roomDrafts[String(params.orderItemId)];

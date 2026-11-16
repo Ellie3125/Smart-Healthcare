@@ -117,7 +117,7 @@ export const DoctorDayPage: React.FC = () => {
         <div className="lg:col-span-7">
           <Card
             title={detail.fullName}
-            subtitle={`${detail.doctorRankName} • Chuyên khoa ${detail.specialtyName}`}
+            subtitle={[detail.doctorRankName, detail.specialtyName ? `Chuyên khoa ${detail.specialtyName}` : ''].filter(Boolean).join(' • ')}
             actions={<StatusPill status={detail.remainingSlots > 0 ? 'Open' : 'Closed'} />}
           >
             <div className="grid gap-3.5 sm:grid-cols-3">
@@ -127,10 +127,12 @@ export const DoctorDayPage: React.FC = () => {
                   <DateTimeText value={detail.serviceDate} mode="date" />
                 </p>
               </div>
-              <div className="rounded-xl bg-surface-container-low p-4">
-                <p className="text-xs text-on-surface-variant">Phòng khám</p>
-                <p className="mt-1 text-base font-semibold text-on-surface">{detail.roomName}</p>
-              </div>
+              {detail.roomName ? (
+                <div className="rounded-xl bg-surface-container-low p-4">
+                  <p className="text-xs text-on-surface-variant">Phòng khám</p>
+                  <p className="mt-1 text-base font-semibold text-on-surface">{detail.roomName}</p>
+                </div>
+              ) : null}
               <div className="rounded-xl bg-secondary-container/55 p-4">
                 <p className="text-xs text-[#005231]">Phí khám</p>
                 <p className="mt-1 text-lg font-bold text-primary">
@@ -165,7 +167,7 @@ export const DoctorDayPage: React.FC = () => {
                     value={activeProfileId}
                     onChange={(e) => setSelectedProfileId(e.target.value)}
                     options={profiles.map((p) => ({
-                      value: p.id,
+                      value: p.patientId,
                       label: `${p.fullName} (${p.relationship})${p.verificationStatus === 'Pending' ? ' - Chờ xác minh' : ''}`,
                     }))}
                   />
@@ -194,7 +196,7 @@ export const DoctorDayPage: React.FC = () => {
                 size="lg"
                 className="w-full"
                 loading={holdMutation.isPending}
-                disabled={detail.remainingSlots <= 0 || isDuplicateSameDay}
+                disabled={detail.remainingSlots <= 0 || isDuplicateSameDay || !activeProfileId}
                 onClick={() => holdMutation.mutate()}
               >
                 Giữ chỗ 5 phút & Tiếp tục

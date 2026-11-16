@@ -89,8 +89,37 @@ export const BookingConfirmPage: React.FC = () => {
           <Card
             title="Xác nhận thông tin đặt khám"
             subtitle={`Mã phiên giữ chỗ: ${attempt.bookingAttemptId}`}
-            actions={<StatusPill status={isHoldExpired ? 'Expired' : attempt.status} />}
+            actions={
+              <div className="flex flex-wrap items-center gap-2">
+                <StatusPill status={pillStatus} />
+                {isPaid || !attempt.expiresAtUtc ? null : (
+                  <Countdown
+                    expiresAt={attempt.expiresAtUtc}
+                    label="Giữ chỗ còn"
+                    onExpire={() => setExpired(true)}
+                  />
+                )}
+              </div>
+            }
           >
+            {isPaid ? (
+              <div className="mb-4">
+                <Banner
+                  tone="success"
+                  title="Lịch khám đã được thanh toán"
+                  action={
+                    <Link to="/appointments">
+                      <Button size="sm" variant="primary">
+                        Xem lịch của tôi
+                      </Button>
+                    </Link>
+                  }
+                >
+                  Hệ thống đã ghi nhận thanh toán cho phiên đặt lịch này.
+                </Banner>
+              </div>
+            ) : null}
+
             {isHoldExpired ? (
               <div className="mb-4">
                 <Banner
@@ -109,24 +138,30 @@ export const BookingConfirmPage: React.FC = () => {
               </div>
             ) : null}
 
-            <dl className="grid gap-4 sm:grid-cols-2">
-              <div className="rounded-xl bg-surface-container-low/75 p-4">
-                <dt className="text-xs font-medium text-on-surface-variant">Người khám</dt>
-                <dd className="mt-1 font-semibold text-on-surface">{attempt.patientName}</dd>
-              </div>
-              <div className="rounded-xl bg-surface-container-low/75 p-4">
-                <dt className="text-xs font-medium text-on-surface-variant">Bác sĩ &amp; Chuyên khoa</dt>
-                <dd className="mt-1 font-semibold text-on-surface">
-                  {attempt.doctorName} — {attempt.specialtyName}
-                </dd>
-              </div>
-              <div className="rounded-xl bg-surface-container-low/75 p-4 sm:col-span-2">
-                <dt className="text-xs font-medium text-on-surface-variant">Ngày khám &amp; Phòng khám</dt>
-                <dd className="mt-1 font-semibold text-on-surface">
-                  <DateTimeText value={attempt.serviceDate} mode="date" /> • {attempt.roomName}
-                </dd>
-              </div>
-            </dl>
+            {summary ? (
+              <dl className="grid gap-4 sm:grid-cols-2">
+                <div className="rounded-xl bg-surface-container-low/75 p-4">
+                  <dt className="text-xs font-medium text-on-surface-variant">Người khám</dt>
+                  <dd className="mt-1 font-semibold text-on-surface">{summary.patientName}</dd>
+                </div>
+                <div className="rounded-xl bg-surface-container-low/75 p-4">
+                  <dt className="text-xs font-medium text-on-surface-variant">Bác sĩ &amp; Chuyên khoa</dt>
+                  <dd className="mt-1 font-semibold text-on-surface">
+                    {[summary.doctorName, summary.specialtyName].filter(Boolean).join(' — ')}
+                  </dd>
+                </div>
+                <div className="rounded-xl bg-surface-container-low/75 p-4 sm:col-span-2">
+                  <dt className="text-xs font-medium text-on-surface-variant">Ngày khám</dt>
+                  <dd className="mt-1 font-semibold text-on-surface">
+                    <DateTimeText value={summary.serviceDate} mode="date" />
+                  </dd>
+                </div>
+              </dl>
+            ) : (
+              <p className="text-sm text-on-surface-variant">
+                Số tiền phí khám và chi tiết phiên sẽ hiển thị trên trang thanh toán VNPAY.
+              </p>
+            )}
 
             <div className="mt-4 rounded-xl bg-surface-container-low/70 p-4 text-xs text-on-surface-variant space-y-1">
               <p className="font-semibold text-on-surface">Chính sách đổi lịch &amp; hoàn tiền</p>
@@ -137,23 +172,16 @@ export const BookingConfirmPage: React.FC = () => {
 
         {/* Right Hold Timer & Payment Breakdown */}
         <div className="lg:col-span-5">
-          <Card
-            title="Thanh toán giữ chỗ"
-            actions={
-              <Countdown
-                expiresAt={attempt.expiresAt}
-                label="Giữ chỗ còn"
-                onExpire={() => setExpired(true)}
-              />
-            }
-          >
+          <Card title="Thanh toán giữ chỗ">
             <div className="space-y-4">
-              <div className="rounded-2xl bg-secondary-container/50 p-4 flex items-center justify-between">
-                <span className="text-sm font-medium text-[#005231]">Số tiền thanh toán</span>
-                <span className="text-2xl font-bold text-primary">
-                  <MoneyText amount={attempt.amount} />
-                </span>
-              </div>
+              {summary ? (
+                <div className="rounded-2xl bg-secondary-container/50 p-4 flex items-center justify-between">
+                  <span className="text-sm font-medium text-[#005231]">Số tiền thanh toán</span>
+                  <span className="text-2xl font-bold text-primary">
+                    <MoneyText amount={summary.amount} />
+                  </span>
+                </div>
+              ) : null}
 
               <div className="rounded-xl bg-surface-container-low/75 p-3.5 flex items-start gap-2.5 text-xs text-on-surface-variant">
                 <ShieldCheck className="h-4 w-4 text-primary shrink-0 mt-0.5" aria-hidden="true" />
@@ -166,7 +194,7 @@ export const BookingConfirmPage: React.FC = () => {
                   size="lg"
                   className="w-full"
                   leftIcon={<CreditCard className="h-4 w-4" />}
-                  disabled={isHoldExpired}
+                  disabled={isHoldExpired || isPaid}
                   loading={checkoutMutation.isPending}
                   onClick={() => checkoutMutation.mutate()}
                 >

@@ -392,10 +392,7 @@ export const patientHandlers = [
   }),
 
   http.get('/api/documents/patient/cls-results/:resultId/files/:fileId/download', () => {
-    const blob = new Blob(['%PDF-1.4\n% Smart Healthcare Sample CLS Report PDF\n'], {
-      type: 'application/pdf',
-    });
-    return new HttpResponse(blob, {
+    return new HttpResponse('%PDF-1.4\n% Smart Healthcare Sample CLS Report PDF\n', {
       status: 200,
       headers: {
         'Content-Type': 'application/pdf',

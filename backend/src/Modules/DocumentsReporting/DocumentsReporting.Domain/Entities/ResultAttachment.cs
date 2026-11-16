@@ -22,4 +22,83 @@ public sealed class ResultAttachment
     public UploadStatus UploadStatus { get; set; }
     public bool IsPublished { get; set; }
     public DateTime? UploadedAtUtc { get; set; }
+
+    public static ResultAttachment CreateDraft(
+        Guid id,
+        Guid clsResultId,
+        Guid queueTicketId,
+        Guid encounterId,
+        Guid patientId,
+        string r2StorageKey,
+        string originalFileName,
+        string fileContentType,
+        long fileSizeBytes,
+        string sha256Hash,
+        int version = 1)
+    {
+        return new ResultAttachment
+        {
+            Id = id == Guid.Empty ? Guid.NewGuid() : id,
+            CLSResultId = clsResultId,
+            QueueTicketId = queueTicketId,
+            EncounterId = encounterId,
+            PatientId = patientId,
+            R2StorageKey = r2StorageKey,
+            OriginalFileName = originalFileName,
+            FileContentType = fileContentType,
+            FileSizeBytes = fileSizeBytes,
+            Sha256Hash = sha256Hash,
+            AttachmentVersion = version,
+            UploadStatus = UploadStatus.Draft,
+            IsPublished = false,
+            UploadedAtUtc = null
+        };
+    }
+
+    public void MarkUploaded(DateTime uploadedAtUtc)
+    {
+        UploadStatus = UploadStatus.Uploaded;
+        UploadedAtUtc = uploadedAtUtc;
+    }
+
+    public void MarkPublished()
+    {
+        IsPublished = true;
+        if (UploadStatus == UploadStatus.Draft)
+        {
+            UploadStatus = UploadStatus.Uploaded;
+        }
+    }
+
+    public void MarkRemoved()
+    {
+        UploadStatus = UploadStatus.Removed;
+    }
+
+    public ResultAttachment CreateCorrection(
+        Guid newId,
+        string newR2StorageKey,
+        string originalFileName,
+        string fileContentType,
+        long fileSizeBytes,
+        string sha256Hash)
+    {
+        return new ResultAttachment
+        {
+            Id = newId == Guid.Empty ? Guid.NewGuid() : newId,
+            CLSResultId = CLSResultId,
+            QueueTicketId = QueueTicketId,
+            EncounterId = EncounterId,
+            PatientId = PatientId,
+            R2StorageKey = newR2StorageKey,
+            OriginalFileName = originalFileName,
+            FileContentType = fileContentType,
+            FileSizeBytes = fileSizeBytes,
+            Sha256Hash = sha256Hash,
+            AttachmentVersion = AttachmentVersion + 1,
+            UploadStatus = UploadStatus.Draft,
+            IsPublished = false,
+            UploadedAtUtc = null
+        };
+    }
 }
