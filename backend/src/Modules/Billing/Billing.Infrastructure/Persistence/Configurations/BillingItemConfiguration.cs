@@ -28,5 +28,8 @@ internal sealed class BillingItemConfiguration : IEntityTypeConfiguration<Billin
         builder.HasIndex(x => x.EncounterId);
         builder.HasIndex(x => x.AppointmentId);
         builder.HasIndex(x => x.ServiceOrderItemId);
+        builder.HasIndex(x => x.ServiceOrderId);
+        // Web bệnh nhân liệt kê đợt CLS trong ngày của một bệnh nhân.
+        builder.HasIndex(x => new { x.PatientId, x.CreatedAtUtc });
     }
 }

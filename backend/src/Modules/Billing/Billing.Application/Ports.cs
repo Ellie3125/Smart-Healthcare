@@ -23,6 +23,15 @@ public interface IChargeStore
 
     Task<IReadOnlyList<BillingItem>> GetByEncounterAsync(Guid encounterId, CancellationToken ct);
 
+    /// <summary>Khoản CLS của một đợt chỉ định (không khóa).</summary>
+    Task<IReadOnlyList<BillingItem>> GetClsByServiceOrderAsync(Guid serviceOrderId, CancellationToken ct);
+
+    /// <summary>Khoản CLS của bệnh nhân tạo từ <paramref name="fromUtc"/> trở đi (không khóa).</summary>
+    Task<IReadOnlyList<BillingItem>> GetClsByPatientAsync(Guid patientId, DateTime fromUtc, CancellationToken ct);
+
+    /// <summary>Id các khoản CLS còn Pending tạo trước <paramref name="beforeUtc"/>, tối đa <paramref name="take"/>, theo Id (không khóa).</summary>
+    Task<IReadOnlyList<Guid>> FindUnpaidClsBeforeAsync(DateTime beforeUtc, int take, CancellationToken ct);
+
     void Add(BillingItem item);
 
     Task SaveChangesAsync(CancellationToken ct);

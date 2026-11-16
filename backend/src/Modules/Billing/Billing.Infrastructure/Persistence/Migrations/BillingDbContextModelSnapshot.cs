@@ -52,6 +52,9 @@ namespace Billing.Infrastructure.Persistence.Migrations
                         .HasPrecision(18, 2)
                         .HasColumnType("decimal(18,2)");
 
+                    b.Property<Guid?>("PatientId")
+                        .HasColumnType("uniqueidentifier");
+
                     b.Property<Guid>("PriceListItemId")
                         .HasColumnType("uniqueidentifier");
 
@@ -67,6 +70,9 @@ namespace Billing.Infrastructure.Persistence.Migrations
                         .IsRequired()
                         .ValueGeneratedOnAddOrUpdate()
                         .HasColumnType("rowversion");
+
+                    b.Property<Guid?>("ServiceOrderId")
+                        .HasColumnType("uniqueidentifier");
 
                     b.Property<Guid?>("ServiceOrderItemId")
                         .HasColumnType("uniqueidentifier");
@@ -92,7 +98,11 @@ namespace Billing.Infrastructure.Persistence.Migrations
 
                     b.HasIndex("PriceListItemId");
 
+                    b.HasIndex("ServiceOrderId");
+
                     b.HasIndex("ServiceOrderItemId");
+
+                    b.HasIndex("PatientId", "CreatedAtUtc");
 
                     b.ToTable("BillingItem", "billing", t =>
                         {
