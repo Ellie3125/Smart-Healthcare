@@ -44,12 +44,13 @@ internal static class SchedulingEndpointTestSetup
     }
 
     public static void Authorize(HttpClient client, IConfiguration configuration, string role,
-        Guid? userId = null, string? channel = null)
+        Guid? userId = null, string? channel = null, params Claim[] extra)
     {
         var key = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(configuration["Jwt:SigningKey"]!));
         var token = new JwtSecurityToken(Issuer, Issuer, [new Claim("role", role),
             new Claim(JwtRegisteredClaimNames.Sub, (userId ?? Guid.NewGuid()).ToString("D")),
-            new Claim(IdentityPatients.Contracts.AppClaims.Channel, channel ?? IdentityPatients.Contracts.Policies.ChannelOf(role))],
+            new Claim(IdentityPatients.Contracts.AppClaims.Channel, channel ?? IdentityPatients.Contracts.Policies.ChannelOf(role)),
+            .. extra],
             expires: DateTime.UtcNow.AddMinutes(5), signingCredentials: new SigningCredentials(key, SecurityAlgorithms.HmacSha256));
         client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", new JwtSecurityTokenHandler().WriteToken(token));
     }
