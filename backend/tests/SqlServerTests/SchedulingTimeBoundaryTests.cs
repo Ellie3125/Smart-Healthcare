@@ -228,6 +228,7 @@ public sealed partial class SchedulingHoldTests
             .AddUnitOfWorkParticipant<WorkflowDbContext>()
             .AddSchedulingApplication()
             .AddSingleton<Billing.Contracts.IBillingModule>(new FixedFeeBilling())
+            .AddSingleton<Billing.Contracts.IPaymentRefunds>(new RecordingRefunds())
             .AddSingleton<IDbClock>(clock)
             .BuildServiceProvider(validateScopes: true);
     }
