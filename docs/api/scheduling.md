@@ -1,6 +1,6 @@
 # Contract module Scheduling
 
-- contract_version: **v0.10** (Draft, chờ trưởng nhóm duyệt; v0.4 Approved 12/11/2026)
+- contract_version: **v0.11** (Draft, chờ trưởng nhóm duyệt; v0.4 Approved 12/11/2026)
 - Trạng thái: **Approved** (H-02, trưởng nhóm duyệt 10/11/2026). Q1 đã chốt 17/11/2026; Q2–Q5 ở §6 vẫn là đề xuất cho tới khi trưởng nhóm chốt từng câu.
 - Người giữ: theo ownership.md mục 1. Task: W1-04.
 - Mã nguồn: `backend/src/Modules/Scheduling/Scheduling.Contracts/` (in-process), `Scheduling.Api/` (HTTP).
@@ -64,6 +64,8 @@ Theo mẫu `Billing.Contracts.PaymentVerified`: `EventId`, `Version = 1` (`Curre
 | `AppointmentConfirmed` | Xác nhận lịch từ giữ chỗ hợp lệ sau `PaymentVerified` (W2-06); đổi lịch tạo lịch mới (W2-07) | Appointment / AppointmentId | Notifications (SignalR web bệnh nhân) |
 | `AppointmentCancelled` | Hủy lịch có hiệu lực (W2-07; bệnh viện hủy W3-12) | Appointment / AppointmentId | Billing (hoàn phí), Notifications |
 | `TicketCheckedIn` | Check in lần đầu (W3-02) | QueueTicket / QueueTicketId | Không có handler trong MVP (Encounter đã mở đồng bộ, Q1); Worker đăng ký event để dispatcher đánh dấu xử lý |
+| `QueueCalled` | Vé chuyển Waiting → Called thành công (gọi người tiếp theo; gọi lặp trả vé đang gọi thì không phát; trả về hàng chờ rồi gọi lại phát EventId mới) (W4-02) | QueueTicket / QueueTicketId | Notifications: `QueueUpdated` tới người bấm và nhóm phòng, `DisplayBoardUpdated` tới màn hình chờ |
+| `ClsTicketCancelled` | Job cuối ngày hủy vé CLS chưa thực hiện của ngày đã qua (W3-13) | QueueTicket / QueueTicketId | Chưa có handler (Billing tự hủy phí CLS chưa trả bằng job riêng); Worker đăng ký để dispatcher đánh dấu xử lý |
 
 Payload:
 
@@ -75,6 +77,9 @@ Payload:
   - `SlotReleased`: true khi trả suất (`AdmittedCount − 1`), false khi chuyển sang `LockedCancelledCount`. Bệnh nhân/tiếp tân hủy: true trước 05:00, false từ 05:00.
   - Bệnh viện hủy (Q3, đề xuất, chờ trưởng nhóm duyệt): ở **bất kỳ giờ nào** cũng `SlotReleased = true` (`AdmittedCount − 1`, không tăng `LockedCancelledCount`) và `Refund = Full`; bệnh nhân không có lỗi nên không bị khóa suất.
   - Đổi lịch **không** phát sự kiện này: lịch cũ chuyển `Rescheduled`, phí chuyển sang lịch mới cùng mức phí. Q4 (đề xuất, chờ trưởng nhóm duyệt): MVP không có sự kiện riêng cho đổi lịch; Notifications nhận `AppointmentConfirmed` có `RescheduledFromAppointmentId`.
+- `QueueCalled(EventId, QueueTicketId, EncounterId, PatientId, RoomId, StationId, TicketNumber, SequenceNumber, TicketType, PerformedByUserId, OccurredAtUtc, OperationId?)`, Version 1. Ghi Outbox cùng transaction với allocation và audit; publisher lỗi thì rollback cả trạng thái Called.
+- `ClsTicketCancelled(EventId, QueueTicketId, EncounterId, PatientId, ServiceOrderItemId, Reason = EndOfServiceDay, OccurredAtUtc, OperationId?)`, Version 1. Mốc cuối ngày theo giờ Việt Nam tính từ giờ DB.
+- Job Worker (17/11/2026): `ClsDayEndJob` 00:05 giờ Việt Nam (chạy bù đúng sau downtime); `SessionCompletionJob` mỗi 5 phút kết thúc phiên đã bắt đầu khi mọi lịch hẹn ở trạng thái cuối, không đóng theo giờ. `ICoordinationExceptionReader.ListAsync(take 1..100)` liệt kê ngoại lệ điều phối (bác sĩ/phòng ban đầu ngừng hoạt động) cho trang giám sát.
 - `TicketCheckedIn(EventId, AppointmentId, PatientId, DoctorId, AssignedRoomId, ServiceDate, CheckedInAtUtc, QueueTicketId, OccurredAtUtc, OperationId?, EncounterId)`, Version 1. Encounter đã mở trong cùng transaction check-in (Q1); Clinical không nhận sự kiện này.
 
 ## 4. HTTP đã có
@@ -330,3 +335,4 @@ Chỉ route và mục đích, để UI (W2-09) mock trước. Body, mã lỗi v�
 | v0.8 | 17/11/2026 | Vé quay lại kích hoạt ghi `ActivatedAtUtc` (giữ `IssuedAtUtc`), hàng chờ theo `QueuedAtUtc`; số vé từ bảng đếm `TicketSequence` (CLA-PERF-001, không đổi route hay body) |
 | v0.9 | 17/11/2026 | Thêm §4.6a: tiếp tân tra hồ sơ theo SĐT/CCCD, route đăng ký tại quầy được nối vào Api (trước đó chưa map) |
 | v0.10 | 17/11/2026 | §4.1 mở ngày trực: `roomId` tùy chọn, thiếu thì lấy phòng theo ca trực; thêm 400 `RoomRequired` |
+| v0.11 | 18/11/2026 | §3 thêm sự kiện `QueueCalled`, `ClsTicketCancelled`; job cuối ngày CLS, kết thúc phiên; `ICoordinationExceptionReader` |
