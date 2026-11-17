@@ -31,6 +31,40 @@ internal static class StaffCashierEndpoints
         cashier.MapGet("/shift-summary", SummaryAsync)
             .WithSummary("Tổng tiền mặt tiếp tân đã thu hôm nay (giờ Việt Nam) và danh sách phiếu thu để đối chiếu (Receptionist).")
             .Produces<CashierShiftSummary>();
+
+        // Bệnh nhân mang bill đến quầy khi giao dịch online không được ghi nhận (Giải pháp kỹ thuật v2.13 mục 5.5).
+        billing.MapPost("/staff/payments/querydr", QueryDrAsync)
+            .RequireAuthorization(Policies.ReceptionistOrAdmin)
+            .WithSummary("Tra trạng thái giao dịch ở VNPAY theo mã giao dịch (vnp_TxnRef); cổng báo đã thu thì ghi nhận như IPN (Receptionist, Admin).")
+            .Produces<PaymentReconciliation>()
+            .ProducesProblem(StatusCodes.Status400BadRequest)
+            .ProducesProblem(StatusCodes.Status404NotFound);
+        billing.MapGet("/admin/payments/reconcile", NeedingReviewAsync)
+            .RequireAuthorization(Policies.AdminOnly)
+            .WithSummary("Yêu cầu thanh toán online cần người xử lý (Unknown): cổng chưa có kết quả quá lâu, giao dịch đảo, lệch số tiền (Admin).")
+            .Produces<IReadOnlyList<PaymentNeedingReview>>();
+    }
+
+    /// <param name="TransactionReference">Mã giao dịch in trên bill VNPAY (vnp_TxnRef).</param>
+    internal sealed record QueryDrRequest(string? TransactionReference);
+
+    private static async Task<IResult> QueryDrAsync(QueryDrRequest body, [FromServices] PaymentReconciliationService reconciliation,
+        CancellationToken ct)
+    {
+        if (string.IsNullOrWhiteSpace(body.TransactionReference) || body.TransactionReference.Trim().Length > 64)
+            return Problem(StatusCodes.Status400BadRequest, "TransactionReferenceRequired", "Thiếu hoặc sai mã giao dịch.");
+
+        var result = await reconciliation.ReconcileAsync(body.TransactionReference, ct);
+        return result.Outcome == ReconcileOutcome.NotFound
+            ? Problem(StatusCodes.Status404NotFound, "PaymentNotFound", "Không có giao dịch với mã này trong hệ thống.")
+            : TypedResults.Ok(result);
+    }
+
+    private static async Task<IResult> NeedingReviewAsync(HttpResponse response, [FromServices] PaymentReconciliationService reconciliation,
+        CancellationToken ct)
+    {
+        response.Headers.CacheControl = "no-store";
+        return TypedResults.Ok(await reconciliation.ListNeedingReviewAsync(ct));
     }
 
     private static async Task<IResult> ListAsync([FromQuery] Guid? patientId, HttpResponse response,

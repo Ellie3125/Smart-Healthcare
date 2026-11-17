@@ -15,6 +15,9 @@ public sealed class VnpayOptions
 
     public string PaymentUrl { get; set; } = "https://sandbox.vnpayment.vn/paymentv2/vpcpay.html";
 
+    /// <summary>API truy vấn giao dịch (vnp_Command=querydr), POST JSON.</summary>
+    public string QueryUrl { get; set; } = "https://sandbox.vnpayment.vn/merchant_webapi/api/transaction";
+
     /// <summary>Nơi trình duyệt quay về sau khi thanh toán. Không phải bằng chứng thanh toán: chỉ IPN mới ghi nhận kết quả.</summary>
     public string ReturnUrl { get; set; } = "";
 

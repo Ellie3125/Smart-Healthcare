@@ -26,6 +26,14 @@ public static class DependencyInjection
         services.AddScoped<ClsDayEndService>();
         services.AddScoped<ICashierStore, EfCashierStore>();
         services.AddScoped<CashierService>();
+        services.AddScoped<IReconciliationStore, EfReconciliationStore>();
+        services.AddScoped<PaymentReconciliationService>();
+        services.AddHttpClient<IPaymentStatusGateway, VnpayStatusGateway>(client =>
+        {
+            client.Timeout = TimeSpan.FromSeconds(30);
+            // Tường lửa của VNPAY trả 403 cho request không có User-Agent (HttpClient mặc định không gửi).
+            client.DefaultRequestHeaders.UserAgent.ParseAdd("SmartHealthcare-Billing/1.0");
+        });
         services.AddScoped<ExamChargeLinker>();
         services.AddScoped<IEncounterChargeLinker>(sp => sp.GetRequiredService<ExamChargeLinker>());
         // Worker phát AppointmentConfirmed qua Outbox tới handler này (AddOutboxEvent<AppointmentConfirmed>).
