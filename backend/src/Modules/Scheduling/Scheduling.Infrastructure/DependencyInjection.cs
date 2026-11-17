@@ -14,6 +14,12 @@ using Scheduling.Infrastructure.DoctorDays;
 using Scheduling.Infrastructure.DoctorSearch;
 using Scheduling.Infrastructure.Holds;
 using Scheduling.Infrastructure.Persistence;
+using Scheduling.Application.CheckIn;
+using Scheduling.Infrastructure.CheckIn;
+using Scheduling.Application.WalkIn;
+using Scheduling.Infrastructure.WalkIn;
+using Scheduling.Application.RoomQueues;
+using Scheduling.Infrastructure.RoomQueues;
 using Shared.Abstractions;
 
 namespace Scheduling.Infrastructure;
@@ -29,6 +35,10 @@ public static class DependencyInjection
             .AddScoped<IBookingAttemptStore, SqlBookingAttemptStore>()
             .AddScoped<IBookingPaymentStore, SqlBookingPaymentStore>()
             .AddScoped<IPatientAppointmentReader, SqlPatientAppointmentReader>()
+            .AddScoped<ICheckInStore, SqlCheckInStore>()
+            .AddScoped<CheckInDeadlineJob>()
+            .AddScoped<IWalkInStore, SqlWalkInStore>()
+            .AddScoped<IRoomQueueReader, SqlRoomQueueReader>()
             // Các service cần IUnitOfWork/IIdempotencyStore (Shared.Infrastructure) và IOperationTracker (Notifications.Infrastructure)
             // nên đăng ký cùng store, không ở AddSchedulingApplication (host test endpoint chỉ có Application).
             .AddScoped<HoldService>()

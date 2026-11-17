@@ -38,6 +38,7 @@ public sealed class EndpointAuthorizationInventoryTests
         "auth/patient/login",
         "auth/patient/register",
         "api/billing/payments/vnpay/ipn", // callback VNPAY, xác minh bằng chữ ký HMAC
+        "api/scheduling/public/display", // W4-02 REST, yêu cầu 17/11: chỉ số vé, không định danh bệnh nhân.
     ];
 
     private static readonly HashSet<string> KnownPolicies =

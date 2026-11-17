@@ -28,6 +28,7 @@ public static class DependencyInjection
             group.MapDoctorSearchEndpoints();
             group.MapBookingProgressEndpoints();
             group.MapPatientAppointmentEndpoints();
+            group.MapRoomQueueRoutes();
         }
 
         return group;

@@ -35,6 +35,7 @@ internal static class SchedulingEndpointTestSetup
         builder.Services.RemoveAll<IAuthService>();
         builder.Services.AddOpenApi();
         builder.Services.AddSchedulingApplication().AddSchedulingApi();
+        builder.Services.AddCheckInTestServices();
         builder.Services.AddSingleton<IDoctorDayStore, DoctorDayEndpointTests.Store>();
         builder.Services.AddSingleton<IDoctorSearchQuotaReader>(new DoctorSearchTests.Quotas([]));
         builder.Services.AddSingleton<IBillingModule, DoctorSearchTests.SingleQuoteBilling>();

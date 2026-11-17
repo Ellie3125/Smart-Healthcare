@@ -80,10 +80,11 @@ public sealed record AppointmentCancelled(
 
 /// <summary>
 /// Scheduling phát khi check in lần đầu (W3-02), cùng transaction với Appointment CheckedIn.
-/// Bên nhận: Clinical mở Encounter theo AppointmentId (Encounter.AppointmentId unique) rồi phát EncounterOpened.
+/// Clinical đã mở Encounter đồng bộ trong cùng UoW (Q1 chốt 17/11/2026); event thông báo sau commit.
 /// </summary>
 /// <param name="AssignedRoomId">Phòng khám của phiên; Clinical lưu làm OriginalRoomId.</param>
-/// <param name="QueueTicketId">Vé khám đầu. PENDING câu hỏi mở Encounter (docs/api/scheduling.md §6): null nếu vé cấp sau khi có Encounter.</param>
+/// <param name="QueueTicketId">Vé khám đầu đã có.</param>
+/// <param name="EncounterId">Lượt khám đã mở.</param>
 public sealed record TicketCheckedIn(
     Guid EventId,
     Guid AppointmentId,
@@ -92,9 +93,10 @@ public sealed record TicketCheckedIn(
     Guid AssignedRoomId,
     DateOnly ServiceDate,
     DateTime CheckedInAtUtc,
-    Guid? QueueTicketId,
+    Guid QueueTicketId,
     DateTime OccurredAtUtc,
-    Guid? OperationId) : IIntegrationEvent
+    Guid? OperationId,
+    Guid EncounterId) : IIntegrationEvent
 {
     public const int CurrentVersion = 1;
 
