@@ -44,6 +44,7 @@ public static class DependencyInjection
             .AddScoped<IRoomQueueReader, SqlRoomQueueReader>()
             .AddScoped<Scheduling.Application.Queues.IQueueStore, Queues.SqlQueueStore>()
             .AddScoped<Scheduling.Application.Queues.IClsTicketStore, Queues.SqlClsTicketStore>()
+            .AddScoped<Scheduling.Contracts.IClsTicketReader, Queues.SqlClsTicketReader>()
             .AddScoped(provider => ActivatorUtilities.CreateInstance<Queues.ClsDayEndJob>(provider))
             .AddScoped<Scheduling.Contracts.ICoordinationExceptionReader>(provider => ActivatorUtilities.CreateInstance<Coordination.CoordinationExceptionReader>(provider))
             .AddScoped(provider => ActivatorUtilities.CreateInstance<Sessions.SessionCompletionJob>(provider))
