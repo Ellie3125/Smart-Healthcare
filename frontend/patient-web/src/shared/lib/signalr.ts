@@ -11,28 +11,6 @@ export function createPatientRealtimeConnection(
     onEvent: (eventName: string, payload: unknown) => void;
   },
 ): { start: () => Promise<void>; stop: () => Promise<void> } {
-  const useMock = import.meta.env.VITE_USE_MOCK === 'true';
-
-  if (useMock) {
-    const listeners = events.map((eventName) => {
-      const fn = (e: Event) => {
-        const custom = e as CustomEvent<unknown>;
-        handlers.onEvent(eventName, custom.detail);
-      };
-      window.addEventListener(`sh-patient-realtime:${eventName}`, fn);
-      return { eventName, fn };
-    });
-
-    return {
-      async start() {
-        handlers.onStatusChange?.('connected');
-      },
-      async stop() {
-        listeners.forEach(({ eventName, fn }) => window.removeEventListener(`sh-patient-realtime:${eventName}`, fn));
-        handlers.onStatusChange?.('disconnected');
-      },
-    };
-  }
 
   let conn: HubConnection | null = null;
   let stopped = false;
