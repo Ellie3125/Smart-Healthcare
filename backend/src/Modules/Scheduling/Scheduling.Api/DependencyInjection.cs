@@ -25,6 +25,7 @@ public static class DependencyInjection
     public static RouteGroupBuilder MapSchedulingEndpoints(this IEndpointRouteBuilder app)
     {
         var group = app.MapGroup("/api/scheduling").WithTags(Tag);
+        group.MapMedicalServiceCatalogRoutes();
         group.MapDoctorDayEndpoints();
         group.MapDoctorSearchEndpoints();
         group.MapBookingProgressEndpoints();
