@@ -80,6 +80,7 @@ public static class SchedulingSeed
         }
         foreach (var room in selected)
         {
+            if (stations.Any(x => x.RoomId == room.Id)) continue;
             var capacity = room.Code == "XN01" ? 3 : 1;
             for (var position = 1; position <= capacity; position++)
             {

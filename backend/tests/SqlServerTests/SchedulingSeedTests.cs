@@ -36,6 +36,20 @@ public sealed class SchedulingSeedTests
     }
 
     [Fact]
+    public async Task Keeps_an_existing_disabled_default_station_without_adding_demo_capacity()
+    {
+        await using var fixture = await TestDatabase.OpenAsync();
+        await using var db = fixture.CreateContext<SchedulingDbContext>(o => new(o));
+        var rooms = Rooms();
+        var lab = rooms.Single(x => x.Code == "XN01");
+        db.Add(new ServiceStation { Id = Guid.NewGuid(), RoomId = lab.Id, StationCode = $"DEFAULT-{lab.Id:N}", StationName = "Đã cấu hình", IsActive = false });
+        await db.SaveChangesAsync(Ct);
+        Assert.Equal(new SchedulingSeedResult(5, 7, 15), await SchedulingSeed.SeedAsync(db, rooms, Ct));
+        var stations = await db.Set<ServiceStation>().AsNoTracking().Where(x => x.RoomId == lab.Id).ToListAsync(Ct);
+        Assert.False(Assert.Single(stations).IsActive);
+    }
+
+    [Fact]
     public async Task Missing_or_wrong_type_rooms_fail_before_any_insert()
     {
         await using var fixture = await TestDatabase.OpenAsync();
