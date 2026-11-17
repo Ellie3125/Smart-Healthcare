@@ -160,6 +160,8 @@ public sealed class EndpointAuthorizationInventoryTests
         await using var app = BuildApp(environment);
         var routes = Endpoints(app).Select(e => PathOf(e)).ToList();
 
+        Assert.Contains("api/notifications/patient/notifications", routes);
+        Assert.Contains("api/notifications/patient/notifications/{id}/read", routes);
         var all = string.Join(", ", routes);
         foreach (var prefix in new[] { "api/staff/admin", "api/staff/verifications", "api/patient/profiles", "api/scheduling/admin/doctor-days", "api/scheduling/patient/doctors", "api/scheduling/staff/appointments", "me" })
         {
