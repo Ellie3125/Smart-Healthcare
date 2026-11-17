@@ -12,8 +12,6 @@ services:
     environment:
       # Chỉ tin X-Forwarded-For từ mạng backend (nơi nginx đứng); xem TrustedProxyForwarding.cs.
       ForwardedHeaders__KnownNetworks__0: ${BACKEND_SUBNET:?Thiếu BACKEND_SUBNET}
-      # 4 biến R2 chính đã có trong compose.yaml; Staging chỉ thêm endpoint riêng nếu cần.
-      CloudflareR2__ServiceUrl: ${R2_SERVICE_URL:-}
       # Staging cần tài khoản demo để test: seed Identity (idempotent) khi bật. Prod để false.
       Seed__Enabled: ${SEED_ENABLED:-false}
       Seed__DefaultPassword: ${SEED_DEFAULT_PASSWORD:-}
