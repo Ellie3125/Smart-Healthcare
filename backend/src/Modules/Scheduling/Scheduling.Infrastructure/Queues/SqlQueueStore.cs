@@ -1,4 +1,5 @@
 using System.Text.Json;
+using Billing.Contracts;
 using Microsoft.Data.SqlClient;
 using Microsoft.EntityFrameworkCore;
 using Scheduling.Application.Queues;
@@ -13,7 +14,7 @@ using Shared.Infrastructure.Persistence.Enums;
 
 namespace Scheduling.Infrastructure.Queues;
 
-internal sealed class SqlQueueStore(SchedulingDbContext db, IDbClock clock, AuditLogWriter audit) : IQueueStore
+internal sealed class SqlQueueStore(SchedulingDbContext db, IDbClock clock, AuditLogWriter audit, IBillingModule billing) : IQueueStore
 {
     public async Task<StationLookup> ResolveStationAsync(Guid roomId, Guid? stationId, string roomName, CancellationToken ct)
     {
@@ -88,6 +89,11 @@ internal sealed class SqlQueueStore(SchedulingDbContext db, IDbClock clock, Audi
         if (await db.Set<ActivePatientEngagement>().AnyAsync(e => e.PatientId == c.PatientId, ct))
             return new(QueueResult.PatientBusy);
 
+        var ticket = await db.Set<QueueTicket>().AsNoTracking().SingleOrDefaultAsync(t => t.Id == c.TicketId, ct);
+        if (ticket is null || ticket.EncounterId != c.EncounterId || ticket.TargetRoomId != c.RoomId || ticket.QueueStatus != QueueStatus.Waiting)
+            return new(QueueResult.TicketTaken);
+        if (!await HasPaymentAsync(ticket, ct)) return new(QueueResult.PaymentRequired);
+
         var now = await clock.GetUtcNowAsync(ct);
         var updated = await db.Set<QueueTicket>()
             .Where(t => t.Id == c.TicketId && t.TargetRoomId == c.RoomId && t.QueueStatus == QueueStatus.Waiting)
@@ -139,6 +145,8 @@ internal sealed class SqlQueueStore(SchedulingDbContext db, IDbClock clock, Audi
             await LockAsync(PatientLock(allocation.CurrentPatientId), ct);
             await LockAsync(StationLock(allocation.StationId), ct);
         }
+
+        if (transition == TicketTransition.Start && !await HasPaymentAsync(ticket, ct)) return new(QueueResult.PaymentRequired);
 
         var now = await clock.GetUtcNowAsync(ct);
         var query = db.Set<QueueTicket>().Where(t => t.Id == ticket.Id && t.QueueStatus == from);
@@ -192,6 +200,10 @@ internal sealed class SqlQueueStore(SchedulingDbContext db, IDbClock clock, Audi
     internal static string StationLock(Guid id) => $"scheduling:station:{id:N}";
 
     private Task LockAsync(string resource, CancellationToken ct) => db.AppLockAsync(resource, ct);
+
+    private async Task<bool> HasPaymentAsync(QueueTicket ticket, CancellationToken ct) =>
+        ticket.TicketType != TicketType.CLS || (ticket.ServiceOrderItemId is { } item
+            && ClsPaymentRules.IsPaid(await billing.GetEncounterCostSummaryAsync(ticket.EncounterId, ct), ticket.EncounterId, item));
 
     internal static DateTime StartOfVietnamDayUtc(DateTime nowUtc) =>
         new DateTimeOffset(DateOnly.FromDateTime(nowUtc.AddHours(7)).ToDateTime(TimeOnly.MinValue), TimeSpan.FromHours(7)).UtcDateTime;

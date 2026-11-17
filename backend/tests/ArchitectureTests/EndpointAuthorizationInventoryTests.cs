@@ -161,6 +161,7 @@ public sealed class EndpointAuthorizationInventoryTests
         var routes = Endpoints(app).Select(e => PathOf(e)).ToList();
 
         var all = string.Join(", ", routes);
+        Assert.Contains("api/scheduling/staff/rooms/{roomId}/pending-results", routes);
         foreach (var prefix in new[] { "api/staff/admin", "api/staff/verifications", "api/patient/profiles", "api/scheduling/admin/doctor-days", "api/scheduling/patient/doctors", "api/scheduling/staff/appointments", "me" })
         {
             Assert.True(routes.Any(r => r.StartsWith(prefix, StringComparison.Ordinal)), $"Thiếu {prefix} trong: {all}");

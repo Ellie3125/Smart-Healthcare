@@ -136,6 +136,7 @@ public enum QueueResult
     /// <summary>Vé thuộc phòng khác với phòng của tài khoản phòng (W3-08).</summary>
     WrongRoom,
     InvalidTicketState,
+    PaymentRequired,
 }
 
 public interface IQueueStore

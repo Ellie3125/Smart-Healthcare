@@ -78,11 +78,11 @@ public sealed partial class SchedulingHoldTests
         {
             var first = await CheckInAsync(services, (await BookedAsync(services, day)).AppointmentId);
             var second = await CheckInAsync(services, (await BookedAsync(services, day)).AppointmentId);
-            // Bệnh nhân đầu đang được gọi ở phòng CLS khác.
+            // Bệnh nhân đầu đang được gọi ở điểm phục vụ khác; kiểm engagement độc lập với guard phí CLS.
             var cls = Guid.CreateVersion7();
             await ExecAsync($"""
                 INSERT INTO scheduling.QueueTicket (Id, EncounterId, TargetRoomId, TicketNumber, TicketType, SequenceNumber, QueueStatus, IssuedAtUtc)
-                VALUES ('{cls}', '{first.EncounterId}', '{otherRoom}', 'TEST-{cls:N}', 'CLS', 1, 'Waiting', '{AtIct(7, 59):yyyy-MM-ddTHH:mm:ss}')
+                VALUES ('{cls}', '{first.EncounterId}', '{otherRoom}', 'TEST-{cls:N}', 'ReturnConsultation', 1, 'Waiting', '{AtIct(7, 59):yyyy-MM-ddTHH:mm:ss}')
                 """);
             var atCls = await CallNextAsync(services, otherRoom, null);
             Assert.Equal(cls, atCls.Ticket!.QueueTicketId);
