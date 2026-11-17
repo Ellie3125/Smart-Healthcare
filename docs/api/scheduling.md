@@ -1,11 +1,11 @@
 # Contract module Scheduling
 
-- contract_version: **v0.11** (Draft, chờ trưởng nhóm duyệt; v0.4 Approved 12/11/2026)
+- contract_version: **v0.12** (Draft, chờ trưởng nhóm duyệt; v0.4 Approved 12/11/2026)
 - Trạng thái: **Approved** (H-02, trưởng nhóm duyệt 10/11/2026). Q1 đã chốt 17/11/2026; Q2–Q5 ở §6 vẫn là đề xuất cho tới khi trưởng nhóm chốt từng câu.
 - Người giữ: theo ownership.md mục 1. Task: W1-04.
 - Mã nguồn: `backend/src/Modules/Scheduling/Scheduling.Contracts/` (in-process), `Scheduling.Api/` (HTTP).
 - Quy ước chung: `docs/conventions.md` v0.1 (W1-03, PR #43, chờ duyệt): ProblemDetails + extension `code`, JSON camelCase, thời điểm UTC ISO-8601 có `Z`, ngày phục vụ `yyyy-MM-dd`, header `Idempotency-Key`.
-- Nguồn nghiệp vụ: Phạm vi v2.12 §4–6; Giải pháp v2.14 §1.2, §2.3, §4, §8.2; ERD v2.4 (DoctorDayQuota, Reservation, Appointment, QueueTicket).
+- Nguồn nghiệp vụ: Phạm vi v2.13 §4–6; Giải pháp v2.14 §1.2, §2.3, §4, §8.2; ERD v2.4 (DoctorDayQuota, Reservation, Appointment, QueueTicket).
 
 ## 1. Quy tắc suất trống
 
@@ -248,6 +248,19 @@ Chung: policy `PatientOnly`. Lịch không có, không do người gọi đặt,
 - Body tùy chọn `{ "reason": "<≤ 500 ký tự>" }` (có thể bỏ trống body). Chỉ lịch `Scheduled`.
 - 200 `{ appointmentId, status: "Cancelled", refund: "Full" | "None", refundAmount, currency, cancelledAtUtc, operationId }`. `Full` khi hủy trước 05:00 ngày D: trả suất và Billing tạo yêu cầu hoàn qua `AppointmentCancelled`; từ 05:00: `None`, khóa suất.
 - Lỗi: 400 `InvalidInput` · 404 `AppointmentNotFound` · 409 `InvalidAppointmentState`, `IdempotencyConflict`, `RequestInProgress`.
+- Hoàn tiền (Phạm vi v2.13, chốt 18/11/2026): khoản `Full` chỉ trả tiền mặt tại quầy; không hoàn qua VNPAY.
+
+`GET /api/scheduling/patient/appointments/{appointmentId:guid}/cancellation-preview` (v0.12)
+
+- Không đổi dữ liệu. Cùng mốc với lệnh hủy: giờ DB < `RescheduleCutoffTimeUtc` (05:00 ngày D) thì `Full`, còn lại `None`. Kết quả chỉ để hiển thị; lệnh hủy tính lại dưới khóa.
+- 200 `{ appointmentId, refund: "Full" | "None", refundAmount, currency, refundCutoffUtc, refundMethod: "Counter" | null }`.
+- Lỗi: 404 `AppointmentNotFound` · 409 `InvalidAppointmentState` (lịch không còn `Scheduled`).
+
+`POST /api/scheduling/staff/appointments/{appointmentId:guid}/cancel` — `ReceptionistOnly` (v0.12)
+
+- Header `Idempotency-Key` bắt buộc; body tùy chọn `{ "reason": "<≤ 500 ký tự>" }` (cắt khoảng trắng hai đầu). Người thực hiện lấy từ token; ghi AuditLog `CANCEL` kèm lý do.
+- `Scheduled`: cùng chính sách hoàn như bệnh nhân hủy. `CheckedIn`: bắt buộc lý do; chỉ hủy được khi vé khám đầu còn `Waiting`, `Called` hoặc `Deferred` và Encounter không có vé CLS/quay lại đang mở. Cùng transaction: vé đó chuyển `Cancelled`, nhả trạm và bệnh nhân đang giữ, AuditLog ghi `CancelledQueueTicketIds`. Check in chỉ có sau 05:00 nên lịch `CheckedIn` bị hủy luôn khóa suất, không hoàn. Encounter bên Clinical chưa được đóng (chờ lệnh hủy Encounter của Clinical).
+- 200 như lệnh hủy của bệnh nhân. Lỗi: 400 `InvalidInput`, `ReasonRequired` · 404 `AppointmentNotFound` · 409 `InvalidAppointmentState`, `PatientInService` (đã vào khám, đã khám đầu xong hoặc có vé CLS/quay lại mở), `IdempotencyConflict`, `RequestInProgress` · 415.
 
 `POST /api/scheduling/patient/appointments/{appointmentId:guid}/reschedule`
 
@@ -260,7 +273,7 @@ Chung: policy `PatientOnly`. Lịch không có, không do người gọi đặt,
 - Tiến trình đặt lịch của người gọi ở trạng thái `Draft`, `Held`, `WaitingPayment`, `Confirming`, `NeedsReselection`, ngày khám từ hôm nay (giờ Việt Nam theo DB), mới cập nhật trước, tối đa 20; bỏ hồ sơ người gọi đã mất quyền Booking.
 - 200 mảng `{ bookingAttemptId, patientId, serviceDate, doctorId?, status, currentStep, expiresAtUtc?, allowedActions }`; `status`/`allowedActions` tính như `GET /patient/booking-attempts/{id}` (§4.4).
 
-Chưa có (ngoài v0.6): `GET .../cancellation-preview`, `GET .../reschedule-options`, `GET .../ticket`.
+Không làm route riêng: `reschedule-options` (web lọc `GET /patient/doctors?serviceDate=` theo `examFee` bằng `appliedConsultationFee`; server vẫn kiểm `DifferentFee`), `ticket` (dùng `GET /patient/appointments/{id}`; mã QR là `appointmentNumber`).
 
 ### 4.8 Hàng đợi phòng: gọi người tiếp theo, bắt đầu, khám xong, trả về hàng chờ (W3-03, W3-08; v0.7, 17/11/2026)
 
@@ -297,18 +310,18 @@ Chỉ route và mục đích, để UI (W2-09) mock trước. Body, mã lỗi v�
 | `GET /api/scheduling/patient/appointments` | Đã có, chi tiết §4.5 | W2-07 |
 | `GET /api/scheduling/patient/appointments/{appointmentId}` | Đã có, chi tiết §4.5; số thứ tự bổ sung ở W3-02 | W2-07 |
 | ~~`POST /api/scheduling/patient/appointments/{appointmentId}/reschedule`~~ (đã có, §4.7) | Đổi lịch trước 05:00 sang bác sĩ cùng mức phí | W2-07 |
-| `GET /api/scheduling/patient/appointments/{appointmentId}/cancellation-preview` | Số tiền được hoàn / không hoàn trước khi xác nhận hủy | W2-07 |
+| ~~`GET /api/scheduling/patient/appointments/{appointmentId}/cancellation-preview`~~ (đã có, §4.7) | Số tiền được hoàn / không hoàn trước khi xác nhận hủy | W2-07 |
 | ~~`POST /api/scheduling/patient/appointments/{appointmentId}/cancel`~~ (đã có, §4.7) | Bệnh nhân hủy lịch (chỉ Scheduled) | W2-07 |
-| `GET /api/scheduling/staff/doctors` | Tiếp tân tìm bác sĩ, suất trống, phí; cùng `DoctorSearchService` và DTO với route patient, policy nhân viên quầy (vai trò `Receptionist`) (Q2, đề xuất, chờ trưởng nhóm duyệt) | W3-01 |
+| ~~`GET /api/scheduling/staff/doctors`~~ (đã có v0.12) | Tiếp tân tìm bác sĩ, suất trống, phí; cùng query, `DoctorSearchService` và DTO với §4.3, `ReceptionistOnly` | W3-01 |
 | ~~`POST /api/scheduling/staff/appointments/{appointmentId}/check-in`~~ | Đã có, xem §4.6 | W3-02 |
-| `POST /api/scheduling/staff/appointments/{appointmentId}/cancel` | Tiếp tân hủy (Scheduled; CheckedIn bắt buộc lý do) | W2-07 |
+| ~~`POST /api/scheduling/staff/appointments/{appointmentId}/cancel`~~ (đã có, §4.7) | Tiếp tân hủy (Scheduled; CheckedIn bắt buộc lý do) | W2-07 |
 
 ## 6. Câu hỏi mở
 
 | # | Câu hỏi | Ảnh hưởng tới contract | Trạng thái |
 |---|---|---|---|
 | Q1 | Vé khám đầu có trước hay sau Encounter? | Check-in gọi `IClinicalModule.StartEncounterAsync` đồng bộ trong cùng `IUnitOfWork`, lấy `EncounterId` tạo `QueueTicket` khám đầu; `TicketCheckedIn` mang `EncounterId`; Clinical không có handler. `CheckInResult` thêm `EncounterId`, bỏ nullable trường vé (§2.2, §3). | **Đã chốt 17/11/2026** (trưởng nhóm) |
-| Q2 | API tìm bác sĩ có bản Staff cho tiếp tân không? | Đề xuất: route riêng `GET /api/scheduling/staff/doctors`, cùng `DoctorSearchService`, policy nhân viên quầy (§5). | Đề xuất, chờ trưởng nhóm duyệt |
+| Q2 | API tìm bác sĩ có bản Staff cho tiếp tân không? | Route riêng `GET /api/scheduling/staff/doctors`, cùng `DoctorSearchService` và DTO, `ReceptionistOnly` (§5). | **Đã chốt 18/11/2026** |
 | Q3 | Bệnh viện hủy sau 05:00 (bác sĩ nghỉ): trả suất hay khóa suất? | Đề xuất: mọi giờ đều trả suất (`SlotReleased = true`, `AdmittedCount − 1`, không tăng `LockedCancelledCount`), `Refund = Full` (§3). | Đề xuất, chờ trưởng nhóm duyệt |
 | Q4 | Có sự kiện riêng khi đổi lịch không? | Đề xuất: không trong MVP; Notifications dùng `AppointmentConfirmed` có `RescheduledFromAppointmentId` (§3). | Đề xuất, chờ trưởng nhóm duyệt |
 | Q5 | Giới hạn số ngày tới được mở lịch? | Đề xuất: không có cấu hình số ngày; chỉ ngày `IsOpen` và `serviceDate` ≥ hôm nay theo giờ DB (ICT) (§1). | Đề xuất, chờ trưởng nhóm duyệt |
@@ -336,3 +349,4 @@ Chỉ route và mục đích, để UI (W2-09) mock trước. Body, mã lỗi v�
 | v0.9 | 17/11/2026 | Thêm §4.6a: tiếp tân tra hồ sơ theo SĐT/CCCD, route đăng ký tại quầy được nối vào Api (trước đó chưa map) |
 | v0.10 | 17/11/2026 | §4.1 mở ngày trực: `roomId` tùy chọn, thiếu thì lấy phòng theo ca trực; thêm 400 `RoomRequired` |
 | v0.11 | 18/11/2026 | §3 thêm sự kiện `QueueCalled`, `ClsTicketCancelled`; job cuối ngày CLS, kết thúc phiên; `ICoordinationExceptionReader` |
+| v0.12 | 18/11/2026 | §4.7: `cancellation-preview` (bệnh nhân), tiếp tân hủy `POST /staff/appointments/{id}/cancel` (CheckedIn hủy vé chờ, mã `PatientInService`); `GET /staff/doctors` (Q2 chốt); hoàn tiền chỉ tại quầy (Phạm vi v2.13); bỏ route riêng `reschedule-options`, `ticket` |
