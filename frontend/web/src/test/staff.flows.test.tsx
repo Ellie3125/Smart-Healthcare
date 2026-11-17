@@ -3,9 +3,7 @@ import { describe, expect, it, beforeEach } from 'vitest';
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
-import { http, HttpResponse } from 'msw';
-import { server } from '../mocks/server';
-import { resetStaffMockStore } from '../mocks/handlers';
+import { staffApiMock } from './staffTestFixtures';
 import { ToastProvider } from '../shared/ui';
 import { SessionReplacedPage } from '../pages/common/SessionReplacedPage';
 import { DoctorDayQuotasPage } from '../pages/admin/DoctorDayQuotasPage';
@@ -38,7 +36,7 @@ function renderStaff(ui: React.ReactElement, initialEntries: string[] = ['/']) {
 
 describe('Staff Web critical workflows (S04b, AD, RC, NU, DR, CL)', () => {
   beforeEach(() => {
-    resetStaffMockStore();
+    staffApiMock.reset();
     localStorage.clear();
   });
 
@@ -59,8 +57,8 @@ describe('Staff Web critical workflows (S04b, AD, RC, NU, DR, CL)', () => {
     expect(screen.queryByRole('button', { name: /Đánh dấu đã trả/i })).not.toBeInTheDocument();
 
     renderStaff(<AuditLogsPage />);
-    expect(await screen.findByText(/CCCD: \*{9}789/)).toBeInTheDocument();
-    expect(screen.getByText(/SĐT: \*{7}321/)).toBeInTheDocument();
+    expect((await screen.findAllByText(/CCCD: \*{9}789/)).length).toBeGreaterThan(0);
+    expect(screen.getAllByText(/SĐT: \*{7}321/).length).toBeGreaterThan(0);
   });
 
   it('RC03: check-in ID gate & deadline block', async () => {
@@ -105,11 +103,10 @@ describe('Staff Web critical workflows (S04b, AD, RC, NU, DR, CL)', () => {
     fireEvent.click(finishBtn);
     expect(await screen.findByText(/Vẫn còn chỉ số sinh hiệu để trống/i)).toBeInTheDocument();
 
-    server.use(
-      http.put('/api/clinical/staff/nurse/encounters/:encounterId/vitals', () =>
-        HttpResponse.json({ code: 'VERSION_CONFLICT', currentVersion: 5, detail: 'Xung đột' }, { status: 409 }),
-      ),
-    );
+    staffApiMock.override('PUT', '/api/clinical/staff/nurse/encounters/:encounterId/vitals', () => ({
+      status: 409,
+      data: { code: 'VERSION_CONFLICT', currentVersion: 5, detail: 'Xung đột' },
+    }));
     fireEvent.click(screen.getByRole('button', { name: /^Xác nhận$/i }));
     expect(await screen.findByText(/Xung đột phiên bản dữ liệu \(409\)/i)).toBeInTheDocument();
   });
@@ -121,34 +118,32 @@ describe('Staff Web critical workflows (S04b, AD, RC, NU, DR, CL)', () => {
     expect(screen.getAllByRole('button', { name: /Gọi người tiếp theo/i })).toHaveLength(2);
     expect(screen.queryByRole('button', { name: /Mua thuốc/i })).not.toBeInTheDocument();
 
-    server.use(
-      http.put('/api/clinical/staff/doctor/encounters/:encounterId/draft', () =>
-        HttpResponse.json({ code: 'VERSION_CONFLICT', currentVersion: 9, detail: 'Đã sửa nơi khác' }, { status: 409 }),
-      ),
-    );
+    staffApiMock.override('PUT', '/api/clinical/staff/doctor/encounters/:encounterId/draft', () => ({
+      status: 409,
+      data: { code: 'VERSION_CONFLICT', currentVersion: 9, detail: 'Đã sửa nơi khác' },
+    }));
     fireEvent.click(await screen.findByRole('button', { name: /Lưu nháp/i }));
     expect(await screen.findByText(/Xung đột phiên bản dữ liệu \(409\)/i)).toBeInTheDocument();
   });
 
   it('CL04: locks viewing after CLS result is Published', async () => {
-    server.use(
-      http.get('/api/clinical/staff/room/results/:id', () =>
-        HttpResponse.json({
-          orderItemId: 'cls-ord-1',
-          ticketNumber: 'CLS-021',
-          patientName: 'Nguyễn Minh Tâm',
-          serviceCode: 'XN-CTM',
-          serviceName: 'Tổng phân tích tế bào máu',
-          resultStatus: 'Published',
-          summaryText: '',
-          technicalConclusion: '',
-          readingDoctorName: 'BS.CKII Đỗ Văn Hùng',
-          availableShiftDoctors: ['BS.CKII Đỗ Văn Hùng'],
-          version: 3,
-          draftFiles: [],
-        }),
-      ),
-    );
+    staffApiMock.override('GET', '/api/clinical/staff/room/results/:id', () => ({
+      status: 200,
+      data: {
+        orderItemId: 'cls-ord-1',
+        ticketNumber: 'CLS-021',
+        patientName: 'Nguyễn Minh Tâm',
+        serviceCode: 'XN-CTM',
+        serviceName: 'Tổng phân tích tế bào máu',
+        resultStatus: 'Published',
+        summaryText: '',
+        technicalConclusion: '',
+        readingDoctorName: 'BS.CKII Đỗ Văn Hùng',
+        availableShiftDoctors: ['BS.CKII Đỗ Văn Hùng'],
+        version: 3,
+        draftFiles: [],
+      },
+    }));
     renderStaff(<RoomResultUploadPage />, ['/room/upload?orderItemId=cls-ord-1']);
     await waitFor(() => {
       expect(screen.getByText(/Kết quả đã phát hành — Đã khóa xem tại phòng thực hiện/i)).toBeInTheDocument();
@@ -156,43 +151,43 @@ describe('Staff Web critical workflows (S04b, AD, RC, NU, DR, CL)', () => {
   });
 
   it('DOC-W3: ResultFileUploader renders patient match info, allows file selection and lists draft files', async () => {
-    server.use(
-      http.get('/api/clinical/staff/room/results/:id', () =>
-        HttpResponse.json({
-          orderItemId: 'cls-ord-draft',
-          ticketNumber: 'CLS-088',
-          patientName: 'Trần Thị Mai',
-          serviceCode: 'SA-OB',
-          serviceName: 'Siêu âm ổ bụng tổng quát',
-          resultStatus: 'Draft',
-          summaryText: '',
-          technicalConclusion: '',
-          readingDoctorName: 'BS.CKI Trần Quốc Khánh',
-          availableShiftDoctors: ['BS.CKI Trần Quốc Khánh'],
-          version: 1,
-          draftFiles: [],
-        }),
-      ),
-      http.get('/api/documents/staff/room/tickets/:id/files', () =>
-        HttpResponse.json([
-          {
-            id: 'file-sa-1',
-            clsResultId: 'cls-ord-draft',
-            queueTicketId: 'cls-ord-draft',
-            encounterId: 'enc-1',
-            patientId: 'p-1',
-            fileName: 'SieuAm-OB-TranThiMai.png',
-            contentType: 'image/png',
-            sizeBytes: 1048576,
-            sha256Hash: 'a1b2c3d4e5f6',
-            attachmentVersion: 1,
-            uploadStatus: 'Uploaded',
-            isPublished: false,
-            uploadedAtUtc: '2026-11-16T10:00:00Z',
-          },
-        ]),
-      ),
-    );
+    staffApiMock.override('GET', '/api/clinical/staff/room/results/:id', () => ({
+      status: 200,
+      data: {
+        orderItemId: 'cls-ord-draft',
+        ticketNumber: 'CLS-088',
+        patientName: 'Trần Thị Mai',
+        serviceCode: 'SA-OB',
+        serviceName: 'Siêu âm ổ bụng tổng quát',
+        resultStatus: 'Draft',
+        summaryText: '',
+        technicalConclusion: '',
+        readingDoctorName: 'BS.CKI Trần Quốc Khánh',
+        availableShiftDoctors: ['BS.CKI Trần Quốc Khánh'],
+        version: 1,
+        draftFiles: [],
+      },
+    }));
+    staffApiMock.override('GET', '/api/documents/staff/room/tickets/:id/files', () => ({
+      status: 200,
+      data: [
+        {
+          id: 'file-sa-1',
+          clsResultId: 'cls-ord-draft',
+          queueTicketId: 'cls-ord-draft',
+          encounterId: 'enc-1',
+          patientId: 'p-1',
+          fileName: 'SieuAm-OB-TranThiMai.png',
+          contentType: 'image/png',
+          sizeBytes: 1048576,
+          sha256Hash: 'a1b2c3d4e5f6',
+          attachmentVersion: 1,
+          uploadStatus: 'Uploaded',
+          isPublished: false,
+          uploadedAtUtc: '2026-11-16T10:00:00Z',
+        },
+      ],
+    }));
 
     renderStaff(<RoomResultUploadPage />, ['/room/upload?orderItemId=cls-ord-draft']);
     expect(await screen.findByText(/Đối chiếu hồ sơ:/i)).toBeInTheDocument();

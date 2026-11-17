@@ -22,7 +22,6 @@ import { CancelAppointmentPage } from './pages/appointments/CancelAppointmentPag
 import { TodayJourneyPage } from './pages/journey/TodayJourneyPage';
 import { ClsPaymentsPage } from './pages/billing/ClsPaymentsPage';
 import { EncounterCostPage } from './pages/billing/EncounterCostPage';
-import { RefundRequestsPage } from './pages/billing/RefundRequestsPage';
 import { EncounterHistoryPage } from './pages/records/EncounterHistoryPage';
 import { EncounterDetailPage } from './pages/records/EncounterDetailPage';
 import { PrescriptionDetailPage } from './pages/records/PrescriptionDetailPage';
@@ -87,7 +86,6 @@ export const App: React.FC = () => {
           <Route path="/today-journey" element={<TodayJourneyPage />} />
           <Route path="/cls-payments" element={<ClsPaymentsPage />} />
           <Route path="/encounters/:encounterId/cost" element={<EncounterCostPage />} />
-          <Route path="/refunds" element={<RefundRequestsPage />} />
 
           <Route path="/records" element={<EncounterHistoryPage />} />
           <Route path="/records/:encounterId" element={<EncounterDetailPage />} />

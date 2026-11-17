@@ -3,9 +3,7 @@ import { describe, expect, it, beforeEach } from 'vitest';
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
-import { http, HttpResponse } from 'msw';
-import { server } from '../mocks/server';
-import { resetPatientMockStore } from '../mocks/handlers';
+import { patientApiMock } from './patientTestFixtures';
 import { bookingApi, PENDING_PAYMENT_KEY } from '../api/bookingApi';
 import { ToastProvider } from '../shared/ui';
 import { BookingConfirmPage } from '../pages/booking/BookingConfirmPage';
@@ -13,7 +11,6 @@ import { VnpayReturnPage } from '../pages/booking/VnpayReturnPage';
 import { RescheduleAppointmentPage } from '../pages/appointments/RescheduleAppointmentPage';
 import { CancelAppointmentPage } from '../pages/appointments/CancelAppointmentPage';
 import { EncounterCostPage } from '../pages/billing/EncounterCostPage';
-import { RefundRequestsPage } from '../pages/billing/RefundRequestsPage';
 import { EncounterHistoryPage } from '../pages/records/EncounterHistoryPage';
 import { EncounterDetailPage } from '../pages/records/EncounterDetailPage';
 import { PrescriptionDetailPage } from '../pages/records/PrescriptionDetailPage';
@@ -44,7 +41,7 @@ function renderWithProviders(
 
 describe('Patient Web critical workflows (P06–P26 & TV01)', () => {
   beforeEach(() => {
-    resetPatientMockStore();
+    patientApiMock.reset();
     sessionStorage.clear();
   });
 
@@ -83,11 +80,10 @@ describe('Patient Web critical workflows (P06–P26 & TV01)', () => {
 
   it('P10: starts VNPAY return in Verifying state without any mark-paid button', async () => {
     sessionStorage.setItem(PENDING_PAYMENT_KEY, 'pi-test-01');
-    server.use(
-      http.get('/api/billing/patient/payments/:paymentIntentId', () =>
-        HttpResponse.json({ paymentIntentId: 'pi-test-01', intentNumber: 'PI-TEST-01', amount: 150000, status: 'Pending', paidAtUtc: null }),
-      ),
-    );
+    patientApiMock.override('GET', '/api/billing/patient/payments/:paymentIntentId', () => ({
+      status: 200,
+      data: { paymentIntentId: 'pi-test-01', intentNumber: 'PI-TEST-01', amount: 150000, status: 'Pending', paidAtUtc: null },
+    }));
     renderWithProviders(<VnpayReturnPage />, ['/payment/vnpay-return?vnp_TxnRef=VNP-TEST-01'], '/payment/vnpay-return');
     expect(await screen.findByText(/Đang xác minh thanh toán với VNPAY/i)).toBeInTheDocument();
     expect(screen.queryByRole('button', { name: /Đánh dấu đã trả/i })).not.toBeInTheDocument();
@@ -119,10 +115,11 @@ describe('Patient Web critical workflows (P06–P26 & TV01)', () => {
     expect(screen.getByText(/Hoàn thành công/i)).toBeInTheDocument();
   });
 
-  it('P19: refund requests screen has no file upload inputs', async () => {
-    const { container } = renderWithProviders(<RefundRequestsPage />, ['/refunds'], '/refunds');
-    await screen.findByText(/RF-20261110-003/i);
-    expect(container.querySelector('input[type="file"]')).toBeNull();
+  it('P19: appointment cancellation operates automatically without exposing separate refund channels', async () => {
+    renderWithProviders(<CancelAppointmentPage />, ['/appointments/apt-2/cancel'], '/appointments/:id/cancel');
+    expect(await screen.findByText(/Số tiền hoàn dự kiến \(100%\)/i)).toBeInTheDocument();
+    expect(screen.queryByText(/Chọn kênh nhận tiền/i)).not.toBeInTheDocument();
+    expect(screen.queryByText(/Chuyển khoản ngân hàng/i)).not.toBeInTheDocument();
   });
 
   it('P20: blocks encounter history for Pending verification profile', async () => {
@@ -166,7 +163,10 @@ describe('Patient Web critical workflows (P06–P26 & TV01)', () => {
   });
 
   it('P25: disables chatbot input when /health is down', async () => {
-    server.use(http.get('/api/notifications/patient/chat/health', () => HttpResponse.json({ available: false })));
+    patientApiMock.override('GET', '/api/notifications/patient/chat/health', () => ({
+      status: 200,
+      data: { available: false },
+    }));
     renderWithProviders(<ChatbotPage />, ['/chatbot'], '/chatbot');
     expect(await screen.findByText(/Trợ lý ảo tạm thời ngưng phục vụ/i)).toBeInTheDocument();
     await waitFor(() => {

@@ -39,7 +39,7 @@ export const CancelAppointmentPage: React.FC = () => {
     mutationFn: () => bookingApi.cancelAppointment(id, reason.trim() || 'Bệnh nhân chủ động hủy', idemKey),
     onSuccess: (res) => {
       pushToast(`Đã hủy lịch khám. Số tiền dự kiến hoàn: ${res.refundAmount.toLocaleString('vi-VN')} ₫`, 'success');
-      navigate('/refunds');
+      navigate('/appointments');
     },
     onError: (err) => {
       pushToast(extractPatientError(err).message, 'danger');

@@ -71,21 +71,6 @@ export interface EncounterCostSummary {
   }[];
 }
 
-export type RefundPayoutChannel = 'CashCounter' | 'BankTransfer' | 'OriginalVnpay';
-
-export interface RefundRequestItem {
-  id: string;
-  referenceCode: string;
-  reason: string;
-  amount: number;
-  status: 'Pending' | 'Approved' | 'Refunded' | 'Rejected';
-  payoutChannel?: RefundPayoutChannel | null;
-  bankAccountSummary?: string | null;
-  createdAt: string;
-  updatedAt: string;
-  rejectionReason?: string;
-}
-
 export interface PatientEncounterSummary {
   id: string;
   encounterCode: string;
