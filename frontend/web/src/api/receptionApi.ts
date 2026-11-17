@@ -47,7 +47,39 @@ export const receptionApi = {
       { idempotencyKey },
     ),
 
-  // TODO: nối contract thật RC03 check-in + đối chiếu CCCD + CheckInDeadline
+  // Contract thật CheckInEndpoints.cs (/api/scheduling/staff/appointments/today & check-in)
+  listTodayAppointments: (params?: { page?: number; pageSize?: number; appointmentNumber?: string; doctorId?: string }) =>
+    apiGet<{
+      page: number;
+      pageSize: number;
+      hasMore: boolean;
+      items: {
+        appointmentId: string;
+        appointmentNumber: string;
+        patientId: string;
+        doctorId: string;
+        assignedRoomId: string;
+        serviceDate: string;
+        status: string;
+        checkInDeadlineUtc: string;
+      }[];
+    }>('/api/scheduling/staff/appointments/today', { params }),
+
+  checkIn: (appointmentId: string) =>
+    apiPost<{
+      appointmentId: string;
+      patientId: string;
+      doctorId: string;
+      serviceDate: string;
+      checkedInAtUtc: string;
+      alreadyCheckedIn: boolean;
+      queueTicketId: string;
+      ticketNumber: string;
+      sequenceNumber: number;
+      encounterId: string;
+    }, Record<string, never>>(`/api/scheduling/staff/appointments/${appointmentId}/check-in`, {}),
+
+  // RC03 check-in + đối chiếu CCCD + CheckInDeadline
   checkInAppointment: (
     appointmentId: string,
     body: { identityDocumentVerified: boolean; note?: string },

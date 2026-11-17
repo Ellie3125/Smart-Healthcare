@@ -5,6 +5,7 @@ using IdentityPatients.Application.Common;
 using Microsoft.EntityFrameworkCore;
 using Scheduling.Application.DoctorDays;
 using Scheduling.Domain.Entities;
+using Scheduling.Domain.Enums;
 using Scheduling.Infrastructure.Persistence;
 
 namespace SmartHealthcare.Api;
@@ -21,6 +22,8 @@ public static class DemoData
     // không sinh hai bảng giá cùng hiệu lực: báo giá lỗi khi một cấp bậc có hai mức phí.
     public const string PriceListCode = "DEV-2026";
     private static readonly Guid PriceListId = Guid.Parse("0a1f0004-0000-4000-8000-000000000001");
+    public const string ClsPriceListCode = "DEV-CLS-2026";
+    private static readonly Guid ClsPriceListId = Guid.Parse("0a1f0004-0000-4000-8000-000000000002");
     public const int DaysAhead = 7;
 
     // Identity chưa lưu phòng cố định của bác sĩ (chỉ có ca trực theo ngày) nên phòng khám demo khai ở đây.
@@ -44,6 +47,16 @@ public static class DemoData
         (SeedConstants.RankDoctorId, 250_000m),
         (SeedConstants.RankAssociateProfId, 350_000m),
         (SeedConstants.RankProfessorId, 500_000m),
+    ];
+
+    // Dịch vụ Cận lâm sàng (CLS) mẫu nối giữa Scheduling, Billing và các phòng CLS của IdentityPatients
+    public static readonly (Guid Id, string Code, string Name, ServiceCategory Category, Guid DefaultRoomId, decimal Fee)[] DemoClsServices =
+    [
+        (Guid.Parse("7a1f0001-0000-4000-8000-000000000001"), "DEV-XQ-NGUC", "Chụp X-Quang ngực thẳng kỹ thuật số", ServiceCategory.Radiology, SeedConstants.RoomXQ01Id, 120_000m),
+        (Guid.Parse("7a1f0001-0000-4000-8000-000000000002"), "DEV-XN-CTM", "Tổng phân tích tế bào máu ngoại vi (Công thức máu)", ServiceCategory.Laboratory, SeedConstants.RoomXN01Id, 80_000m),
+        (Guid.Parse("7a1f0001-0000-4000-8000-000000000003"), "DEV-XN-SH", "Sinh hóa máu cơ bản (Glucose, Ure, Creatinin)", ServiceCategory.Laboratory, SeedConstants.RoomXN01Id, 150_000m),
+        (Guid.Parse("7a1f0001-0000-4000-8000-000000000004"), "DEV-SA-BUNG", "Siêu âm ổ bụng tổng quát màu", ServiceCategory.Ultrasound, SeedConstants.RoomSA01Id, 180_000m),
+        (Guid.Parse("7a1f0001-0000-4000-8000-000000000005"), "DEV-NS-DD", "Nội soi thực quản - dạ dày - tá tràng", ServiceCategory.Endoscopy, SeedConstants.RoomNS01Id, 450_000m),
     ];
 
     public static bool IsEnabled(IConfiguration configuration, IHostEnvironment environment) =>
@@ -89,6 +102,70 @@ public static class DemoData
             UnitPrice = x.Fee,
             IsActive = true
         }));
+
+        // Seed dịch vụ Cận lâm sàng (CLS) trong Scheduling (idempotent)
+        var existingServiceIds = await scheduling.Set<MedicalService>()
+            .Select(s => s.Id)
+            .ToListAsync(ct);
+
+        foreach (var svc in DemoClsServices)
+        {
+            if (!existingServiceIds.Contains(svc.Id))
+            {
+                scheduling.Add(new MedicalService
+                {
+                    Id = svc.Id,
+                    ServiceCode = svc.Code,
+                    ServiceName = svc.Name,
+                    ServiceCategory = svc.Category,
+                    DefaultRoomId = svc.DefaultRoomId,
+                    IsMandatoryDefault = false,
+                    IsActive = true,
+                });
+
+                scheduling.Add(new MedicalServiceRoom
+                {
+                    Id = Guid.NewGuid(),
+                    MedicalServiceId = svc.Id,
+                    RoomId = svc.DefaultRoomId,
+                    IsDefaultRoom = true,
+                    IsActive = true,
+                });
+            }
+        }
+        await scheduling.SaveChangesAsync(ct);
+
+        // Seed giá dịch vụ CLS trong PriceList riêng của Billing để không xung đột với PriceList DEV-2026 (idempotent)
+        var clsPriceList = await billing.Set<PriceList>().FirstOrDefaultAsync(x => x.PriceListCode == ClsPriceListCode, ct);
+        if (clsPriceList is null)
+        {
+            clsPriceList = new PriceList
+            {
+                Id = ClsPriceListId,
+                PriceListCode = ClsPriceListCode,
+                PriceListName = "Bảng giá Cận lâm sàng giả lập dev 2026",
+                Currency = "VND",
+                EffectiveFromUtc = new DateTime(2025, 12, 31, 17, 0, 0, DateTimeKind.Utc),
+                IsActive = true
+            };
+            billing.Add(clsPriceList);
+        }
+
+        var pricedServices = await billing.Set<PriceListItem>()
+            .Where(x => x.PriceListId == clsPriceList.Id && x.ItemType == ItemType.CLSService)
+            .Select(x => x.MedicalServiceId)
+            .ToListAsync(ct);
+
+        billing.AddRange(DemoClsServices.Where(x => !pricedServices.Contains(x.Id)).Select(x => new PriceListItem
+        {
+            Id = Guid.NewGuid(),
+            PriceListId = clsPriceList.Id,
+            ItemType = ItemType.CLSService,
+            MedicalServiceId = x.Id,
+            UnitPrice = x.Fee,
+            IsActive = true
+        }));
+
         await billing.SaveChangesAsync(ct);
 
         var lastDate = today.AddDays(DaysAhead - 1);
