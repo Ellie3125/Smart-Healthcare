@@ -5,5 +5,7 @@
   <ItemGroup>
     <ProjectReference Include="..\Clinical.Domain\Clinical.Domain.csproj" />
     <ProjectReference Include="..\Clinical.Contracts\Clinical.Contracts.csproj" />
+    <ProjectReference Include="..\..\Billing\Billing.Contracts\Billing.Contracts.csproj" />
+    <ProjectReference Include="..\..\Scheduling\Scheduling.Contracts\Scheduling.Contracts.csproj" />
   </ItemGroup>
 </Project>
