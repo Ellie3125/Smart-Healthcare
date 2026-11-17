@@ -1,5 +1,9 @@
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Diagnostics;
+using Microsoft.Data.SqlClient;
+using System.Data.Common;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Configuration;
 using Notifications.Application.Exceptions;
 using Notifications.Infrastructure;
 using Notifications.Infrastructure.Exceptions;
@@ -17,6 +21,72 @@ namespace SqlServerTests;
 public sealed class WorkflowExceptionTests
 {
     private static CancellationToken Ct => TestContext.Current.CancellationToken;
+
+    [Fact]
+    public async Task Monitor_queries_can_use_the_existing_filtered_indexes()
+    {
+        await using var fixture = await TestDatabase.OpenAsync();
+        var capture = new QueryCapture();
+        await using var workflow = fixture.CreateContext<WorkflowDbContext>(o => new(
+            new DbContextOptionsBuilder<WorkflowDbContext>(o).AddInterceptors(capture).Options));
+        await using var shared = fixture.CreateContext<SharedDbContext>(o => new(
+            new DbContextOptionsBuilder<SharedDbContext>(o).AddInterceptors(capture).Options));
+        var clock = new Clock(DateTime.UtcNow);
+        await new WorkflowExceptionMonitor(workflow, new OutboxAdministration(shared, new AuditLogWriter(shared), clock),
+            clock, new UnusedUow(), new UnusedIdempotency()).GetAsync(100, Ct);
+        Assert.Equal(2, capture.Queries.Count);
+        await using var connection = new SqlConnection(TestDatabase.RequiredConnectionString());
+        await connection.OpenAsync(Ct);
+        await using (var enable = new SqlCommand("SET SHOWPLAN_XML ON", connection))
+            await enable.ExecuteNonQueryAsync(Ct);
+        foreach (var (sql, parameters) in capture.Queries)
+        {
+            var isOutbox = sql.Contains("[shared].[OutboxMessage]", StringComparison.Ordinal);
+            var index = isOutbox ? "IX_OutboxMessage_Unfinished" : "IX_Operation_Unfinished";
+            // A forced plan proves index eligibility even when the test database is too small for the optimizer to prefer it.
+            var declarations = string.Join("\n", parameters.Select(p => p.Value switch
+            {
+                DateTime value => $"DECLARE {p.ParameterName} datetime2 = '{value:yyyy-MM-ddTHH:mm:ss.fffffff}';",
+                int value => $"DECLARE {p.ParameterName} int = {value};",
+                _ => throw new InvalidOperationException("Unexpected monitor query parameter.")
+            }));
+            await using var plan = new SqlCommand(declarations + "\n" + sql + $" OPTION (TABLE HINT([o], INDEX([{index}])))", connection);
+            TestContext.Current.TestOutputHelper!.WriteLine(plan.CommandText);
+            var xml = (string)(await plan.ExecuteScalarAsync(Ct))!;
+            Assert.Contains(index, xml);
+            Assert.DoesNotContain("Lookup=\"true\"", xml);
+        }
+    }
+
+    [Theory]
+    [InlineData(1, "120", 120)]
+    [InlineData(2, "120", 240)]
+    [InlineData(5, "120", 1920)]
+    [InlineData(10, "120", 61440)]
+    [InlineData(11, "120", 61440)]
+    [InlineData(2, "0", 0)]
+    [InlineData(1, null, 30)]
+    public async Task Retry_time_uses_last_failure_and_configured_exponential_delay(int attempts, string? delay, int seconds)
+    {
+        await using var fixture = await TestDatabase.OpenAsync();
+        await using var workflow = fixture.CreateContext<WorkflowDbContext>(o => new(o));
+        await using var shared = fixture.CreateContext<SharedDbContext>(o => new(o));
+        var now = new DateTime(2026, 11, 17, 8, 0, 0, DateTimeKind.Utc);
+        var failedAt = now.AddMinutes(-1);
+        var id = await fixture.InsertAsync("shared.OutboxMessage", new { EventType = "AppointmentConfirmed",
+            AggregateType = "Appointment", Status = "Pending", RetryCount = attempts, CreatedAtUtc = now.AddDays(-1), ProcessedAtUtc = failedAt });
+        var configuration = new ConfigurationBuilder().AddInMemoryCollection(new Dictionary<string, string?>
+            { ["Outbox:RetryDelaySeconds"] = delay }).Build();
+        await using var services = new ServiceCollection().AddSingleton<IConfiguration>(configuration)
+            .AddSharedInfrastructure(TestDatabase.RequiredConnectionString()).BuildServiceProvider();
+        // Resolve the reader through DI to check the same configuration path used by the API.
+        var reader = ActivatorUtilities.CreateInstance<OutboxAdministration>(services, shared, new AuditLogWriter(shared), new Clock(now));
+        var monitor = new WorkflowExceptionMonitor(workflow, reader, new Clock(now), new UnusedUow(), new UnusedIdempotency());
+        var item = Assert.Single((await monitor.GetAsync(100, Ct)).Items, x => x.Id == id);
+        using var json = System.Text.Json.JsonDocument.Parse(System.Text.Json.JsonSerializer.Serialize(item));
+        Assert.True(json.RootElement.TryGetProperty("NextRetryAtUtc", out var next), "Monitor must expose the next retry time.");
+        Assert.Equal(failedAt.AddSeconds(seconds), next.GetDateTime());
+    }
 
     [Fact]
     public async Task Lists_failed_and_stalled_operations_and_outbox_without_exposing_payloads_or_failure_text()
@@ -42,6 +112,7 @@ public sealed class WorkflowExceptionTests
         Assert.Contains(result.Items, x => x.Id == dead && x.CanRetryOutbox);
         Assert.Contains(result.Items, x => x.Id == retrying && !x.CanRetryOutbox);
         Assert.Contains(result.Items, x => x.Id == staleProcessing && !x.CanRetryOutbox);
+        Assert.All(result.Items, x => Assert.Null(x.NextRetryAtUtc));
         Assert.DoesNotContain(result.Items, x => x.Id == fresh || x.Id == done || x.Id == pending || x.Id == freshProcessing);
         Assert.Contains("Billing.PaidUnallocated", result.UnavailableSources);
         Assert.Contains("Scheduling.Coordination", result.UnavailableSources);
@@ -110,6 +181,17 @@ public sealed class WorkflowExceptionTests
     }
 
     private sealed class Clock(DateTime now) : IDbClock { public Task<DateTime> GetUtcNowAsync(CancellationToken ct) => Task.FromResult(now); }
+    private sealed class QueryCapture : DbCommandInterceptor
+    {
+        public List<(string Sql, SqlParameter[] Parameters)> Queries { get; } = [];
+        public override ValueTask<InterceptionResult<DbDataReader>> ReaderExecutingAsync(DbCommand command,
+            CommandEventData eventData, InterceptionResult<DbDataReader> result, CancellationToken cancellationToken = default)
+        {
+            Queries.Add((command.CommandText, command.Parameters.Cast<SqlParameter>()
+                .Select(x => (SqlParameter)((ICloneable)x).Clone()).ToArray()));
+            return ValueTask.FromResult(result);
+        }
+    }
     private sealed class UnusedUow : IUnitOfWork
     {
         public Task ExecuteAsync(Func<CancellationToken, Task> work, CancellationToken ct) => throw new NotSupportedException();

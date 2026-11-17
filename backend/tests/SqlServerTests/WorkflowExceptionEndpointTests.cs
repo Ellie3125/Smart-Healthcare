@@ -31,6 +31,7 @@ public sealed class WorkflowExceptionEndpointTests
         builder.Configuration["Jwt:SigningKey"] = Convert.ToHexString(RandomNumberGenerator.GetBytes(32));
         builder.Configuration["Jwt:Issuer"] = builder.Configuration["Jwt:Audience"] = "Workflow.Tests";
         builder.Services.AddIdentityPatientsAuth(builder.Configuration);
+        builder.Services.AddNotificationsApi();
         var monitor = new Monitor();
         builder.Services.AddSingleton<IWorkflowExceptionMonitor>(monitor);
         await using var app = builder.Build();

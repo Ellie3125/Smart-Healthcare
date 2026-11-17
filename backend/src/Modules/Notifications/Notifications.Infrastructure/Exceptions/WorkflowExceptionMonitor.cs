@@ -21,7 +21,12 @@ public sealed class WorkflowExceptionMonitor(WorkflowDbContext workflow, OutboxA
         ArgumentOutOfRangeException.ThrowIfLessThan(take, 1);
         ArgumentOutOfRangeException.ThrowIfGreaterThan(take, 100);
         var cutoff = (await clock.GetUtcNowAsync(ct)).AddMinutes(-5);
-        var operations = await workflow.Set<Operation>().AsNoTracking().Where(x => x.Status == OperationStatus.Failed
+        var operations = await workflow.Set<Operation>().AsNoTracking()
+            // State the filtered-index predicate explicitly; SQL Server does not infer it from the exception branches.
+            .Where(x => x.Status == OperationStatus.Pending || x.Status == OperationStatus.Running
+                || x.Status == OperationStatus.WaitingExternal || x.Status == OperationStatus.Failed
+                || x.Status == OperationStatus.NeedsAction || x.Status == OperationStatus.ManualReview)
+            .Where(x => x.Status == OperationStatus.Failed
             || x.Status == OperationStatus.NeedsAction || x.Status == OperationStatus.ManualReview
             || ((x.Status == OperationStatus.Pending || x.Status == OperationStatus.Running || x.Status == OperationStatus.WaitingExternal)
                 && x.CreatedAtUtc <= cutoff))
@@ -32,7 +37,7 @@ public sealed class WorkflowExceptionMonitor(WorkflowDbContext workflow, OutboxA
             .ToListAsync(ct);
         var messages = await outbox.ListExceptionsAsync(cutoff, take, ct);
         return new(operations.Concat(messages.Select(x => new WorkflowExceptionItem(x.Id, "Outbox", "OutboxDelivery",
-                x.Status, x.AggregateId, x.OperationId, x.CreatedAtUtc, x.RetryCount, x.CanRetry)))
+                x.Status, x.AggregateId, x.OperationId, x.CreatedAtUtc, x.RetryCount, x.CanRetry, x.NextRetryAtUtc)))
             .OrderBy(x => x.CreatedAtUtc).ThenBy(x => x.Source, StringComparer.Ordinal).ThenBy(x => x.Id).Take(take).ToArray(),
             ["Billing.PaidUnallocated", "Scheduling.Coordination"]);
     }

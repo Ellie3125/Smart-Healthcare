@@ -1,24 +1,39 @@
 using System.Text.Json;
+using System.Globalization;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Configuration;
 using Shared.Abstractions;
+using Shared.Infrastructure.Outbox;
 using Shared.Infrastructure.Persistence.Entities;
 using Shared.Infrastructure.Persistence.Enums;
 
 namespace Shared.Infrastructure.Persistence;
 
 public sealed record OutboxException(Guid Id, Guid AggregateId, Guid? OperationId, string Status, DateTime CreatedAtUtc,
-    int RetryCount, bool CanRetry);
+    int RetryCount, bool CanRetry, DateTime? NextRetryAtUtc);
 public enum OutboxRetryResult { Retried, NotFound, NotDeadLetter }
 
-public sealed class OutboxAdministration(SharedDbContext shared, AuditLogWriter audit, IDbClock clock)
+public sealed class OutboxAdministration(SharedDbContext shared, AuditLogWriter audit, IDbClock clock, IConfiguration? configuration = null)
 {
-    public async Task<IReadOnlyList<OutboxException>> ListExceptionsAsync(DateTime staleBeforeUtc, int take, CancellationToken ct) =>
-        await shared.Set<OutboxMessage>().AsNoTracking().Where(x => x.Status == OutboxMessageStatus.DeadLetter
+    private readonly OutboxOptions _options = new() { RetryDelaySeconds = int.Parse(
+        configuration?[$"{OutboxOptions.Section}:RetryDelaySeconds"] ?? "30", CultureInfo.InvariantCulture) };
+
+    public async Task<IReadOnlyList<OutboxException>> ListExceptionsAsync(DateTime staleBeforeUtc, int take, CancellationToken ct)
+    {
+        _options.Validate();
+        var messages = await shared.Set<OutboxMessage>().AsNoTracking()
+            .Where(x => x.Status == OutboxMessageStatus.Pending || x.Status == OutboxMessageStatus.Processing || x.Status == OutboxMessageStatus.DeadLetter)
+            .Where(x => x.Status == OutboxMessageStatus.DeadLetter
             || (x.Status == OutboxMessageStatus.Pending && x.RetryCount > 0)
             || (x.Status == OutboxMessageStatus.Processing && (x.ProcessedAtUtc ?? x.CreatedAtUtc) <= staleBeforeUtc))
             .OrderBy(x => x.CreatedAtUtc).ThenBy(x => x.Id).Take(take)
-            .Select(x => new OutboxException(x.Id, x.AggregateId, x.OperationId, x.Status.ToString(), x.CreatedAtUtc,
-                x.RetryCount, x.Status == OutboxMessageStatus.DeadLetter)).ToListAsync(ct);
+            .Select(x => new { x.Id, x.AggregateId, x.OperationId, x.Status, x.CreatedAtUtc, x.RetryCount, x.ProcessedAtUtc }).ToListAsync(ct);
+        return messages.Select(x => new OutboxException(x.Id, x.AggregateId, x.OperationId, x.Status.ToString(), x.CreatedAtUtc,
+            x.RetryCount, x.Status == OutboxMessageStatus.DeadLetter,
+            x.Status == OutboxMessageStatus.Pending && x.ProcessedAtUtc is { } lastFailure
+                // Match the dispatcher's existing exponent limit for unusually large retry counts.
+                ? lastFailure.AddSeconds(_options.RetryDelaySeconds * Math.Pow(2, Math.Min(x.RetryCount, 10) - 1)) : null)).ToArray();
+    }
 
     public async Task<OutboxRetryResult> RetryAsync(Guid id, Guid userId, string note, CancellationToken ct)
     {
