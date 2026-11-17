@@ -11,7 +11,7 @@ import type { VnpayCheckoutResult } from '../types/booking';
 
 /**
  * Clinical, CLS Billing, Refunds & Records API (Patient Web).
- * Toàn bộ endpoint đánh dấu `// TODO: nối contract thật` chạy qua MSW mock handlers khi `VITE_USE_MOCK=true`.
+ * Endpoint đánh dấu `// TODO: nối contract thật` gọi thẳng Backend; route chưa có thì trả lỗi tới khi Backend làm xong.
  */
 export const clinicalApi = {
   // TODO: nối contract thật P16 Hành trình hôm nay

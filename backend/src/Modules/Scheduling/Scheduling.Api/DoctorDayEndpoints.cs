@@ -1,3 +1,4 @@
+using System.Globalization;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Routing;
@@ -10,6 +11,13 @@ internal static class DoctorDayEndpoints
     public static void MapDoctorDayEndpoints(this RouteGroupBuilder scheduling)
     {
         var days = scheduling.MapGroup("/admin/doctor-days").RequireAuthorization("AdminOnly");
+
+        days.MapGet("/", ListAsync)
+            .WithSummary("Danh sách ngày trực theo ngày (Staff Admin)")
+            .Produces<IReadOnlyList<DoctorDayListItem>>()
+            .ProducesProblem(StatusCodes.Status400BadRequest)
+            .Produces(StatusCodes.Status401Unauthorized)
+            .Produces(StatusCodes.Status403Forbidden);
 
         days.MapPost("/{doctorId:guid}/{serviceDate}", OpenAsync)
             .WithSummary("Mở ngày trực bác sĩ (Staff Admin)")
@@ -30,9 +38,15 @@ internal static class DoctorDayEndpoints
             .Produces(StatusCodes.Status403Forbidden);
     }
 
-    private static async Task<IResult> OpenAsync(Guid doctorId, DateOnly serviceDate, DoctorDayService service, CancellationToken ct)
+    private static async Task<IResult> ListAsync(string? serviceDate, DoctorDayListQuery query, CancellationToken ct) =>
+        DateOnly.TryParseExact(serviceDate, "yyyy-MM-dd", CultureInfo.InvariantCulture, DateTimeStyles.None, out var date)
+            ? TypedResults.Ok(await query.ListAsync(date, ct))
+            : Problem(DoctorDayResult.InvalidInput);
+
+    private static async Task<IResult> OpenAsync(Guid doctorId, DateOnly serviceDate, OpenDoctorDayRequest? request,
+        DoctorDayService service, CancellationToken ct)
     {
-        var (status, quota) = await service.OpenAsync(doctorId, serviceDate, ct);
+        var (status, quota) = await service.OpenAsync(doctorId, serviceDate, request?.RoomId ?? Guid.Empty, ct);
         if (quota is null)
         {
             return Problem(status);
@@ -54,8 +68,9 @@ internal static class DoctorDayEndpoints
     {
         var (httpStatus, title) = status switch
         {
-            DoctorDayResult.InvalidInput => (400, "Bác sĩ hoặc ngày phục vụ không hợp lệ."),
-            DoctorDayResult.DoctorNotFound => (404, "Không tìm thấy bác sĩ có phòng được phân công."),
+            DoctorDayResult.InvalidInput => (400, "Bác sĩ, phòng hoặc ngày phục vụ không hợp lệ."),
+            DoctorDayResult.DoctorNotFound => (404, "Không tìm thấy bác sĩ đang hoạt động."),
+            DoctorDayResult.RoomNotFound => (404, "Không tìm thấy phòng khám đang hoạt động."),
             DoctorDayResult.DayNotFound => (404, "Không tìm thấy ngày trực."),
             DoctorDayResult.AlreadyExists => (409, "Bác sĩ đã có phiên cho ngày này."),
             DoctorDayResult.HasBookings => (409, "Ngày trực đã có giữ chỗ hoặc lịch hẹn."),
@@ -67,6 +82,8 @@ internal static class DoctorDayEndpoints
             ["code"] = status.ToString()
         });
     }
+
+    private sealed record OpenDoctorDayRequest(Guid RoomId);
 
     private sealed record DoctorDayResponse(Guid Id, Guid DoctorId, Guid AssignedRoomId, DateOnly ServiceDate, int Capacity,
         int HeldCount, int AdmittedCount, int LockedCancelledCount, DateTime SessionStartTimeUtc, DateTime BookingCutoffTimeUtc,

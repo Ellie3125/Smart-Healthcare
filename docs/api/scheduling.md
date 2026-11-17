@@ -1,7 +1,7 @@
 # Contract module Scheduling
 
-- contract_version: **v0.4** (Approved; trưởng nhóm duyệt 12/11/2026)
-- Trạng thái: **Approved** (H-02, trưởng nhóm duyệt 10/11/2026). Câu hỏi Q1–Q5 ở §6 vẫn là đề xuất cho tới khi trưởng nhóm chốt từng câu.
+- contract_version: **v0.5** (Draft, chờ trưởng nhóm duyệt; v0.4 Approved 12/11/2026)
+- Trạng thái: **Approved** (H-02, trưởng nhóm duyệt 10/11/2026). Q1 đã chốt 17/11/2026; Q2–Q5 ở §6 vẫn là đề xuất cho tới khi trưởng nhóm chốt từng câu.
 - Người giữ: theo ownership.md mục 1. Task: W1-04.
 - Mã nguồn: `backend/src/Modules/Scheduling/Scheduling.Contracts/` (in-process), `Scheduling.Api/` (HTTP).
 - Quy ước chung: `docs/conventions.md` v0.1 (W1-03, PR #43, chờ duyệt): ProblemDetails + extension `code`, JSON camelCase, thời điểm UTC ISO-8601 có `Z`, ngày phục vụ `yyyy-MM-dd`, header `Idempotency-Key`.
@@ -38,9 +38,12 @@ DTO trùng tên trường và kiểu với DTO tạm của W2-05 (PR #44, `Sched
 
 - Vào: `CheckInAppointment(Guid AppointmentId, Guid PerformedByUserId, Guid? OperationId)`.
 - Điều kiện: Appointment `Scheduled`; hôm nay là ngày D theo giờ Việt Nam; giờ DB < `CheckInDeadlineUtc` của phiên (mặc định 11:00 ngày D).
-- Tác dụng: Appointment → `CheckedIn`, ghi AuditLog, phát `TicketCheckedIn` cùng transaction.
-- Ra: `CheckInResult(AppointmentId, PatientId, DoctorId, ServiceDate, CheckedInAtUtc, AlreadyCheckedIn, QueueTicketId?, TicketNumber?, SequenceNumber?)`. Ba trường vé **Pending** câu hỏi mở Q1 (§6).
-- Lỗi: `AppointmentNotFound`, `InvalidAppointmentState` (Cancelled, Absent, Rescheduled, Completed), `CheckInNotOpen` (chưa tới ngày D), `CheckInDeadlinePassed`.
+- Tác dụng (Q1 đã chốt): trong cùng một `IUnitOfWork`, khóa `DoctorDayQuota` rồi Appointment; gọi `IClinicalModule.StartEncounterAsync` đồng bộ để mở Encounter; tạo `QueueTicket` khám đầu `Waiting` với `EncounterId` đó; Appointment → `CheckedIn`; ghi AuditLog; phát `TicketCheckedIn`. Lỗi ở bất kỳ bước nào (kể cả Clinical) rollback toàn bộ. Host phải đăng ký `ClinicalDbContext` làm participant UoW.
+- Số thứ tự: `SequenceNumber` = MAX của phiên (bác sĩ, ngày) + 1 dưới khóa quota; `TicketNumber = <quotaId:N>-<sequence:D3>` (mã nội bộ, có phạm vi phiên); UI hiển thị `SequenceNumber`.
+- Replay: Appointment đã `CheckedIn` thì trả vé cũ với `AlreadyCheckedIn = true`, không mở Encounter lần hai.
+- Ra: `CheckInResult(AppointmentId, PatientId, DoctorId, ServiceDate, CheckedInAtUtc, AlreadyCheckedIn, QueueTicketId, TicketNumber, SequenceNumber, EncounterId)`.
+- Lỗi: `AppointmentNotFound`, `InvalidAppointmentState` (Cancelled, Absent, Rescheduled, Completed, phiên đóng, hoặc bệnh nhân đang có Encounter dở), `CheckInNotOpen` (chưa tới ngày D), `CheckInDeadlinePassed` (lịch chuyển `Absent` cùng lúc).
+- Job `CheckInDeadlineJob` (Worker, mỗi phút): phiên đã qua hạn thì lịch `Scheduled` → `Absent`; không giảm `AdmittedCount`, không hoàn phí.
 
 ### 2.3 `CreateClsTicketsAsync`
 
@@ -58,7 +61,7 @@ Theo mẫu `Billing.Contracts.PaymentVerified`: `EventId`, `Version = 1` (`Curre
 |---|---|---|---|
 | `AppointmentConfirmed` | Xác nhận lịch từ giữ chỗ hợp lệ sau `PaymentVerified` (W2-06); đổi lịch tạo lịch mới (W2-07) | Appointment / AppointmentId | Notifications (SignalR web bệnh nhân) |
 | `AppointmentCancelled` | Hủy lịch có hiệu lực (W2-07; bệnh viện hủy W3-12) | Appointment / AppointmentId | Billing (hoàn phí), Notifications |
-| `TicketCheckedIn` | Check in lần đầu (W3-02) | QueueTicket / QueueTicketId (xem Q1) | Clinical (mở Encounter → `EncounterOpened`) |
+| `TicketCheckedIn` | Check in lần đầu (W3-02) | QueueTicket / QueueTicketId | Không có handler trong MVP (Encounter đã mở đồng bộ, Q1); Worker đăng ký event để dispatcher đánh dấu xử lý |
 
 Payload:
 
@@ -70,7 +73,7 @@ Payload:
   - `SlotReleased`: true khi trả suất (`AdmittedCount − 1`), false khi chuyển sang `LockedCancelledCount`. Bệnh nhân/tiếp tân hủy: true trước 05:00, false từ 05:00.
   - Bệnh viện hủy (Q3, đề xuất, chờ trưởng nhóm duyệt): ở **bất kỳ giờ nào** cũng `SlotReleased = true` (`AdmittedCount − 1`, không tăng `LockedCancelledCount`) và `Refund = Full`; bệnh nhân không có lỗi nên không bị khóa suất.
   - Đổi lịch **không** phát sự kiện này: lịch cũ chuyển `Rescheduled`, phí chuyển sang lịch mới cùng mức phí. Q4 (đề xuất, chờ trưởng nhóm duyệt): MVP không có sự kiện riêng cho đổi lịch; Notifications nhận `AppointmentConfirmed` có `RescheduledFromAppointmentId`.
-- `TicketCheckedIn(EventId, AppointmentId, PatientId, DoctorId, AssignedRoomId, ServiceDate, CheckedInAtUtc, QueueTicketId?, OccurredAtUtc, OperationId?)`. Clinical mở Encounter theo `AppointmentId` (unique trong `clinical.Encounter`) và lưu `AssignedRoomId` làm phòng ban đầu.
+- `TicketCheckedIn(EventId, AppointmentId, PatientId, DoctorId, AssignedRoomId, ServiceDate, CheckedInAtUtc, QueueTicketId, OccurredAtUtc, OperationId?, EncounterId)`, Version 1. Encounter đã mở trong cùng transaction check-in (Q1); Clinical không nhận sự kiện này.
 
 ## 4. HTTP đã có
 
@@ -78,7 +81,8 @@ Payload:
 
 `POST /api/scheduling/admin/doctor-days/{doctorId:guid}/{serviceDate}`
 
-- Kênh: **Staff**. Policy `AdminOnly` (vai trò `Admin` và claim `channel` = `Staff`, FIX-013). Không có body. Không nhận `Idempotency-Key` (gọi lại trả 409 `AlreadyExists` khi ngày đang mở).
+- Kênh: **Staff**. Policy `AdminOnly` (vai trò `Admin` và claim `channel` = `Staff`, FIX-013). Body `{ "roomId": "<guid>" }` bắt buộc (v0.5, chốt 17/11/2026: admin chọn phòng khám cho phiên; Identity chưa có phòng theo ca trực của bác sĩ). Không nhận `Idempotency-Key` (gọi lại trả 409 `AlreadyExists` khi ngày đang mở).
+- Kiểm qua `IIdentityPatientsModule`: bác sĩ tồn tại và đang hoạt động; phòng tồn tại, đang hoạt động và `RoomType = Clinical`.
 - Mở ngày mới với Capacity 30, `SessionStartTimeUtc` 06:30, `BookingCutoffTimeUtc` 09:30, `RescheduleCutoffTimeUtc` 05:00, `CheckInDeadlineUtc` theo cấu hình `Scheduling:DoctorDays:CheckInDeadline` (mặc định 11:00), quy đổi từ giờ Việt Nam sang UTC. Ngày đã đóng (`isOpen = false`) thì mở lại dưới khóa `UPDLOCK, HOLDLOCK` và trả quota cũ, giữ cấu hình cũ.
 - 201 + body (không có header Location):
 
@@ -90,7 +94,21 @@ Payload:
     "sessionStatus": "Scheduled", "isOpen": true }
   ```
 
-- Lỗi: 400 `InvalidInput` · 404 `DoctorNotFound` (bác sĩ không có phòng được phân công) · 409 `AlreadyExists` · 401/403.
+- Lỗi: 400 `InvalidInput` (thiếu/rỗng `roomId`, ngày sai) · 404 `DoctorNotFound` (bác sĩ không có hoặc ngừng hoạt động) · 404 `RoomNotFound` (phòng không có, ngừng, hoặc không phải phòng khám) · 409 `AlreadyExists` · 401/403.
+
+`GET /api/scheduling/admin/doctor-days?serviceDate=yyyy-MM-dd` (v0.5)
+
+- Kênh **Staff**, `AdminOnly`. `serviceDate` bắt buộc, định dạng `yyyy-MM-dd`; sai → 400 `InvalidInput`.
+- 200: mảng (không phân trang, tối đa số bác sĩ của một ngày), mỗi phần tử:
+
+  ```json
+  { "id": "…", "doctorId": "…", "doctorName": "…", "doctorRankName": "…", "specialtyName": "…",
+    "roomId": "…", "roomCode": "PK01", "roomName": "…", "serviceDate": "2026-11-18", "totalSlots": 30,
+    "heldCount": 0, "onlineBookedCount": 3, "walkInBookedCount": 1, "lockedCancelledCount": 0,
+    "remainingSlots": 26, "status": "Open", "sessionStatus": "Scheduled" }
+  ```
+
+- `onlineBookedCount`/`walkInBookedCount`: lịch hẹn còn hiệu lực (claim đang giữ) theo nguồn web/chatbot hoặc quầy. `remainingSlots = max(0, totalSlots − held − admitted − lockedCancelled)`. Tên bác sĩ/phòng đọc từ Identity; không còn trong Identity thì để `null`. `status` = `Open` | `Closed` theo `isOpen`.
 
 ### 4.2 Đóng ngày trực (W2-01)
 
@@ -103,8 +121,7 @@ Payload:
 Ghi chú chung cho 4.1 và 4.2:
 
 - Lỗi là ProblemDetails có extension `code` = tên `DoctorDayResult`.
-- **Hai endpoint chỉ được map khi môi trường là Development** (`MapSchedulingEndpoints`), chưa lộ ở Staging/Prod.
-- `IDoctorDirectory` hiện là `DevelopmentDoctorDirectory`, đọc dữ liệu giả `Scheduling:DoctorDays:DevelopmentDoctorRooms:{doctorId}` cho tới khi IdentityPatients có contract tra bác sĩ và phòng.
+- Từ v0.5 (17/11/2026) mọi route Scheduling được map ở mọi môi trường; danh bạ bác sĩ (`IDoctorDirectory`, `IDoctorSearchDirectory`) đọc thật qua `IIdentityPatientsModule`. Lịch khám demo trên Staging do cờ `Seed:DemoData` tạo, không phải dữ liệu giả trong cấu hình.
 - Test từ chối kênh sai (API-05): `AuthorizationMatrixTests` gọi HTTP endpoint mở ngày với mọi vai trò khác và với Admin mang `channel` = `Patient`, đều 403; `EndpointAuthorizationInventoryTests` bắt endpoint thiếu policy vai trò + kênh.
 
 ### 4.3 Tìm bác sĩ, suất trống và phí (W2-05 phần 1, đã merge)
@@ -182,6 +199,27 @@ Bốn route chỉ map ở Development; policy `PatientOnly`. Thứ tự gọi c�
 - 200: một phần tử như trên. Số thứ tự hàng đợi chưa có trong phản hồi (cấp lúc check in, W3-02).
 - Lỗi: 404 `AppointmentNotFound` (không có, không do người gọi đặt, hoặc mất quyền Booking).
 
+### 4.6 Check-in tại quầy, lịch hôm nay, hàng chờ phòng, màn hình chờ (W3-02, W4-02 REST; 17/11/2026)
+
+`POST /api/scheduling/staff/appointments/{appointmentId:guid}/check-in` — `ReceptionistOnly` (kênh Staff)
+
+- Không body, không `Idempotency-Key`; idempotent tự nhiên theo `AppointmentId`. Người thực hiện lấy từ token. Tiếp tân đối chiếu giấy tờ ngoài hệ thống; API không nhận CCCD.
+- 200 `CheckInResult` (§2.2). 400 `InvalidInput`; 404 `AppointmentNotFound`; 409 `InvalidAppointmentState` | `CheckInNotOpen` | `CheckInDeadlinePassed`. Lỗi trả ProblemDetails có `code`.
+
+`GET /api/scheduling/staff/appointments/today?page=1&pageSize=20&doctorId=&appointmentNumber=` — `ReceptionistOnly`
+
+- Ngày Việt Nam lấy từ giờ DB. `page` 1..1000, `pageSize` 1..50, `doctorId` GUID khác rỗng, `appointmentNumber` đối sánh chính xác, tối đa 64 ký tự; sai → 400 `InvalidInput`.
+- 200 `{ page, pageSize, hasMore, items }`; item `{ appointmentId, appointmentNumber, patientId, doctorId, assignedRoomId, serviceDate, status, checkInDeadlineUtc }`. Không tên, điện thoại, CCCD hay bệnh án.
+
+`GET /api/scheduling/staff/rooms/{roomId:guid}/queue?page=1&pageSize=50` — kênh Staff, vai trò Receptionist, Nurse, Doctor hoặc RoomAccount
+
+- RoomAccount chỉ xem đúng `RoomId` trong token; Doctor chỉ xem phòng mình được phân công hôm nay; sai → 403. `page` 1..1000, `pageSize` 1..100; sai → 400 `InvalidInput`.
+- 200 `{ serviceDate, page, pageSize, hasMore, items }`; item `{ queueTicketId, ticketNumber, sequenceNumber, ticketType, queueStatus, targetStationId?, calledAtUtc? }`, chỉ vé `Waiting`, `Called`, `Deferred`, `InProgress`, theo thứ tự phát vé.
+
+`GET /api/scheduling/public/display?roomId=` — ẩn danh (màn hình chờ)
+
+- 200 `{ tickets: [{ ticketNumber, sequenceNumber }] }`: vé đang `Called`/`InProgress` của phòng, mới nhất trước. Chỉ số vé, không PII. `roomId` thiếu hoặc sai → 400 `InvalidInput`.
+
 ## 5. HTTP dự kiến của W2 — chưa chốt
 
 Chỉ route và mục đích, để UI (W2-09) mock trước. Body, mã lỗi và quyền chốt trong bản contract sau. Route có tiền tố kênh `/patient/`, `/staff/`, `/admin/` (Q7, đã chốt 09/11/2026); Backend kiểm vai trò theo kênh. Mọi lệnh thay đổi nhận `Idempotency-Key`. Danh sách trả `items, page, pageSize, hasMore` (Q6, đã chốt).
@@ -199,14 +237,14 @@ Chỉ route và mục đích, để UI (W2-09) mock trước. Body, mã lỗi v�
 | `GET /api/scheduling/patient/appointments/{appointmentId}/cancellation-preview` | Số tiền được hoàn / không hoàn trước khi xác nhận hủy | W2-07 |
 | `POST /api/scheduling/patient/appointments/{appointmentId}/cancel` | Bệnh nhân hủy lịch (chỉ Scheduled) | W2-07 |
 | `GET /api/scheduling/staff/doctors` | Tiếp tân tìm bác sĩ, suất trống, phí; cùng `DoctorSearchService` và DTO với route patient, policy nhân viên quầy (vai trò `Receptionist`) (Q2, đề xuất, chờ trưởng nhóm duyệt) | W3-01 |
-| `POST /api/scheduling/staff/appointments/{appointmentId}/check-in` | Tiếp tân check in | W3-02 |
+| ~~`POST /api/scheduling/staff/appointments/{appointmentId}/check-in`~~ | Đã có, xem §4.6 | W3-02 |
 | `POST /api/scheduling/staff/appointments/{appointmentId}/cancel` | Tiếp tân hủy (Scheduled; CheckedIn bắt buộc lý do) | W2-07 |
 
 ## 6. Câu hỏi mở
 
 | # | Câu hỏi | Ảnh hưởng tới contract | Trạng thái |
 |---|---|---|---|
-| Q1 | Vé khám đầu có trước hay sau Encounter? ERD v2.4 có `QueueTicket.EncounterId` bắt buộc, nhưng Encounter do Clinical mở sau `TicketCheckedIn`. | **Đề xuất (chờ trưởng nhóm chốt):** Scheduling cấp `EncounterId` (GUID tuần tự) ngay lúc check in, tạo `QueueTicket` khám đầu với `EncounterId` đó trong cùng transaction; `TicketCheckedIn` mang `EncounterId`; Clinical nhận sự kiện rồi tạo Encounter với đúng Id đó (idempotent qua ProcessedEvent). Giữ ERD (EncounterId bắt buộc, ID chéo module không FK), không gọi vòng Scheduling↔Clinical, số thứ tự cấp ngay khi check in (Phạm vi §5.1). Nếu chốt: v0.2 thêm `EncounterId` vào `CheckInResult`, `TicketCheckedIn` và bỏ nullable của các trường vé; AggregateType QueueTicket giữ nguyên. | **Pending** (PROGRESS mục 4, chốt trước W3-02) |
+| Q1 | Vé khám đầu có trước hay sau Encounter? | Check-in gọi `IClinicalModule.StartEncounterAsync` đồng bộ trong cùng `IUnitOfWork`, lấy `EncounterId` tạo `QueueTicket` khám đầu; `TicketCheckedIn` mang `EncounterId`; Clinical không có handler. `CheckInResult` thêm `EncounterId`, bỏ nullable trường vé (§2.2, §3). | **Đã chốt 17/11/2026** (trưởng nhóm) |
 | Q2 | API tìm bác sĩ có bản Staff cho tiếp tân không? | Đề xuất: route riêng `GET /api/scheduling/staff/doctors`, cùng `DoctorSearchService`, policy nhân viên quầy (§5). | Đề xuất, chờ trưởng nhóm duyệt |
 | Q3 | Bệnh viện hủy sau 05:00 (bác sĩ nghỉ): trả suất hay khóa suất? | Đề xuất: mọi giờ đều trả suất (`SlotReleased = true`, `AdmittedCount − 1`, không tăng `LockedCancelledCount`), `Refund = Full` (§3). | Đề xuất, chờ trưởng nhóm duyệt |
 | Q4 | Có sự kiện riêng khi đổi lịch không? | Đề xuất: không trong MVP; Notifications dùng `AppointmentConfirmed` có `RescheduledFromAppointmentId` (§3). | Đề xuất, chờ trưởng nhóm duyệt |
@@ -227,3 +265,5 @@ Chỉ route và mục đích, để UI (W2-09) mock trước. Body, mã lỗi v�
 | v0.3 Approved | 12/11/2026 | Trưởng nhóm duyệt §4.5 |
 | v0.4 | 12/11/2026 | `DoctorSearchItem` thêm `TotalSlots`, `DoctorRankName`, `SpecialtyName` (chỉ thêm trường, không đổi trường cũ) để web bệnh nhân hiện "còn x/y suất" và tên chuyên khoa, cấp bậc |
 | v0.4 Approved | 12/11/2026 | Trưởng nhóm duyệt phần thêm của v0.4 |
+| v0.5 | 17/11/2026 | Q1 đã chốt (Encounter mở đồng bộ cùng UoW); `CheckInResult` và `TicketCheckedIn` có `EncounterId`, trường vé không nullable; thêm §4.6 (check-in, lịch hôm nay, hàng chờ phòng, màn hình chờ) |
+| v0.5 (sửa) | 17/11/2026 | §4.1: mở ngày trực nhận body `roomId` (admin chọn phòng), thêm 404 `RoomNotFound`, thêm `GET /admin/doctor-days?serviceDate=`; bỏ cổng Development của Scheduling, danh bạ bác sĩ thật qua Identity |

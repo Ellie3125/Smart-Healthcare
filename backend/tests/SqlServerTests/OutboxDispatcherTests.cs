@@ -248,6 +248,7 @@ public sealed class OutboxDispatcherTests
             .AddUnitOfWorkParticipant<WorkflowDbContext>()
             .AddSchedulingApplication()
             .AddSingleton<IBillingModule>(new FixedFeeBilling())
+            .AddSingleton<IPaymentRefunds>(new NoRefunds())
             .AddOutboxDispatcher(new OutboxOptions())
             .AddOutboxEvent<PaymentVerified>()
             .BuildServiceProvider(validateScopes: true);
@@ -330,6 +331,13 @@ public sealed class OutboxDispatcherTests
         public Task<IReadOnlyList<ChargeDto>> CreateClsChargesAsync(CreateClsCharges command, CancellationToken ct) => throw new NotSupportedException();
         public Task<EncounterCostSummary> GetEncounterCostSummaryAsync(Guid encounterId, CancellationToken ct) => throw new NotSupportedException();
         public Task<PaymentDto> CreatePaymentAsync(CreatePayment command, CancellationToken ct) => throw new NotSupportedException();
+    }
+
+    // Test này chỉ đi nhánh xác nhận thành công; PaidUnallocated không xảy ra.
+    private sealed class NoRefunds : IPaymentRefunds
+    {
+        public Task<int> RequestPaidUnallocatedRefundAsync(Guid paymentIntentId, CancellationToken ct) => throw new NotSupportedException();
+        public Task<int> RequestDuplicatePaymentRefundAsync(Guid paymentIntentId, CancellationToken ct) => throw new NotSupportedException();
     }
 
     // ---------- SQL ----------

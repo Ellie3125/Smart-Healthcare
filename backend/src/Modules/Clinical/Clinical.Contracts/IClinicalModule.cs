@@ -1,25 +1,36 @@
 namespace Clinical.Contracts;
 
 /// <summary>
-/// Public contract cho module Clinical (GP §8.2.1, CLA-FIX-013).
-/// Định nghĩa tối thiểu phục vụ kiểm quyền truy cập tệp kết quả CLS và lượt khám (Tuần 3).
+/// Public Contract của module Clinical được công bố cho các module khác trong hệ thống.
+/// Module khác chỉ tham chiếu project Clinical.Contracts để gọi In-Process.
 /// </summary>
 public interface IClinicalModule
 {
-    /// <summary>
-    /// Kiểm tra bác sĩ có phải là bác sĩ khám ban đầu của lượt khám hay không.
-    /// Bác sĩ ban đầu có quyền xem kết quả CLS ngay khi kết quả được Published (GP §6.5).
-    /// </summary>
-    Task<bool> IsOriginalDoctorAsync(Guid doctorId, Guid encounterId, CancellationToken ct = default);
+    /// <summary>Lấy thông tin chi tiết của một lượt khám theo EncounterId.</summary>
+    Task<EncounterDto?> GetEncounterByIdAsync(Guid encounterId, CancellationToken ct);
 
-    /// <summary>
-    /// Kiểm tra bác sĩ khám ban đầu đã phát hành kết luận sau CLS (PostCLSConclusion) hay chưa.
-    /// Bệnh nhân và người đại diện chỉ được xem kết quả và tệp sau khi bước này hoàn tất (GP §6.5).
-    /// </summary>
-    Task<bool> IsPostClsConclusionPublishedAsync(Guid encounterId, CancellationToken ct = default);
+    /// <summary>Khởi tạo lượt khám mới khi bệnh nhân check-in tại phòng khám.</summary>
+    Task<EncounterDto> StartEncounterAsync(StartEncounterCommand command, CancellationToken ct);
 
-    /// <summary>
-    /// Lấy thông tin tóm tắt của kết quả CLS.
-    /// </summary>
-    Task<ClsResultInfoDto?> GetClsResultAsync(Guid clsResultId, CancellationToken ct = default);
+    /// <summary>Kiểm tra bệnh nhân có đang có lượt khám nào dở dang (chưa kết thúc hoặc chưa hủy) hay không.</summary>
+    Task<bool> HasActiveEncounterAsync(Guid patientId, CancellationToken ct);
+
+    /// <summary>Lấy danh sách tóm tắt lịch sử các lượt khám của một bệnh nhân.</summary>
+    Task<IReadOnlyList<EncounterSummaryDto>> GetPatientEncountersAsync(Guid patientId, CancellationToken ct);
+
+    /// <summary>Lấy hồ sơ bệnh án lâm sàng của lượt khám.</summary>
+    Task<EncounterClinicalRecordDto?> GetClinicalRecordByEncounterIdAsync(Guid encounterId, CancellationToken ct);
+
+    /// <summary>Lấy danh sách tất cả các phiếu chỉ định cận lâm sàng của lượt khám.</summary>
+    Task<IReadOnlyList<ServiceOrderDto>> GetServiceOrdersByEncounterIdAsync(Guid encounterId, CancellationToken ct);
+
+    /// <summary>Lấy danh sách tất cả đơn thuốc của lượt khám.</summary>
+    Task<IReadOnlyList<PrescriptionDto>> GetPrescriptionsByEncounterIdAsync(Guid encounterId, CancellationToken ct);
+
+    /// <summary>Bác sĩ (DoctorId) có phải bác sĩ khám ban đầu của lượt khám; dùng để cho xem kết quả CLS ngay khi Published (GP §6.5).</summary>
+    Task<bool> IsOriginalDoctorAsync(Guid doctorId, Guid encounterId, CancellationToken ct);
+
+    /// <summary>Bác sĩ ban đầu đã phát hành kết luận sau CLS; trước đó bệnh nhân và người đại diện chưa xem được kết quả (GP §6.5).</summary>
+    Task<bool> IsPostClsConclusionPublishedAsync(Guid encounterId, CancellationToken ct);
 }
+

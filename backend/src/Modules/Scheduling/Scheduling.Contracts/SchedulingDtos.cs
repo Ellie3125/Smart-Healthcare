@@ -38,9 +38,10 @@ public sealed record CheckInAppointment(Guid AppointmentId, Guid PerformedByUser
 /// <summary>Kết quả check in.</summary>
 /// <param name="CheckedInAtUtc">Giờ DB lúc check in có hiệu lực (lần đầu).</param>
 /// <param name="AlreadyCheckedIn">true khi lịch đã check in từ trước; các trường trả lại giá trị của lần đầu.</param>
-/// <param name="QueueTicketId">Vé khám đầu. PENDING câu hỏi mở Encounter (docs/api/scheduling.md §6): null nếu vé được cấp sau khi Clinical mở Encounter.</param>
-/// <param name="TicketNumber">Số vé hiển thị; null cùng điều kiện với QueueTicketId.</param>
-/// <param name="SequenceNumber">Thứ tự trong hàng chờ khám đầu của bác sĩ, tăng theo thời điểm check in; null cùng điều kiện.</param>
+/// <param name="QueueTicketId">Vé khám đầu được tạo sau lời gọi Clinical đồng bộ trong cùng UoW (Q1 chốt 17/11/2026).</param>
+/// <param name="TicketNumber">Mã vé gồm quotaId và số thứ tự; hiển thị số gọi bằng SequenceNumber.</param>
+/// <param name="SequenceNumber">Thứ tự khám đầu trong phiên bác sĩ, cấp dưới khóa quota.</param>
+/// <param name="EncounterId">Lượt khám do Clinical mở đồng bộ.</param>
 public sealed record CheckInResult(
     Guid AppointmentId,
     Guid PatientId,
@@ -48,9 +49,10 @@ public sealed record CheckInResult(
     DateOnly ServiceDate,
     DateTime CheckedInAtUtc,
     bool AlreadyCheckedIn,
-    Guid? QueueTicketId,
-    string? TicketNumber,
-    int? SequenceNumber);
+    Guid QueueTicketId,
+    string TicketNumber,
+    int SequenceNumber,
+    Guid EncounterId);
 
 // ---------- Vé CLS và vé quay lại ----------
 

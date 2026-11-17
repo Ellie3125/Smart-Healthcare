@@ -36,6 +36,12 @@ public interface ICashierStore
 
     /// <summary>Phiếu thu tiền mặt đã ghi nhận do <paramref name="staffUserId"/> thu trong [fromUtc, toUtc), theo thời điểm thu.</summary>
     Task<IReadOnlyList<CounterReceipt>> GetReceiptsAsync(Guid staffUserId, DateTime fromUtc, DateTime toUtc, CancellationToken ct);
+
+    /// <summary>Phiếu thu tiền mặt phí khám đã ghi cho lượt đặt lịch và khoản phí khám này; null khi chưa thu.</summary>
+    Task<CounterReceipt?> FindExamReceiptAsync(Guid bookingAttemptId, Guid chargeId, CancellationToken ct);
+
+    /// <summary>Phiếu hoàn tiền mặt do <paramref name="staffUserId"/> chi trong [fromUtc, toUtc), theo thời điểm chi.</summary>
+    Task<IReadOnlyList<CashRefundSlip>> GetCashRefundsAsync(Guid staffUserId, DateTime fromUtc, DateTime toUtc, CancellationToken ct);
 }
 
 /// <summary>Lưu và đọc khoản thu (billing.BillingItem).</summary>

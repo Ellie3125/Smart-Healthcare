@@ -205,6 +205,8 @@ public class PatientPaymentServiceTests
         public Task<bool> HasEventAsync(PaymentEventProvider provider, string eventId, CancellationToken ct) => throw Unused();
         public void AddEvent(PaymentEvent paymentEvent) => throw Unused();
         public Task<IReadOnlyList<PaymentAllocation>> GetAllocationsAsync(Guid paymentTransactionId, CancellationToken ct) => throw Unused();
+        public Task<bool> HasRetainedExamPaymentAsync(Guid bookingAttemptId, Guid exceptPaymentIntentId, CancellationToken ct) => throw Unused();
+        public void AddRefundRequest(RefundRequest request) => throw Unused();
         public Task SaveChangesAsync(CancellationToken ct) => throw Unused();
         public Task EnqueueAsync(PaymentVerified integrationEvent, CancellationToken ct) => throw Unused();
     }

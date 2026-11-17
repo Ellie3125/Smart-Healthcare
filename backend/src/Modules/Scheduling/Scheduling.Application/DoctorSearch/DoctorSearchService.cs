@@ -1,3 +1,4 @@
+using IdentityPatients.Contracts;
 using Billing.Contracts;
 using Scheduling.Contracts;
 using Shared.Abstractions;
@@ -49,6 +50,19 @@ public sealed record DoctorSearchQuota(Guid DoctorId, int Capacity, int HeldCoun
 public interface IDoctorSearchDirectory
 {
     Task<IReadOnlyList<DoctorSearchProfile>> GetActiveDoctorsAsync(CancellationToken ct);
+}
+
+/// <summary>Bác sĩ đang hoạt động kèm tên chuyên khoa, cấp bậc từ module Identity.</summary>
+public sealed class IdentityDoctorSearchDirectory(IIdentityPatientsModule identity) : IDoctorSearchDirectory
+{
+    public async Task<IReadOnlyList<DoctorSearchProfile>> GetActiveDoctorsAsync(CancellationToken ct)
+    {
+        var specialties = (await identity.GetSpecialtiesAsync(ct)).ToDictionary(x => x.Id, x => x.Name);
+        return (await identity.SearchDoctorsAsync(new IdentityPatients.Contracts.DoctorSearch(IsActive: true), ct))
+            .Select(x => new DoctorSearchProfile(x.DoctorId, x.FullName, x.RankId, x.SpecialtyId, x.RankName,
+                specialties.GetValueOrDefault(x.SpecialtyId)))
+            .ToList();
+    }
 }
 
 public interface IDoctorSearchQuotaReader

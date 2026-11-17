@@ -37,6 +37,8 @@ public static class WorkerServices
             .AddNotificationsInfrastructure(connectionString)
             .AddUnitOfWorkParticipant<SchedulingDbContext>()
             .AddUnitOfWorkParticipant<WorkflowDbContext>()
+            // Handler PaymentVerified của Scheduling gọi IPaymentRefunds (PaidUnallocated) trong cùng transaction.
+            .AddUnitOfWorkParticipant<Billing.Infrastructure.Persistence.BillingDbContext>()
             // Không gọi AddSchedulingApplication: các service đó phục vụ HTTP, cần danh bạ bác sĩ và Identity mà Worker không có.
             // PaymentVerifiedHandler báo giá lại phí khám qua IBillingModule (W2-06).
             .AddBillingInfrastructure(connectionString)
@@ -44,6 +46,10 @@ public static class WorkerServices
             .AddOutboxEvent<PaymentVerified>()
             // Billing gắn phí khám đã thu với lịch hẹn (ExamChargeLinker). Module khác nhận sự kiện này thì chỉ đăng ký handler,
             // không gọi AddOutboxEvent lần nữa.
-            .AddOutboxEvent<AppointmentConfirmed>();
+            .AddOutboxEvent<AppointmentConfirmed>()
+            // Billing tạo yêu cầu hoàn phí khám khi hủy lịch được hoàn (RefundService); module khác chỉ đăng ký handler.
+            .AddOutboxEvent<AppointmentCancelled>()
+            // Check-in phát TicketCheckedIn; Clinical không có handler (Q1), dispatcher vẫn phải nhận để bản ghi không kẹt Pending.
+            .AddOutboxEvent<TicketCheckedIn>();
     }
 }

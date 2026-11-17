@@ -40,6 +40,7 @@ builder.Services.AddControllers()
     .AddIdentityPatientsApi();
 
 builder.Services.AddProblemDetails();
+builder.Services.AddTrustedProxyForwarding(builder.Configuration);
 builder.Services.AddPatientRegisterRateLimiter();
 
 builder.Services.AddCors(options =>
@@ -69,7 +70,9 @@ builder.Services
     .AddUnitOfWorkParticipant<IdentityPatients.Infrastructure.Persistence.IdentityPatientsDbContext>()
     .AddUnitOfWorkParticipant<DocumentsReporting.Infrastructure.Persistence.DocumentsDbContext>()
     // Tạo khoản thu + yêu cầu thanh toán cùng transaction với BookingAttempt (BookingPaymentService).
-    .AddUnitOfWorkParticipant<Billing.Infrastructure.Persistence.BillingDbContext>();
+    .AddUnitOfWorkParticipant<Billing.Infrastructure.Persistence.BillingDbContext>()
+    // Check-in mở Encounter đồng bộ trong cùng transaction với Appointment và QueueTicket (Q1, W3-02).
+    .AddUnitOfWorkParticipant<Clinical.Infrastructure.Persistence.ClinicalDbContext>();
 
 builder.Services
     .AddIdentityPatientsApplication().AddIdentityPatientsApi()
@@ -81,11 +84,6 @@ builder.Services
     .AddBillingApplication().AddBillingApi()
     .AddNotificationsApplication().AddNotificationsApi()
     .AddDocumentsReportingApplication().AddDocumentsReportingApi();
-
-if (DemoData.IsEnabled(builder.Configuration, builder.Environment))
-{
-    builder.AddDemoData();
-}
 
 string[] moduleTags =
 [
@@ -130,6 +128,8 @@ builder.Services.AddOpenApi(options => options.AddDocumentTransformer((document,
 
 var app = builder.Build();
 
+// Phải chạy trước mọi middleware đọc IP hoặc scheme (rate limit, auth, endpoint ghi AuditLog).
+app.UseTrustedProxyForwarding();
 app.UseCors();
 app.UseAuthentication();
 app.UseAuthorization();
@@ -166,6 +166,7 @@ if (app.Environment.IsDevelopment())
 
 app.MapIdentityPatientsEndpoints();
 app.MapSchedulingEndpoints();
+app.MapSchedulingCheckInEndpoints();
 app.MapClinicalEndpoints();
 app.MapMedicationCatalogEndpoints();
 app.MapBillingEndpoints();

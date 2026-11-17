@@ -27,6 +27,18 @@ public sealed class SqlDoctorDayStore(SchedulingDbContext db) : IDoctorDayStore
         }
     }
 
+    public async Task<IReadOnlyList<DoctorDaySummary>> ListAsync(DateOnly serviceDate, CancellationToken ct) =>
+        await db.Set<DoctorDayQuota>().AsNoTracking().Where(q => q.ServiceDate == serviceDate)
+            .OrderBy(q => q.DoctorId)
+            .Select(q => new DoctorDaySummary(q.Id, q.DoctorId, q.AssignedRoomId, q.ServiceDate, q.Capacity, q.HeldCount,
+                q.AdmittedCount, q.LockedCancelledCount,
+                db.Set<ActiveBookingClaim>().Count(c => c.SessionQuotaId == q.Id && c.IsActive && c.AppointmentId != null
+                    && c.ClaimSource != ClaimSource.Counter),
+                db.Set<ActiveBookingClaim>().Count(c => c.SessionQuotaId == q.Id && c.IsActive && c.AppointmentId != null
+                    && c.ClaimSource == ClaimSource.Counter),
+                q.IsOpen, q.SessionStatus))
+            .ToListAsync(ct);
+
     public async Task<DoctorDayResult> CloseAsync(Guid doctorId, DateOnly serviceDate, CancellationToken ct)
     {
         await using var transaction = db.Database.CurrentTransaction is null
