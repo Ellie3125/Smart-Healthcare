@@ -123,6 +123,8 @@ public enum ChangeResult
     InvalidAppointmentState,
     /// <summary>Tiếp tân hủy lịch đã check in mà không có lý do.</summary>
     ReasonRequired,
+    /// <summary>Lịch đã check in nhưng bệnh nhân đã vào khám hoặc có vé CLS/quay lại đang mở: không hủy được.</summary>
+    PatientInService,
     VersionConflict,
     /// <summary>Đổi lịch từ đúng 05:00 ngày D cũ (giờ DB).</summary>
     RescheduleCutoffPassed,
@@ -140,7 +142,7 @@ public enum ChangeResult
 }
 
 public sealed record CancelledInfo(Guid BookingAttemptId, Guid PatientId, Guid DoctorId, DateOnly ServiceDate, bool SlotReleased,
-    DateTime CancelledAtUtc, DateTime RescheduleCutoffTimeUtc);
+    DateTime CancelledAtUtc, DateTime RescheduleCutoffTimeUtc, decimal AppliedConsultationFee = 0m);
 
 public sealed record RescheduledInfo(Guid AppointmentId, string AppointmentNumber, Guid BookingAttemptId, DateTime ConfirmedAtUtc);
 
