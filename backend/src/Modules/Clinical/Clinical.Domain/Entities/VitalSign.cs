@@ -11,6 +11,9 @@ public sealed class VitalSign
     public int? PulseRate { get; set; }
     public decimal? BodyTemperature { get; set; }
     public decimal? SpO2 { get; set; }
+    // Nhịp thở (lần/phút); ghi chú của điều dưỡng cho lần đo này. Một lần đo một dòng, không ghi đè.
+    public int? RespiratoryRate { get; set; }
+    public string? NurseNote { get; set; }
     // ID chéo module: identity.Staff, không FK
     public Guid RecordedByStaffId { get; set; }
     public DateTime RecordedAtUtc { get; set; }

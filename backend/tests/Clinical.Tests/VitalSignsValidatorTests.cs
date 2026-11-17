@@ -52,5 +52,27 @@ public class VitalSignsValidatorTests
         Assert.Throws<ArgumentException>(() =>
             VitalSignsValidator.Validate(60m, 170m, 80m, 120m, 75, 37m, 98m));
     }
+
+    [Theory]
+    [InlineData(3)]
+    [InlineData(81)]
+    public void Out_of_range_respiratory_rate_throws(int rate)
+    {
+        Assert.Throws<ArgumentOutOfRangeException>(() =>
+            VitalSignsValidator.Validate(60m, 170m, 120m, 80m, 75, 37m, 98m, rate));
+    }
+
+    [Fact]
+    public void Respiratory_rate_and_note_within_limits_pass()
+    {
+        VitalSignsValidator.Validate(60m, 170m, 120m, 80m, 75, 37m, 98m, 18, new string('a', VitalSignsValidator.NurseNoteMaxLength));
+    }
+
+    [Fact]
+    public void Nurse_note_too_long_throws()
+    {
+        Assert.Throws<ArgumentOutOfRangeException>(() =>
+            VitalSignsValidator.Validate(60m, 170m, 120m, 80m, 75, 37m, 98m, null, new string('a', VitalSignsValidator.NurseNoteMaxLength + 1)));
+    }
 }
 
