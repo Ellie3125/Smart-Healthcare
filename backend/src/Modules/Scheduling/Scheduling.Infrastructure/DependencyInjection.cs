@@ -29,6 +29,9 @@ public static class DependencyInjection
     public static IServiceCollection AddSchedulingInfrastructure(this IServiceCollection services, string connectionString) =>
         services.AddDbContext<SchedulingDbContext>(options => options.UseSqlServer(connectionString,
             sql => sql.MigrationsHistoryTable("__EFMigrationsHistory", SchedulingDbContext.Schema)))
+            // Catalog chỉ được resolve ở Api có Identity; Worker cũng dùng AddSchedulingInfrastructure.
+            .AddScoped<Scheduling.Application.MedicalServiceAdmin.IMedicalServiceCatalog>(provider =>
+                ActivatorUtilities.CreateInstance<Scheduling.Infrastructure.MedicalServiceAdmin.SqlMedicalServiceCatalog>(provider))
             .AddScoped<IDoctorDayStore, SqlDoctorDayStore>()
             .AddScoped<IDoctorSearchQuotaReader, SqlDoctorSearchQuotaReader>()
             .AddScoped<IHoldStore, SqlHoldStore>()
