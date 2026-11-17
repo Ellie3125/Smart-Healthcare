@@ -20,5 +20,7 @@ public static class DependencyInjection
             // Reader only runs in Api with Identity/Clinical; Worker only needs the writer and handlers.
             .AddScoped<IPatientNotificationReader>(provider => ActivatorUtilities.CreateInstance<EfPatientNotificationReader>(provider))
             .AddScoped<IIntegrationEventHandler<AppointmentConfirmed>, AppointmentNotificationHandler>()
-            .AddScoped<IIntegrationEventHandler<AppointmentCancelled>, AppointmentNotificationHandler>();
+            .AddScoped<IIntegrationEventHandler<AppointmentCancelled>, AppointmentNotificationHandler>()
+            .AddScoped<Shared.Abstractions.IIntegrationEventHandler<Scheduling.Contracts.QueueCalled>>(provider =>
+                ActivatorUtilities.CreateInstance<QueueCalledRealtimeHandler>(provider));
 }

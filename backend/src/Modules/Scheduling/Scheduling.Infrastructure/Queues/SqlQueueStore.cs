@@ -13,7 +13,7 @@ using Shared.Infrastructure.Persistence.Enums;
 
 namespace Scheduling.Infrastructure.Queues;
 
-internal sealed class SqlQueueStore(SchedulingDbContext db, IDbClock clock, AuditLogWriter audit) : IQueueStore
+internal sealed class SqlQueueStore(SchedulingDbContext db, IDbClock clock, AuditLogWriter audit, IIntegrationEventPublisher publisher) : IQueueStore
 {
     public async Task<StationLookup> ResolveStationAsync(Guid roomId, Guid? stationId, string roomName, CancellationToken ct)
     {
@@ -107,7 +107,10 @@ internal sealed class SqlQueueStore(SchedulingDbContext db, IDbClock clock, Audi
         });
         await db.SaveChangesAsync(ct);
         await AuditAsync(c.TicketId, c.PerformedByUserId, QueueStatus.Waiting, QueueStatus.Called, now, ct);
-        return new(QueueResult.Called, await GetTicketAsync(c.TicketId, ct), StationId: c.StationId);
+        var called = await GetTicketAsync(c.TicketId, ct);
+        await publisher.PublishAsync(new QueueCalled(Guid.CreateVersion7(), called.QueueTicketId, called.EncounterId, c.PatientId,
+            c.RoomId, c.StationId, called.TicketNumber, called.SequenceNumber, called.TicketType, c.PerformedByUserId, now, null), c.TicketId, ct);
+        return new(QueueResult.Called, called, StationId: c.StationId);
     }
 
     public async Task<QueueOutcome> TransitionAsync(TicketCommand c, TicketTransition transition, CancellationToken ct)

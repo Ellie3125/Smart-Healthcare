@@ -37,9 +37,9 @@ public class IntegrationEventContractTests
     }
 
     [Fact]
-    public void Scheduling_publishes_the_three_planned_events()
+    public void Scheduling_publishes_the_planned_events()
     {
-        Assert.Equal(["AppointmentCancelled", "AppointmentConfirmed", "TicketCheckedIn"],
+        Assert.Equal(["AppointmentCancelled", "AppointmentConfirmed", "QueueCalled", "TicketCheckedIn"],
             Events("Scheduling.Contracts").Select(t => t.Name).Order().ToArray());
     }
 
