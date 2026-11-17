@@ -7,7 +7,8 @@ namespace Scheduling.Application.Queues;
 /// <summary>
 /// Vé CLS + vé quay lại cho một đợt chỉ định (W3-04, docs/api/scheduling.md §2.3). Chạy trong unit of work của Clinical
 /// (gọi lồng thì tham gia transaction bên ngoài): Clinical lỗi thì vé cũng rollback. Gọi lại cùng ServiceOrderId trả vé đã có.
-/// Vé quay lại tạo ở Deferred (chưa gọi được); W3-06 kích hoạt: Deferred → Waiting và đặt IssuedAtUtc = lúc kích hoạt (chốt 17/11/2026).
+/// Vé quay lại tạo ở Deferred (tạm hoãn tới khi đủ kết quả); W3-06 kích hoạt: Deferred → Waiting và ghi ActivatedAtUtc,
+/// IssuedAtUtc giữ giờ phát (CLA-PERF-001, 17/11/2026).
 /// </summary>
 public sealed class ClsTicketService(IClsTicketStore store, IUnitOfWork uow, IIdentityPatientsModule identity)
 {

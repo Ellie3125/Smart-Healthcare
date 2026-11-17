@@ -19,6 +19,10 @@ public sealed class QueueTicket
     public int SequenceNumber { get; set; }
     public QueueStatus QueueStatus { get; set; }
     public DateTime IssuedAtUtc { get; set; }
+    /// <summary>Vé quay lại: lúc được kích hoạt (Deferred → Waiting, W3-06). Null với vé khác hoặc vé chưa kích hoạt.</summary>
+    public DateTime? ActivatedAtUtc { get; set; }
+    /// <summary>Lúc vào hàng chờ = COALESCE(ActivatedAtUtc, IssuedAtUtc); cột tính sẵn ở DB, không ghi từ code.</summary>
+    public DateTime QueuedAtUtc { get; private set; }
     public DateTime? CalledAtUtc { get; set; }
     public DateTime? ServedAtUtc { get; set; }
     public DateTime? CompletedAtUtc { get; set; }

@@ -24,5 +24,8 @@ internal sealed class AppointmentConfiguration : IEntityTypeConfiguration<Appoin
         builder.HasIndex(x => x.ReservationId).IsUnique();
         builder.HasIndex(x => x.AppointmentNumber).IsUnique();
         builder.HasIndex(x => x.PatientId);
+        // Lịch hôm nay của tiếp tân: seek theo phiên, đủ cột để không quay lại bảng.
+        builder.HasIndex(x => x.SessionQuotaId)
+            .IncludeProperties(x => new { x.AppointmentNumber, x.PatientId, x.Status, x.ConfirmedAtUtc });
     }
 }

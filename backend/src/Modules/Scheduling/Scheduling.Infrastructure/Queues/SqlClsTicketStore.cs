@@ -43,8 +43,7 @@ internal sealed class SqlClsTicketStore(SchedulingDbContext db, IDbClock clock) 
         {
             // Số vé CLS theo phòng thực hiện và ngày (giờ Việt Nam), cấp dưới khóa của phòng.
             var prefix = $"{group.Key:N}-{day:yyyyMMdd}-";
-            await db.AppLockAsync($"scheduling:ticket-number:{prefix}", ct);
-            var next = await NextSequenceAsync(prefix, ct);
+            var next = await db.NextAsync(prefix, group.Count(), ct);
             foreach (var line in group)
                 tickets.Add(NewTicket(command.EncounterId, group.Key, TicketType.CLS, QueueStatus.Waiting, prefix, next++, now,
                     serviceOrderItemId: line.ServiceOrderItemId));
@@ -52,9 +51,8 @@ internal sealed class SqlClsTicketStore(SchedulingDbContext db, IDbClock clock) 
 
         // Vé quay lại ở phòng ban đầu, đánh số riêng trong phiên của vé khám đầu (tiền tố quota + R).
         var returnPrefix = initial.TicketNumber[..(initial.TicketNumber.LastIndexOf('-') + 1)] + "R";
-        await db.AppLockAsync($"scheduling:ticket-number:{returnPrefix}", ct);
         var returnTicket = NewTicket(command.EncounterId, initial.TargetRoomId, TicketType.ReturnConsultation, QueueStatus.Deferred,
-            returnPrefix, await NextSequenceAsync(returnPrefix, ct), now, serviceOrderId: command.ServiceOrderId);
+            returnPrefix, await db.NextAsync(returnPrefix, 1, ct), now, serviceOrderId: command.ServiceOrderId);
         db.AddRange(tickets);
         db.Add(returnTicket);
         await db.SaveChangesAsync(ct);
@@ -71,10 +69,6 @@ internal sealed class SqlClsTicketStore(SchedulingDbContext db, IDbClock clock) 
             throw new SchedulingException(SchedulingErrorCode.InvalidInput, "Đợt chỉ định đã có vé với nội dung khác.");
         return new(cls.Select(t => ToDto(t!)).ToList(), ToDto(returnTicket));
     }
-
-    private async Task<int> NextSequenceAsync(string prefix, CancellationToken ct) =>
-        (await db.Set<QueueTicket>().Where(t => t.TicketNumber.StartsWith(prefix))
-            .MaxAsync(t => (int?)t.SequenceNumber, ct) ?? 0) + 1;
 
     private static QueueTicket NewTicket(Guid encounterId, Guid roomId, TicketType type, QueueStatus status, string prefix,
         int sequence, DateTime now, Guid? serviceOrderId = null, Guid? serviceOrderItemId = null) => new()

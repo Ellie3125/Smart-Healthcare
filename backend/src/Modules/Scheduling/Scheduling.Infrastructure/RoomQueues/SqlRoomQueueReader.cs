@@ -18,7 +18,7 @@ internal sealed class SqlRoomQueueReader(SchedulingDbContext db, IDbClock clock)
         var rows = await TodayTickets(roomId, today)
             .Where(t => t.QueueStatus == QueueStatus.Waiting || t.QueueStatus == QueueStatus.Called
                 || t.QueueStatus == QueueStatus.Deferred || t.QueueStatus == QueueStatus.InProgress)
-            .OrderBy(t => t.IssuedAtUtc).ThenBy(t => t.SequenceNumber).ThenBy(t => t.Id)
+            .OrderBy(t => t.QueuedAtUtc).ThenBy(t => t.SequenceNumber).ThenBy(t => t.Id)
             .Skip((page - 1) * pageSize).Take(pageSize + 1)
             .Select(t => new RoomQueueEntry(t.Id, t.TicketNumber, t.SequenceNumber, t.TicketType.ToString(),
                 t.QueueStatus.ToString(), t.TargetStationId, t.CalledAtUtc)).ToListAsync(ct);
@@ -39,6 +39,6 @@ internal sealed class SqlRoomQueueReader(SchedulingDbContext db, IDbClock clock)
     {
         var start = new DateTimeOffset(today.ToDateTime(TimeOnly.MinValue), TimeSpan.FromHours(7)).UtcDateTime;
         return db.Set<QueueTicket>().AsNoTracking().Where(t => t.TargetRoomId == roomId
-            && t.IssuedAtUtc >= start && t.IssuedAtUtc < start.AddDays(1));
+            && t.QueuedAtUtc >= start && t.QueuedAtUtc < start.AddDays(1));
     }
 }

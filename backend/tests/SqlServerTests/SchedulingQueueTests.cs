@@ -105,6 +105,78 @@ public sealed partial class SchedulingHoldTests
     }
 
     [Fact]
+    public async Task Cls_orders_from_two_doctors_at_once_get_distinct_numbers_in_the_same_room()
+    {
+        var clock = new BoundaryDbClock(AtIct(8, 0));
+        await using var services = QueueServices(clock);
+        var dayA = await SeedBoundaryDayAsync(services, clock);
+        var dayB = await SeedBoundaryDayAsync(services, clock);
+        var clsRoom = Guid.NewGuid();
+        var service = Guid.NewGuid();
+        try
+        {
+            await SeedClsServiceAsync(service, clsRoom);
+            var a = await CheckInAsync(services, (await BookedAsync(services, dayA)).AppointmentId);
+            var b = await CheckInAsync(services, (await BookedAsync(services, dayB)).AppointmentId);
+            CreateClsTickets Order(CheckInResult r) => new(r.EncounterId, Guid.NewGuid(),
+                [new(Guid.NewGuid(), service), new(Guid.NewGuid(), service), new(Guid.NewGuid(), service)], null);
+
+            // Bảng đếm TicketSequence: hai đợt chỉ định cùng phòng CLS cùng lúc không trùng số, không hở số.
+            var results = await Task.WhenAll(CreateClsAsync(services, Order(a)), CreateClsAsync(services, Order(b)));
+
+            Assert.Equal(Enumerable.Range(1, 6), results.SelectMany(x => x.ClsTickets).Select(x => x.SequenceNumber).Order());
+            Assert.Equal(6, results.SelectMany(x => x.ClsTickets).Select(x => x.TicketNumber).Distinct().Count());
+            Assert.All(results, r => Assert.Equal(1, r.ReturnTicket.SequenceNumber));
+        }
+        finally
+        {
+            await CleanupQueueAsync([dayA, dayB], clsRoom);
+            await ExecAsync($"DELETE FROM scheduling.MedicalServiceRoom WHERE MedicalServiceId = '{service}'; DELETE FROM scheduling.MedicalService WHERE Id = '{service}';");
+        }
+    }
+
+    [Fact]
+    public async Task Return_ticket_joins_today_queue_by_activation_time_and_keeps_its_issue_time()
+    {
+        var clock = new BoundaryDbClock(AtIct(8, 0));
+        await using var services = QueueServices(clock);
+        var day = await SeedBoundaryDayAsync(services, clock);
+        try
+        {
+            var first = await CheckInAsync(services, (await BookedAsync(services, day)).AppointmentId);
+            var second = await CheckInAsync(services, (await BookedAsync(services, day)).AppointmentId);
+            // Vé quay lại phát hôm qua, kích hoạt lúc 07:00 hôm nay (như W3-06 sẽ làm): Deferred → Waiting + ActivatedAtUtc.
+            var back = Guid.CreateVersion7();
+            await ExecAsync($"""
+                INSERT INTO scheduling.QueueTicket (Id, EncounterId, TargetRoomId, ServiceOrderId, TicketNumber, TicketType, SequenceNumber, QueueStatus, IssuedAtUtc, ActivatedAtUtc)
+                VALUES ('{back}', '{second.EncounterId}', '{day.AssignedRoomId}', NEWID(), 'TEST-{back:N}', 'ReturnConsultation', 1, 'Waiting',
+                        '{AtIct(15, 0, dayOffset: -1):yyyy-MM-ddTHH:mm:ss}', '{AtIct(7, 0):yyyy-MM-ddTHH:mm:ss}')
+                """);
+            // Đã gọi hai vé mới liên tiếp: lượt này đến nhóm quay lại.
+            await ExecAsync($"UPDATE scheduling.QueueTicket SET CalledAtUtc = '{AtIct(7, 30):yyyy-MM-ddTHH:mm:ss}' WHERE Id IN ('{first.QueueTicketId}', '{second.QueueTicketId}')");
+            await ExecAsync($"UPDATE scheduling.QueueTicket SET QueueStatus = 'Waiting', CalledAtUtc = NULL WHERE Id = '{first.QueueTicketId}'");
+            await ExecAsync($"""
+                INSERT INTO scheduling.QueueTicket (Id, EncounterId, TargetRoomId, TicketNumber, TicketType, SequenceNumber, QueueStatus, IssuedAtUtc, CalledAtUtc)
+                VALUES (NEWID(), NEWID(), '{day.AssignedRoomId}', 'TEST-{Guid.NewGuid():N}', 'InitialConsultation', 90, 'Finished', '{AtIct(7, 1):yyyy-MM-ddTHH:mm:ss}', '{AtIct(7, 40):yyyy-MM-ddTHH:mm:ss}'),
+                       (NEWID(), NEWID(), '{day.AssignedRoomId}', 'TEST-{Guid.NewGuid():N}', 'InitialConsultation', 91, 'Finished', '{AtIct(7, 2):yyyy-MM-ddTHH:mm:ss}', '{AtIct(7, 41):yyyy-MM-ddTHH:mm:ss}')
+                """);
+
+            var called = await CallNextAsync(services, day, null);
+
+            Assert.Equal(back, called.Ticket!.QueueTicketId);
+            Assert.Equal(1, await CountAsync($"SELECT COUNT(*) FROM scheduling.QueueTicket WHERE Id = '{back}' AND IssuedAtUtc = '{AtIct(15, 0, dayOffset: -1):yyyy-MM-ddTHH:mm:ss}' AND QueuedAtUtc = '{AtIct(7, 0):yyyy-MM-ddTHH:mm:ss}'"));
+        }
+        finally { await CleanupQueueAsync(day); }
+    }
+
+    private static Task SeedClsServiceAsync(Guid service, Guid room) => ExecAsync($"""
+        INSERT INTO scheduling.MedicalService (Id, ServiceCode, ServiceName, ServiceCategory, DefaultRoomId, IsMandatoryDefault, IsActive)
+        VALUES ('{service}', 'T-{service:N}', N'Xét nghiệm thử', 'Laboratory', '{room}', 1, 1);
+        INSERT INTO scheduling.MedicalServiceRoom (Id, MedicalServiceId, RoomId, IsDefaultRoom, IsActive)
+        VALUES (NEWID(), '{service}', '{room}', 1, 1);
+        """);
+
+    [Fact]
     public async Task Cls_tickets_issue_waiting_cls_and_deferred_return_replay_and_roll_back_with_the_caller()
     {
         var clock = new BoundaryDbClock(AtIct(8, 0));
@@ -185,9 +257,11 @@ public sealed partial class SchedulingHoldTests
         VALUES ('{s}', '{roomId}', 'TEST-{s:N}', N'Trạm thử', 1)
         """)));
 
-    private static async Task CleanupQueueAsync(DoctorDayQuota day, params Guid[] otherRooms)
+    private static Task CleanupQueueAsync(DoctorDayQuota day, params Guid[] otherRooms) => CleanupQueueAsync([day], otherRooms);
+
+    private static async Task CleanupQueueAsync(DoctorDayQuota[] days, params Guid[] otherRooms)
     {
-        var rooms = string.Join(", ", otherRooms.Append(day.AssignedRoomId).Select(r => $"'{r}'"));
+        var rooms = string.Join(", ", otherRooms.Concat(days.Select(d => d.AssignedRoomId)).Select(r => $"'{r}'"));
         await ExecAsync($"""
             DECLARE @tickets TABLE (Id uniqueidentifier);
             INSERT INTO @tickets SELECT Id FROM scheduling.QueueTicket WHERE TargetRoomId IN ({rooms});
@@ -196,7 +270,7 @@ public sealed partial class SchedulingHoldTests
             DELETE FROM shared.AuditLog WHERE RecordId IN (SELECT Id FROM @tickets);
             DELETE FROM scheduling.QueueTicket WHERE Id IN (SELECT Id FROM @tickets) AND TicketType <> 'InitialConsultation';
             """);
-        await CleanupAttendanceAsync(day);
+        await CleanupAttendanceAsync(days);
         await ExecAsync($"DELETE FROM scheduling.ServiceStation WHERE RoomId IN ({rooms})");
     }
 

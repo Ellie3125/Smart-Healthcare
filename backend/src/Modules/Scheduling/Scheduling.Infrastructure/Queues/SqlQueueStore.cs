@@ -62,8 +62,8 @@ internal sealed class SqlQueueStore(SchedulingDbContext db, IDbClock clock, Audi
     {
         var start = StartOfVietnamDayUtc(nowUtc);
         return await db.Set<QueueTicket>().AsNoTracking()
-            .Where(t => t.TargetRoomId == roomId && t.QueueStatus == QueueStatus.Waiting && t.IssuedAtUtc >= start)
-            .Select(t => new WaitingTicket(t.Id, t.EncounterId, t.TicketType, t.SequenceNumber, t.IssuedAtUtc))
+            .Where(t => t.TargetRoomId == roomId && t.QueuedAtUtc >= start && t.QueueStatus == QueueStatus.Waiting)
+            .Select(t => new WaitingTicket(t.Id, t.EncounterId, t.TicketType, t.SequenceNumber, t.QueuedAtUtc))
             .ToListAsync(ct);
     }
 
@@ -71,7 +71,8 @@ internal sealed class SqlQueueStore(SchedulingDbContext db, IDbClock clock, Audi
     {
         var start = StartOfVietnamDayUtc(nowUtc);
         var recent = await db.Set<QueueTicket>().AsNoTracking()
-            .Where(t => t.TargetRoomId == roomId && t.CalledAtUtc >= start)
+            // Vé được gọi hôm nay đều vào hàng hôm nay (trừ vé quay lại kích hoạt hôm trước rồi gọi hôm nay: chỉ lệch bộ đếm trộn nhóm).
+            .Where(t => t.TargetRoomId == roomId && t.QueuedAtUtc >= start && t.CalledAtUtc >= start)
             .OrderByDescending(t => t.CalledAtUtc).ThenByDescending(t => t.Id).Take(limit)
             .Select(t => t.TicketType).ToListAsync(ct);
         return recent.TakeWhile(x => x != TicketType.ReturnConsultation).Count();

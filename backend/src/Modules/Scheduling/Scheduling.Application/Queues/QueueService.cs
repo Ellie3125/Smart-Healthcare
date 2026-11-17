@@ -77,17 +77,17 @@ public static class QueueFairness
     public static IEnumerable<WaitingTicket> Order(IReadOnlyList<WaitingTicket> waiting, int newStreak, DateTime nowUtc,
         QueuePolicy policy)
     {
-        // Nhóm mới theo số thứ tự cấp; nhóm quay lại theo thời điểm kích hoạt (IssuedAtUtc đặt lại lúc kích hoạt).
+        // Nhóm mới theo số thứ tự cấp; nhóm quay lại theo thời điểm kích hoạt (QueuedAtUtc = ActivatedAtUtc).
         var fresh = waiting.Where(x => x.TicketType != TicketType.ReturnConsultation)
-            .OrderBy(x => x.SequenceNumber).ThenBy(x => x.IssuedAtUtc).ThenBy(x => x.TicketId).ToList();
+            .OrderBy(x => x.SequenceNumber).ThenBy(x => x.QueuedAtUtc).ThenBy(x => x.TicketId).ToList();
         var back = waiting.Where(x => x.TicketType == TicketType.ReturnConsultation)
-            .OrderBy(x => x.IssuedAtUtc).ThenBy(x => x.TicketId).ToList();
+            .OrderBy(x => x.QueuedAtUtc).ThenBy(x => x.TicketId).ToList();
         if (fresh.Count == 0 || back.Count == 0)
             return fresh.Concat(back);
 
         var returnFirst = newStreak >= policy.NewPerReturn;
-        var freshWait = nowUtc - fresh[0].IssuedAtUtc;
-        var backWait = nowUtc - back[0].IssuedAtUtc;
+        var freshWait = nowUtc - fresh[0].QueuedAtUtc;
+        var backWait = nowUtc - back[0].QueuedAtUtc;
         if (freshWait >= policy.MaxWait || backWait >= policy.MaxWait)
             returnFirst = backWait >= freshWait;
         return returnFirst ? back.Concat(fresh) : fresh.Concat(back);
@@ -110,7 +110,8 @@ public enum TicketTransition { Start, Finish, Requeue }
 
 public sealed record StationLookup(Guid? StationId, QueueResult Error = QueueResult.StationNotFound);
 
-public sealed record WaitingTicket(Guid TicketId, Guid EncounterId, TicketType TicketType, int SequenceNumber, DateTime IssuedAtUtc);
+/// <param name="QueuedAtUtc">Lúc vào hàng chờ: giờ kích hoạt với vé quay lại, giờ phát với vé khác.</param>
+public sealed record WaitingTicket(Guid TicketId, Guid EncounterId, TicketType TicketType, int SequenceNumber, DateTime QueuedAtUtc);
 
 public sealed record Allocate(Guid StationId, Guid RoomId, Guid TicketId, Guid PatientId, Guid EncounterId, Guid PerformedByUserId);
 
