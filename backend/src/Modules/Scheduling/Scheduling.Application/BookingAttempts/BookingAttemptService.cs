@@ -63,4 +63,7 @@ public interface IBookingAttemptStore
     Task AddAsync(BookingAttempt attempt, CancellationToken ct);
 
     Task<BookingProgressSnapshot?> GetOwnedAsync(Guid bookingAttemptId, Guid appUserId, CancellationToken ct);
+
+    /// <summary>Tiến trình chưa kết thúc của người gọi, ngày khám từ <paramref name="fromDate"/>, mới cập nhật trước.</summary>
+    Task<IReadOnlyList<RecoverableAttempt>> ListUnfinishedAsync(Guid appUserId, DateOnly fromDate, int take, CancellationToken ct);
 }

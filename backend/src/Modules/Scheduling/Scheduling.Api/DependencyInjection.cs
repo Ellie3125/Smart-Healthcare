@@ -3,6 +3,7 @@ using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.Configuration;
 using Microsoft.AspNetCore.Routing;
 using Microsoft.Extensions.DependencyInjection;
+using Scheduling.Application.Appointments;
 using Scheduling.Application.DoctorDays;
 using Scheduling.Application.DoctorSearch;
 
@@ -16,6 +17,8 @@ public static class DependencyInjection
         services.AddScoped<IDoctorDirectory, IdentityDoctorDirectory>()
             .AddScoped<IDoctorSearchDirectory, IdentityDoctorSearchDirectory>()
             .AddScoped<DoctorDayListQuery>()
+            // Factory: host chỉ dùng route đọc (test) không cần đủ phụ thuộc Billing/Outbox của lệnh đổi/hủy.
+            .AddScoped(provider => ActivatorUtilities.CreateInstance<AppointmentChangeService>(provider))
             .AddScoped(provider => new DoctorDayPolicy(provider.GetRequiredService<IConfiguration>()
                 .GetValue("Scheduling:DoctorDays:CheckInDeadline", new TimeOnly(11, 0))));
 
