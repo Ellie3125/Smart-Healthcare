@@ -162,6 +162,10 @@ public sealed class EndpointAuthorizationInventoryTests
 
         Assert.Contains("api/notifications/patient/notifications", routes);
         Assert.Contains("api/notifications/patient/notifications/{id}/read", routes);
+        Assert.Contains("api/scheduling/staff/call-list", routes);
+        Assert.Contains("api/scheduling/admin/doctor-days/{doctorId}/{serviceDate}/replace-doctor", routes);
+        Assert.Contains("api/scheduling/admin/doctor-days/{doctorId}/{serviceDate}/cancel-session", routes);
+        Assert.Contains("api/scheduling/admin/rooms/{roomId}/disable", routes);
         var all = string.Join(", ", routes);
         foreach (var prefix in new[] { "api/staff/admin", "api/staff/verifications", "api/patient/profiles", "api/scheduling/admin/doctor-days",
             "api/scheduling/admin/medical-services", "api/scheduling/admin/service-stations", "api/scheduling/staff/medical-services",

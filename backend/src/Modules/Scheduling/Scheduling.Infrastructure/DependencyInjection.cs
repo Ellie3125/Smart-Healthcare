@@ -32,6 +32,8 @@ public static class DependencyInjection
             // Catalog chỉ được resolve ở Api có Identity; Worker cũng dùng AddSchedulingInfrastructure.
             .AddScoped<Scheduling.Application.MedicalServiceAdmin.IMedicalServiceCatalog>(provider =>
                 ActivatorUtilities.CreateInstance<Scheduling.Infrastructure.MedicalServiceAdmin.SqlMedicalServiceCatalog>(provider))
+            .AddScoped<Scheduling.Application.SessionAdministration.ISessionAdministration>(provider =>
+                ActivatorUtilities.CreateInstance<Scheduling.Infrastructure.SessionAdministration.SqlSessionAdministration>(provider))
             .AddScoped<IDoctorDayStore, SqlDoctorDayStore>()
             .AddScoped<IDoctorSearchQuotaReader, SqlDoctorSearchQuotaReader>()
             .AddScoped<IHoldStore, SqlHoldStore>()

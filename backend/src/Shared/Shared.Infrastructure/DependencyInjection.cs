@@ -15,6 +15,7 @@ public static class DependencyInjection
         services.TryAddSingleton(TimeProvider.System);
         services.AddScoped<OutboxWriter>();
         services.AddScoped<OutboxReader>();
+        services.AddScoped<StaffCallListReader>();
         services.AddScoped<IUnitOfWork, UnitOfWork>();
         services.AddScoped<IIntegrationEventPublisher, IntegrationEventPublisher>();
         services.AddScoped<IProcessedEventStore, ProcessedEventStore>();
