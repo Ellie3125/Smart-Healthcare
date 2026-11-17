@@ -6,7 +6,7 @@ public sealed record SessionAdminView(Guid Id, Guid DoctorId, Guid AssignedRoomI
     int AdmittedCount, int LockedCancelledCount, bool IsOpen, string SessionStatus);
 public sealed record RoomDisabledView(Guid RoomId, int StationsDisabled, int MappingsDisabled);
 public sealed record StaffCallItem(Guid Id, Guid AppointmentId, Guid PatientId, Guid? OldDoctorId, Guid? NewDoctorId,
-    DateOnly ServiceDate, string Reason, DateTime OccurredAtUtc);
+    DateOnly ServiceDate, string Reason, DateTime OccurredAtUtc, string? PatientName = null, string? MaskedPhoneNumber = null);
 public sealed record StaffCallPage(IReadOnlyList<StaffCallItem> Items, int Page, int PageSize, bool HasMore, bool ContactsAvailable);
 public interface ISessionAdministration
 {

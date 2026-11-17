@@ -134,8 +134,10 @@ public sealed class SqlSessionAdministration(SchedulingDbContext db, IIdentityPa
                 items.Add(new(e.EventId, e.AppointmentId, e.PatientId, e.DoctorId, null, e.ServiceDate, "Bệnh viện hủy phiên.", e.OccurredAtUtc));
             }
         }
-        // shortcut: Identity has no contact lookup contract, enrich this list after a batch contact contract is published.
-        return new(items, page, pageSize, snapshots.Count > pageSize, false);
+        var contacts = (await identity.GetPatientContactsAsync(items.Select(x => x.PatientId).Distinct().ToArray(), ct)).ToDictionary(x => x.PatientId);
+        var enriched = items.Select(item => contacts.TryGetValue(item.PatientId, out var contact)
+            ? item with { PatientName = contact.FullName, MaskedPhoneNumber = contact.MaskedPhoneNumber } : item).ToArray();
+        return new(enriched, page, pageSize, snapshots.Count > pageSize, true);
     }
 
     private async Task<DateTime> BeforeStart(DoctorDayQuota quota, CancellationToken ct)

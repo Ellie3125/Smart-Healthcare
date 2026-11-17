@@ -37,6 +37,10 @@ public interface IIdentityPatientsModule
 
     // Bản mặc định ném lỗi để các bản giả trong test không phải cài lại; bản Identity cài đặt thật.
 
+    /// <summary>Staff call-list reads contacts for at most 100 patient IDs on the current page; missing IDs omitted, phone keeps only last 3 characters.</summary>
+    Task<IReadOnlyList<PatientContactDto>> GetPatientContactsAsync(IReadOnlyCollection<Guid> patientIds, CancellationToken ct = default) =>
+        throw new NotSupportedException();
+
     /// <summary>Tiếp tân tra hồ sơ: khớp chính xác số điện thoại hoặc CCCD (bỏ khoảng trắng), tối đa 20 hồ sơ.</summary>
     Task<IReadOnlyList<ReceptionPatientDto>> FindPatientsForReceptionAsync(string keyword, CancellationToken ct = default) =>
         throw new NotSupportedException();

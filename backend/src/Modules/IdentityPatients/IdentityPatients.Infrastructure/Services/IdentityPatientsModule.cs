@@ -5,7 +5,7 @@ using Microsoft.EntityFrameworkCore;
 
 namespace IdentityPatients.Infrastructure.Services;
 
-public sealed class IdentityPatientsModule(IdentityPatientsDbContext dbContext) : IIdentityPatientsModule
+public sealed partial class IdentityPatientsModule(IdentityPatientsDbContext dbContext) : IIdentityPatientsModule
 {
     private readonly IdentityPatientsDbContext _dbContext = dbContext;
 

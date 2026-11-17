@@ -41,7 +41,14 @@ public sealed partial class SessionAdministrationTests
         Assert.Equal(1, await shared.Set<AuditLog>().CountAsync(x => x.RecordId == f.QuotaId, Ct));
         var calls = await scope.ServiceProvider.GetRequiredService<ISessionAdministration>().GetCallListAsync(1, 50, Ct);
         Assert.Contains(calls.Items, x => x.AppointmentId == f.AppointmentId && x.NewDoctorId == f.Directory.Replacement);
-        Assert.False(calls.ContactsAvailable);
+        Assert.True(calls.ContactsAvailable);
+        Assert.Equal("Test patient", Assert.Single(calls.Items, x => x.AppointmentId == f.AppointmentId).PatientName);
+        Assert.Equal("*******567", Assert.Single(calls.Items, x => x.AppointmentId == f.AppointmentId).MaskedPhoneNumber);
+        Assert.Equal(1, f.Directory.ContactCalls);
+        f.Directory.OmitContacts = true;
+        var missingContacts = await scope.ServiceProvider.GetRequiredService<ISessionAdministration>().GetCallListAsync(1, 50, Ct);
+        Assert.True(missingContacts.ContactsAvailable);
+        Assert.All(missingContacts.Items, x => { Assert.Null(x.PatientName); Assert.Null(x.MaskedPhoneNumber); });
     }
 
     [Fact]
@@ -270,6 +277,14 @@ public sealed partial class SessionAdministrationTests
     }
     private sealed class Doctors : IIdentityPatientsModule
     {
+        public int ContactCalls { get; private set; }
+        public bool OmitContacts { get; set; }
+        public Task<IReadOnlyList<PatientContactDto>> GetPatientContactsAsync(IReadOnlyCollection<Guid> ids, CancellationToken ct = default)
+        {
+            ContactCalls++;
+            Assert.InRange(ids.Count, 0, 100);
+            return Task.FromResult<IReadOnlyList<PatientContactDto>>(OmitContacts ? [] : ids.Select(id => new PatientContactDto(id, "Test patient", "*******567")).ToArray());
+        }
         public Guid Original { get; } = Guid.NewGuid(); public Guid Replacement { get; set; } = Guid.NewGuid();
         public Guid RoomId { get; set; }
         public Task<DoctorDto?> GetDoctorAsync(Guid id, CancellationToken ct = default) => Task.FromResult<DoctorDto?>(id == Original || id == Replacement ? new(id, "Bác sĩ giả", Guid.NewGuid(), "TEST", Guid.NewGuid(), "TEST", true) : null);
