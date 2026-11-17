@@ -451,11 +451,24 @@ namespace Scheduling.Infrastructure.Persistence.Migrations
 
                     b.HasIndex("ServiceOrderId");
 
-                    b.HasIndex("ServiceOrderItemId");
+                    b.HasIndex("ServiceOrderItemId")
+                        .IsUnique()
+                        .HasFilter("[ServiceOrderItemId] IS NOT NULL");
 
                     b.HasIndex("TargetRoomId");
 
                     b.HasIndex("TargetStationId");
+
+                    b.HasIndex("TicketNumber")
+                        .IsUnique();
+
+                    b.HasIndex(new[] { "EncounterId" }, "UX_QueueTicket_InitialPerEncounter")
+                        .IsUnique()
+                        .HasFilter("[TicketType] = 'InitialConsultation'");
+
+                    b.HasIndex(new[] { "ServiceOrderId" }, "UX_QueueTicket_ReturnPerServiceOrder")
+                        .IsUnique()
+                        .HasFilter("[TicketType] = 'ReturnConsultation'");
 
                     b.ToTable("QueueTicket", "scheduling");
                 });

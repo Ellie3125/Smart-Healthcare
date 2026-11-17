@@ -21,6 +21,13 @@ internal sealed class QueueTicketConfiguration : IEntityTypeConfiguration<QueueT
         builder.HasIndex(x => x.EncounterId);
         builder.HasIndex(x => x.TargetRoomId);
         builder.HasIndex(x => x.ServiceOrderId);
-        builder.HasIndex(x => x.ServiceOrderItemId);
+        // Chống trùng vé ở DB (W3-03, W3-04): số vé, một vé khám đầu mỗi lượt khám, một vé CLS mỗi dòng chỉ định,
+        // một vé quay lại mỗi đợt chỉ định.
+        builder.HasIndex(x => x.TicketNumber).IsUnique();
+        builder.HasIndex(x => x.ServiceOrderItemId).IsUnique().HasFilter("[ServiceOrderItemId] IS NOT NULL");
+        builder.HasIndex(x => x.EncounterId, "UX_QueueTicket_InitialPerEncounter").IsUnique()
+            .HasFilter("[TicketType] = 'InitialConsultation'");
+        builder.HasIndex(x => x.ServiceOrderId, "UX_QueueTicket_ReturnPerServiceOrder").IsUnique()
+            .HasFilter("[TicketType] = 'ReturnConsultation'");
     }
 }
