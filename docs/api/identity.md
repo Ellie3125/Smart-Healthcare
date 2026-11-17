@@ -229,3 +229,10 @@ Phòng làm việc của bác sĩ theo ngày lấy từ `StaffShiftAssignment.Ro
 
 - Tiền tố route (`api/staff/...` so với `api/identity-patients/staff/...` của `docs/conventions.md`): chờ trưởng nhóm chốt.
 - Endpoint của bác sĩ, điều dưỡng và tài khoản phòng chưa có; khi thêm thì dùng `DoctorOnly`, `NurseOnly` hoặc `RoomAccountOnly`.
+
+## 9. Contract trong tiến trình `IIdentityPatientsModule` — thay đổi 17/11/2026 (chờ người phụ trách Identity duyệt)
+
+- Thêm `GetAccessiblePatientsAsync(userId, patientIds, level = Booking)`: trả các PatientId trong danh sách mà người gọi được truy cập, **cùng luật** `CanAccessPatientAsync` (AppUser đang hoạt động; vai trò Patient tức không có RoomAccount, không có Staff; đại diện đang hiệu lực; Booking nhận Pending/Verified, ClinicalRecords chỉ Verified). Bản Identity chạy một truy vấn; interface có cài đặt mặc định gọi lần lượt để bản giả trong test không phải sửa.
+- `CanAccessPatientAsync` giữ chữ ký và kết quả, nay gọi bản batch với một PatientId: 1 truy vấn thay cho 4.
+- Lý do: danh sách lịch hẹn của bệnh nhân gọi kiểm quyền theo từng hồ sơ (đo 17/11: ~56 truy vấn cho 14 hồ sơ mỗi trang).
+

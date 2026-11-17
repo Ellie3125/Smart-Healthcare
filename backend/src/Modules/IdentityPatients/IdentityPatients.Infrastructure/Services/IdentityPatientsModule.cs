@@ -9,38 +9,37 @@ public sealed class IdentityPatientsModule(IdentityPatientsDbContext dbContext) 
 {
     private readonly IdentityPatientsDbContext _dbContext = dbContext;
 
-    public async Task<bool> CanAccessPatientAsync(Guid userId, Guid patientId, AccessLevel level = AccessLevel.Booking, CancellationToken ct = default)
+    public async Task<bool> CanAccessPatientAsync(Guid userId, Guid patientId, AccessLevel level = AccessLevel.Booking, CancellationToken ct = default) =>
+        (await GetAccessiblePatientsAsync(userId, [patientId], level, ct)).Contains(patientId);
+
+    /// <summary>
+    /// Một truy vấn (trước đây 4 truy vấn mỗi hồ sơ). Luật giữ nguyên: AppUser đang hoạt động, vai trò Patient (không có
+    /// RoomAccount, không có Staff — xem <see cref="AccountRoles"/>), đại diện đang hiệu lực; Booking nhận Pending/Verified,
+    /// ClinicalRecords chỉ Verified. Nhân viên và RoomAccount không đi đường này (FR04/SEC-01).
+    /// </summary>
+    public async Task<IReadOnlySet<Guid>> GetAccessiblePatientsAsync(Guid userId, IReadOnlyCollection<Guid> patientIds,
+        AccessLevel level = AccessLevel.Booking, CancellationToken ct = default)
     {
-        var user = await _dbContext.AppUsers
-            .AsNoTracking()
-            .FirstOrDefaultAsync(u => u.Id == userId, ct);
-
-        if (user is null || !user.IsActive)
+        VerificationStatus[] statuses = level switch
         {
-            return false;
-        }
-
-        // Nhân viên và RoomAccount không đi qua đường này để đọc dữ liệu bệnh nhân (FR04/SEC-01)
-        if ((await AccountRoles.ResolveAsync(_dbContext, userId, ct))?.Role != Roles.Patient)
-        {
-            return false;
-        }
-
-        var rep = await _dbContext.PatientRepresentatives
-            .AsNoTracking()
-            .FirstOrDefaultAsync(r => r.AppUserId == userId && r.PatientId == patientId && r.IsActive, ct);
-
-        if (rep is null)
-        {
-            return false;
-        }
-
-        return level switch
-        {
-            AccessLevel.Booking => rep.VerificationStatus is VerificationStatus.Pending or VerificationStatus.Verified,
-            AccessLevel.ClinicalRecords => rep.VerificationStatus is VerificationStatus.Verified,
-            _ => false
+            AccessLevel.Booking => [VerificationStatus.Pending, VerificationStatus.Verified],
+            AccessLevel.ClinicalRecords => [VerificationStatus.Verified],
+            _ => []
         };
+        var ids = patientIds.Distinct().ToList();
+        if (ids.Count == 0 || statuses.Length == 0)
+        {
+            return new HashSet<Guid>();
+        }
+
+        var allowed = await _dbContext.PatientRepresentatives.AsNoTracking()
+            .Where(r => r.AppUserId == userId && r.IsActive && ids.Contains(r.PatientId) && statuses.Contains(r.VerificationStatus)
+                && _dbContext.AppUsers.Any(u => u.Id == userId && u.IsActive)
+                && !_dbContext.RoomAccounts.Any(a => a.AppUserId == userId)
+                && !_dbContext.Staffs.Any(s => s.AppUserId == userId))
+            .Select(r => r.PatientId)
+            .ToListAsync(ct);
+        return allowed.ToHashSet();
     }
 
     public async Task<DoctorDto?> GetDoctorAsync(Guid doctorId, CancellationToken ct = default)
