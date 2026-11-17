@@ -92,6 +92,18 @@ public sealed class SqlSessionAdministration(SchedulingDbContext db, IIdentityPa
         if (await identity.GetRoomAsync(roomId, t) is null) throw new SessionAdminException(SessionAdminError.RoomNotFound);
         var stations = await db.Set<ServiceStation>().FromSql($"SELECT * FROM scheduling.ServiceStation WITH (UPDLOCK,HOLDLOCK) WHERE RoomId={roomId}").AsNoTracking().ToListAsync(t);
         var mappings = await db.Set<MedicalServiceRoom>().FromSql($"SELECT * FROM scheduling.MedicalServiceRoom WITH (UPDLOCK,HOLDLOCK) WHERE RoomId={roomId}").AsNoTracking().ToListAsync(t);
+        if (stations.Count == 0)
+        {
+            // Keep an inactive default so the queue fallback cannot recreate an active station for a disabled room.
+            var blocked = new ServiceStation { Id = Guid.CreateVersion7(), RoomId = roomId,
+                StationCode = Scheduling.Infrastructure.Queues.SqlQueueStore.DefaultStationCode(roomId), StationName = "Vị trí tạm ngừng", IsActive = false };
+            db.Add(blocked);
+            await db.SaveChangesAsync(t);
+            await audit.WriteAsync(new AuditLog { Id = Guid.CreateVersion7(), PerformedByUserId = userId,
+                TableName = "scheduling.ServiceStation", RecordId = blocked.Id, ActionType = ActionType.INSERT,
+                ChangedColumns = "RoomId,StationCode,StationName,IsActive", NewValuesJson = JsonSerializer.Serialize(blocked),
+                ChangeReason = reason, TimestampUtc = await clock.GetUtcNowAsync(t) }, t);
+        }
         var stationsChanged = await db.Set<ServiceStation>().Where(x => x.RoomId == roomId && x.IsActive).ExecuteUpdateAsync(s => s.SetProperty(x => x.IsActive, false), t);
         var mapsChanged = await db.Set<MedicalServiceRoom>().Where(x => x.RoomId == roomId && x.IsActive).ExecuteUpdateAsync(s => s.SetProperty(x => x.IsActive, false), t);
         var result = new RoomDisabledView(roomId, stationsChanged, mapsChanged);

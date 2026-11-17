@@ -165,6 +165,17 @@ public sealed partial class SessionAdministrationTests
         Assert.False(await read.ServiceProvider.GetRequiredService<SharedDbContext>().Set<AuditLog>().AnyAsync(x => x.RecordId == f.QuotaId, Ct));
     }
     private sealed class PublishFailure : Exception;
+    [Fact]
+    public async Task Disabling_an_unconfigured_room_blocks_the_queue_default_station_fallback()
+    {
+        await using var f = await Fixture.CreateAsync();
+        await using var scope = f.Services.CreateAsyncScope();
+        await scope.ServiceProvider.GetRequiredService<ISessionAdministration>().DisableRoomAsync(f.RoomId, Guid.NewGuid(), "Tắt trước giờ làm", Ct);
+        var resolved = await scope.ServiceProvider.GetRequiredService<Scheduling.Application.Queues.IQueueStore>().ResolveStationAsync(f.RoomId, null, "Phòng giả", Ct);
+        Assert.Null(resolved.StationId);
+        var station = Assert.Single(await scope.ServiceProvider.GetRequiredService<SchedulingDbContext>().Set<ServiceStation>().Where(x => x.RoomId == f.RoomId).ToListAsync(Ct));
+        Assert.False(station.IsActive);
+    }
     private sealed class FailingPublisher : IIntegrationEventPublisher
     {
         public Task PublishAsync<TEvent>(TEvent e, Guid aggregateId, CancellationToken ct) where TEvent : IIntegrationEvent => throw new PublishFailure();
