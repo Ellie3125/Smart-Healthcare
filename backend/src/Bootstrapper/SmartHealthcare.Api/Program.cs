@@ -40,6 +40,7 @@ builder.Services.AddControllers()
     .AddIdentityPatientsApi();
 
 builder.Services.AddProblemDetails();
+builder.Services.AddTrustedProxyForwarding(builder.Configuration);
 builder.Services.AddPatientRegisterRateLimiter();
 
 builder.Services.AddCors(options =>
@@ -130,6 +131,8 @@ builder.Services.AddOpenApi(options => options.AddDocumentTransformer((document,
 
 var app = builder.Build();
 
+// Phải chạy trước mọi middleware đọc IP hoặc scheme (rate limit, auth, endpoint ghi AuditLog).
+app.UseTrustedProxyForwarding();
 app.UseCors();
 app.UseAuthentication();
 app.UseAuthorization();
