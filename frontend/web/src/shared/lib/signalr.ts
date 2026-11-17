@@ -9,7 +9,6 @@ export interface StaffRealtimeHandlers {
 
 /**
  * Kết nối SignalR với skipNegotiation: true theo kiến trúc 1 instance của Smart Healthcare.
- * Ở chế độ mock (`VITE_USE_MOCK=true`), giả lập kết nối an toàn và lắng nghe CustomEvent `sh-staff-realtime`.
  */
 export function createStaffRealtimeConnection(
   hubPath: string,
@@ -17,30 +16,6 @@ export function createStaffRealtimeConnection(
   events: string[],
   handlers: StaffRealtimeHandlers,
 ): { start: () => Promise<void>; stop: () => Promise<void> } {
-  const useMock = import.meta.env.VITE_USE_MOCK === 'true';
-
-  if (useMock) {
-    const domHandlers = events.map((eventName) => {
-      const fn = (e: Event) => {
-        const custom = e as CustomEvent<unknown>;
-        handlers.onEvent(eventName, custom.detail);
-      };
-      window.addEventListener(`sh-staff-realtime:${eventName}`, fn);
-      return { eventName, fn };
-    });
-
-    return {
-      async start() {
-        handlers.onStatusChange?.('connected');
-      },
-      async stop() {
-        domHandlers.forEach(({ eventName, fn }) => {
-          window.removeEventListener(`sh-staff-realtime:${eventName}`, fn);
-        });
-        handlers.onStatusChange?.('disconnected');
-      },
-    };
-  }
 
   let connection: HubConnection | null = null;
   let stopped = false;

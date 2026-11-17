@@ -239,27 +239,6 @@ export const ReceptionPage: React.FC = () => {
 
   const totalPages = Math.max(1, Math.ceil(totalCount / pageSize));
 
-  // Week 1 mock check-in data preserved in second tab
-  const mockTickets = [
-    {
-      ticketNumber: "A-001",
-      patientName: "Nguyễn Văn Bệnh Nhân",
-      serviceTime: "07:00",
-      status: "Chờ tiếp đón",
-    },
-    {
-      ticketNumber: "A-002",
-      patientName: "Lê Hoàng Minh",
-      serviceTime: "07:15",
-      status: "Đã check-in",
-    },
-    {
-      ticketNumber: "A-003",
-      patientName: "Phạm Thị Mai",
-      serviceTime: "07:30",
-      status: "Chờ tiếp đón",
-    },
-  ];
 
   return (
     <div className="space-y-6">
@@ -580,7 +559,7 @@ export const ReceptionPage: React.FC = () => {
                 Danh sách bệnh nhân đăng ký hôm nay
               </h2>
               <span className="text-xs text-on-surface-variant">
-                Dữ liệu tham khảo check-in trong ca
+                Dữ liệu check-in trong ca
               </span>
             </div>
             <div className="overflow-x-auto">
@@ -594,24 +573,11 @@ export const ReceptionPage: React.FC = () => {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-surface-container-high/50">
-                  {mockTickets.map((t) => (
-                    <tr key={t.ticketNumber} className="hover:bg-surface-container-low/45 transition-colors">
-                      <td className="py-3 px-4 font-bold text-primary font-data-tabular">
-                        {t.ticketNumber}
-                      </td>
-                      <td className="py-3 px-4 font-medium text-on-surface">
-                        {t.patientName}
-                      </td>
-                      <td className="py-3 px-4 text-on-surface-variant font-data-tabular">
-                        {t.serviceTime}
-                      </td>
-                      <td className="py-3 px-4">
-                        <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold bg-surface-container-low text-primary">
-                          {t.status}
-                        </span>
-                      </td>
-                    </tr>
-                  ))}
+                  <tr>
+                    <td colSpan={4} className="py-6 px-4 text-center text-on-surface-variant">
+                      Chưa có API danh sách vé check in trong ngày (Scheduling W3-02).
+                    </td>
+                  </tr>
                 </tbody>
               </table>
             </div>
