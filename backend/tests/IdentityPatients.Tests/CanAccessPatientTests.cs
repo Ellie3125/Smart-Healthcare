@@ -174,4 +174,38 @@ public sealed class CanAccessPatientTests
         Assert.False(await module.CanAccessPatientAsync(staffUserId, patientId, AccessLevel.Booking, TestContext.Current.CancellationToken));
         Assert.False(await module.CanAccessPatientAsync(roomUserId, patientId, AccessLevel.Booking, TestContext.Current.CancellationToken));
     }
+
+    [Fact]
+    public async Task GetAccessiblePatients_ReturnsOnlyRepresentedPatientsAtTheLevel_InOneCall()
+    {
+        await using var db = await TestDatabase.OpenAsync();
+        var context = db.Context();
+        var ct = TestContext.Current.CancellationToken;
+        var userId = Guid.NewGuid();
+        var staffUserId = Guid.NewGuid();
+        var verified = context.AddPatient().Id;
+        var pending = context.AddPatient().Id;
+        var revoked = context.AddPatient().Id;
+        var stranger = context.AddPatient().Id;
+        await SeedRoleAndUserAsync(context, userId, Roles.Patient);
+        await SeedRoleAndUserAsync(context, staffUserId, Roles.Receptionist);
+        void Rep(Guid user, Guid patient, VerificationStatus status, bool active = true) => context.PatientRepresentatives.Add(new PatientRepresentative
+        {
+            Id = Guid.NewGuid(), AppUserId = user, PatientId = patient, Relationship = Relationship.Other,
+            VerificationStatus = status, IsActive = active, CreatedAtUtc = DateTime.UtcNow
+        });
+        Rep(userId, verified, VerificationStatus.Verified);
+        Rep(userId, pending, VerificationStatus.Pending);
+        Rep(userId, revoked, VerificationStatus.Verified, active: false);
+        // Nhân viên có bản ghi đại diện vẫn không được đi đường bệnh nhân.
+        Rep(staffUserId, verified, VerificationStatus.Verified);
+        await context.SaveChangesAsync(ct);
+        var module = new IdentityPatientsModule(context);
+        Guid[] all = [verified, pending, revoked, stranger, verified];
+
+        Assert.Equal(new[] { verified, pending }.Order(), (await module.GetAccessiblePatientsAsync(userId, all, AccessLevel.Booking, ct)).Order());
+        Assert.Equal([verified], await module.GetAccessiblePatientsAsync(userId, all, AccessLevel.ClinicalRecords, ct));
+        Assert.Empty(await module.GetAccessiblePatientsAsync(staffUserId, all, AccessLevel.Booking, ct));
+        Assert.Empty(await module.GetAccessiblePatientsAsync(userId, [], AccessLevel.Booking, ct));
+    }
 }
