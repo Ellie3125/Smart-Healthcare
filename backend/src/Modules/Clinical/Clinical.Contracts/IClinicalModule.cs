@@ -26,5 +26,11 @@ public interface IClinicalModule
 
     /// <summary>Lấy danh sách tất cả đơn thuốc của lượt khám.</summary>
     Task<IReadOnlyList<PrescriptionDto>> GetPrescriptionsByEncounterIdAsync(Guid encounterId, CancellationToken ct);
+
+    /// <summary>Bác sĩ (DoctorId) có phải bác sĩ khám ban đầu của lượt khám; dùng để cho xem kết quả CLS ngay khi Published (GP §6.5).</summary>
+    Task<bool> IsOriginalDoctorAsync(Guid doctorId, Guid encounterId, CancellationToken ct);
+
+    /// <summary>Bác sĩ ban đầu đã phát hành kết luận sau CLS; trước đó bệnh nhân và người đại diện chưa xem được kết quả (GP §6.5).</summary>
+    Task<bool> IsPostClsConclusionPublishedAsync(Guid encounterId, CancellationToken ct);
 }
 
