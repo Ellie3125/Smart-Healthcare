@@ -27,11 +27,8 @@ def shortcut_reply(tables: Tables, routed: Routed) -> tuple[TurnResponse, ChatSt
         case "SUGGEST_SPECIALTY":
             return _specialty_reply(tables, routed)
         case _:
-            # Intent có công cụ: bước 4 nối công cụ gọi API .NET. Giữ intent ở COLLECTING để lượt sau nối tiếp được.
-            return (
-                TurnResponse(reply=tables.template("tool_pending"), intent=intent),
-                {"intent": intent, "stage": "COLLECTING", "slots": {}, "missing_slots": []},
-            )
+            # Intent có công cụ do ToolIntentHandler (app/intents.py) xử lý.
+            raise ValueError(f"Intent {intent} không trả lời bằng câu mẫu tĩnh.")
 
 
 def _specialty_reply(tables: Tables, routed: Routed) -> tuple[TurnResponse, ChatState]:

@@ -32,28 +32,37 @@ red_flags:
 
 # Chuyên khoa khám lâm sàng được phép gợi ý. code khớp identity.Specialty.SpecialtyCode; name/description hiển thị cho bệnh nhân.
 # Thứ tự là thứ tự hiển thị khi không khớp (fallback). Không đưa khoa CLS (X-Quang, Xét nghiệm, Nội soi, Siêu âm).
+# name phải trùng SpecialtyName trong identity.Specialty: tìm bác sĩ lọc theo tên vì web bệnh nhân chưa có API danh mục chuyên khoa (E5).
+# aliases: cách bệnh nhân gọi tên khoa khi muốn tìm lịch ("khám da liễu"); khác với từ khóa triệu chứng ở specialty_hints.
 specialties:
   - code: NOI_TONG_QUAT
     name: Khoa Nội tổng quát
-    description: Khám các bệnh nội khoa thường gặp; phù hợp khi chưa rõ nên khám khoa nào.
+    description: Khám các bệnh nội khoa thường gặp; phù hợp khi chưa rõ chuyên khoa.
+    aliases: [nội tổng quát, nội khoa, khoa nội]
   - code: TIEU_HOA
     name: Khoa Tiêu hóa
     description: Bệnh lý đường tiêu hóa, dạ dày, gan mật tụy.
+    aliases: [tiêu hóa, tiêu hoá]
   - code: TAI_MUI_HONG
     name: Khoa Tai Mũi Họng
     description: Bệnh lý tai, mũi, họng ở người lớn và trẻ em.
+    aliases: [tai mũi họng, tmh]
   - code: DA_LIEU
     name: Khoa Da liễu
     description: Bệnh lý về da, tóc, móng.
+    aliases: [da liễu]
   - code: TIM_MACH
     name: Khoa Tim mạch
     description: Bệnh lý tim mạch, tăng huyết áp.
+    aliases: [tim mạch, khoa tim]
   - code: HO_HAP
     name: Khoa Hô hấp
     description: Bệnh lý hô hấp, phổi.
+    aliases: [hô hấp]
   - code: NHI
     name: Khoa Nhi
     description: Khám bệnh cho trẻ em.
+    aliases: [khoa nhi, nhi khoa]
 
 # Từ khóa triệu chứng (2 điểm) và vị trí cơ thể (1 điểm) → chuyên khoa. Hiển thị tối đa max_suggestions khoa điểm cao nhất.
 specialty_hints:

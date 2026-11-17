@@ -1,11 +1,16 @@
+from datetime import date
+
 import pytest
 
 from app.replies import shortcut_reply
 from app.router import route
 
 
+TODAY = date(2026, 11, 17)  # thứ ba
+
+
 def r(tables, text, state=None):
-    return route(tables, state or {}, text, None)
+    return route(tables, state or {}, text, None, TODAY)
 
 
 @pytest.mark.parametrize(
@@ -107,11 +112,6 @@ def test_free_text_goes_to_model(tables):
 
 
 def test_suggestion_button_bypasses_text_rules(tables):
-    routed = route(tables, {}, None, "VIEW_TICKET")
+    routed = route(tables, {}, None, "VIEW_TICKET", TODAY)
     assert (routed.route, routed.intent) == ("SHORTCUT", "VIEW_TICKET")
 
-
-def test_tool_intents_wait_for_step_4(tables):
-    response, state = shortcut_reply(tables, r(tables, "xem lịch của tôi"))
-    assert response.intent == "VIEW_APPOINTMENTS"
-    assert state["stage"] == "COLLECTING"

@@ -57,3 +57,32 @@ templates:
   specialty_fallback: "Mình chưa xác định được chuyên khoa phù hợp từ mô tả. Bạn có thể chọn một trong các chuyên khoa sau:"
   tool_pending: >-
     Chức năng này trên chatbot đang được hoàn thiện. Bạn có thể dùng mục tương ứng trên web bệnh nhân trong lúc chờ.
+  backend_unavailable: >-
+    Mình chưa lấy được dữ liệu lúc này. Bạn thử lại sau ít phút hoặc thao tác trực tiếp trên web bệnh nhân.
+  ask_date: "Bạn muốn khám ngày nào{specialty}? Ví dụ: ngày mai, thứ sáu này, 20/11."
+  past_date: "Ngày {date} đã qua. Bạn chọn một ngày từ hôm nay trở đi giúp mình."
+  slots_found: "Các bác sĩ còn suất ngày {date}{specialty} (số suất chỉ để tham khảo, có thể thay đổi khi bạn đặt):"
+  slots_none: "Ngày {date}{specialty} hiện không còn bác sĩ nhận đặt. Bạn thử ngày khác nhé."
+  appointments_none: "Hồ sơ này chưa có lịch hẹn sắp tới."
+  appointments_list: "Lịch hẹn sắp tới của bạn:"
+  ticket_hint: "Số thứ tự khám được cấp khi tiếp tân check-in tại bệnh viện."
+  payments_none: "Hồ sơ này không có khoản phí khám nào đang chờ thanh toán hay chờ hoàn."
+  payments_header: "Tình hình phí khám của bạn:"
+  change_manual: >-
+    Để {action}, bạn mở mục Lịch của tôi trên web bệnh nhân và chọn lịch tương ứng. Chatbot sẽ hỗ trợ {action}
+    bằng thẻ xác nhận khi chức năng này hoàn thiện.
+  change_none: "Hồ sơ này không có lịch hẹn nào còn {action} được."
+
+# Nhãn hiển thị cho trạng thái do API .NET trả về; trạng thái lạ hiển thị nguyên mã.
+status_labels:
+  Scheduled: đã xác nhận, chưa check-in
+  CheckedIn: đã check-in
+  Completed: đã khám xong
+  Cancelled: đã hủy
+  Absent: vắng mặt
+  Rescheduled: đã đổi lịch
+refund_status_labels:
+  Pending: chờ duyệt
+  Approved: đã duyệt, nhận tiền mặt tại quầy tiếp tân
+  Settled: đã hoàn
+  Rejected: không được duyệt

@@ -22,6 +22,18 @@ REQUIRED_TEMPLATES = (
     "specialty_match",
     "specialty_fallback",
     "tool_pending",
+    "backend_unavailable",
+    "ask_date",
+    "past_date",
+    "slots_found",
+    "slots_none",
+    "appointments_none",
+    "appointments_list",
+    "ticket_hint",
+    "payments_none",
+    "payments_header",
+    "change_manual",
+    "change_none",
 )
 
 
@@ -33,6 +45,7 @@ class Specialty(_Strict):
     code: str = Field(pattern=r"^[A-Z][A-Z0-9_]*$")
     name: str = Field(min_length=1)
     description: str = Field(min_length=1)
+    aliases: list[str] = []
 
 
 class SpecialtyHint(_Strict):
@@ -70,6 +83,8 @@ class RoutingTable(_Strict):
     help: list[str] = []
     intents: dict[ToolIntent | Literal["SUGGEST_SPECIALTY"], list[str]]
     templates: dict[str, str]
+    status_labels: dict[str, str] = {}
+    refund_status_labels: dict[str, str] = {}
 
     @field_validator("templates")
     @classmethod
@@ -92,6 +107,10 @@ class Tables:
         # Giữ thứ tự khai báo: intent đứng trước được ưu tiên.
         self.intents = [(intent, [Phrase.of(p) for p in phrases]) for intent, phrases in routing.intents.items()]
         self.specialty_by_code = {s.code: s for s in specialties.specialties}
+        # Tên khoa và tên gọi khác, để nhận "khám da liễu" là tìm lịch khoa Da liễu.
+        self.specialty_names = [
+            (s.code, [Phrase.of(p) for p in [s.name, *s.aliases]]) for s in specialties.specialties
+        ]
         self.hints = [
             (h.specialty, [Phrase.of(p) for p in h.keywords], [Phrase.of(p) for p in h.body_parts])
             for h in specialties.specialty_hints

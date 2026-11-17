@@ -1,21 +1,24 @@
 """Một lượt chat (contract §2.1): định tuyến đường tắt trước, câu tự do mới tới model.
 
 Model tạm ngưng, lỗi hoặc quá hạn thì lượt dừng với ChatbotUnavailable: không gọi công cụ nào, State giữ nguyên
-(Giải pháp kỹ thuật §11.7.5). Đường tắt vẫn trả lời khi model tạm ngưng.
+(Giải pháp kỹ thuật §11.7.5). Đường tắt, kể cả intent có công cụ chỉ đọc, vẫn trả lời khi model tạm ngưng.
 """
 
 from __future__ import annotations
 
 import logging
 import time
-from typing import Protocol
+from datetime import datetime
+from typing import Callable, Protocol
 
 from app.config_tables import Tables
 from app.conversations import ConversationStore, utcnow
+from app.intents import TOOL_INTENTS, ToolIntentHandler
 from app.model_health import ModelHealth
 from app.replies import shortcut_reply
 from app.router import route
 from app.schemas import ChatContext, ChatState, TurnRequest, TurnResponse
+from app.slots import today_vietnam
 
 log = logging.getLogger("chatbot.turns")
 
@@ -38,14 +41,19 @@ class NotConnectedAgent:
 
 
 class TurnService:
-    def __init__(self, tables: Tables, store: ConversationStore, health: ModelHealth, agent: FreeTextAgent) -> None:
+    def __init__(self, tables: Tables, store: ConversationStore, health: ModelHealth, agent: FreeTextAgent,
+                 tools: ToolIntentHandler, clock: Callable[[], datetime] = utcnow) -> None:
         self._tables = tables
         self._store = store
         self._health = health
         self._agent = agent
+        self._tools = tools
+        self._clock = clock
 
     async def handle(self, request: TurnRequest, access_token: str) -> TurnResponse:
         started = time.perf_counter()
+        now = self._clock()
+        today = today_vietnam(now)
         context = ChatContext(
             user_id=str(request.user_id),
             patient_id=str(request.patient_id),
@@ -54,9 +62,11 @@ class TurnService:
             message_id=str(request.message_id),
             locale=request.locale,
         )
-        async with self._store.turn(context.conversation_id, context.user_id, context.patient_id, utcnow()) as conversation:
-            routed = route(self._tables, conversation.state, request.text, request.suggestion)
-            if routed.route == "SHORTCUT":
+        async with self._store.turn(context.conversation_id, context.user_id, context.patient_id, now) as conversation:
+            routed = route(self._tables, conversation.state, request.text, request.suggestion, today)
+            if routed.route == "SHORTCUT" and routed.intent in TOOL_INTENTS:
+                response, conversation.state = await self._tools.handle(routed, context, conversation.state, today)
+            elif routed.route == "SHORTCUT":
                 response, conversation.state = shortcut_reply(self._tables, routed)
             else:
                 if not await self._health.available():

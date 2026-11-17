@@ -22,6 +22,10 @@ class Settings(BaseSettings):
     health_timeout_seconds: float = Field(default=3, gt=0)
     health_cache_seconds: float = Field(default=5, ge=0)
 
+    # API .NET mà công cụ gọi thay người dùng (contract §5): địa chỉ trong mạng Docker, timeout mỗi lời gọi 5 giây.
+    dotnet_api_base_url: str = "http://api:8080"
+    backend_timeout_seconds: float = Field(default=5, gt=0)
+
     # Short-term Memory và chủ cuộc trò chuyện (§11.4.1, contract §3.3).
     data_dir: Path = Path("/data")
     conversation_ttl_minutes: int = Field(default=30, ge=1)

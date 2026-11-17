@@ -16,8 +16,8 @@ import asyncio
 import logging
 import secrets
 from contextlib import asynccontextmanager, suppress
-from datetime import timedelta
-from typing import Annotated, AsyncIterator
+from datetime import datetime, timedelta
+from typing import Annotated, AsyncIterator, Callable
 from uuid import UUID
 
 import httpx
@@ -25,11 +25,14 @@ from fastapi import Depends, FastAPI, Header, Request
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse, Response
 
+from app.backend import BackendClient, SessionExpired
 from app.config_tables import load_tables
 from app.conversations import ConversationNotFound, ConversationStore, utcnow
+from app.intents import ToolIntentHandler
 from app.model_health import ModelHealth
 from app.schemas import DeleteConversationRequest, HealthResponse, TurnRequest, TurnResponse
 from app.settings import Settings
+from app.tools.read_tools import ReadTools
 from app.turns import ChatbotUnavailable, FreeTextAgent, NotConnectedAgent, TurnService
 
 log = logging.getLogger("chatbot")
@@ -49,7 +52,7 @@ class _Problem(Exception):
 
 
 def create_app(settings: Settings | None = None, agent: FreeTextAgent | None = None,
-               transport: httpx.AsyncBaseTransport | None = None) -> FastAPI:
+               transport: httpx.AsyncBaseTransport | None = None, clock: Callable[[], datetime] = utcnow) -> FastAPI:
     settings = settings or Settings()
     tables = load_tables(settings.config_dir)
     if not logging.getLogger().handlers:
@@ -63,7 +66,9 @@ def create_app(settings: Settings | None = None, agent: FreeTextAgent | None = N
         health = ModelHealth(settings, client)
         app.state.store = store
         app.state.health = health
-        app.state.turns = TurnService(tables, store, health, agent or NotConnectedAgent())
+        backend = BackendClient(settings.dotnet_api_base_url, client, settings.backend_timeout_seconds)
+        app.state.turns = TurnService(tables, store, health, agent or NotConnectedAgent(),
+                                      ToolIntentHandler(tables, ReadTools(backend)), clock)
         purge = asyncio.create_task(_purge_loop(store, settings.purge_interval_seconds))
         log.info("Chatbot sẵn sàng; cấu hình %s", tables.version)
         try:
@@ -106,6 +111,9 @@ def create_app(settings: Settings | None = None, agent: FreeTextAgent | None = N
             return problem(404, "ConversationNotFound", "Không tìm thấy cuộc trò chuyện hoặc đã hết hạn.")
         except ChatbotUnavailable:
             return problem(503, "ChatbotUnavailable", "Chatbot đang tạm ngưng, chỉ hoạt động trong buổi demo.")
+        except SessionExpired:
+            # .NET trả lại cho web bệnh nhân để đăng nhập lại; cuộc trò chuyện vẫn còn (contract §2.1, §3.2).
+            return problem(401, "SessionExpired", "Phiên đăng nhập đã hết hạn.")
 
     @app.delete("/v1/conversations/{conversation_id}", status_code=204, dependencies=[Depends(require_key)])
     async def delete_conversation(conversation_id: UUID, body: DeleteConversationRequest, request: Request) -> Response:
