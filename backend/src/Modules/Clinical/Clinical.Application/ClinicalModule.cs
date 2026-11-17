@@ -139,6 +139,25 @@ public sealed class ClinicalModule(
         return resultList;
     }
 
+    public async Task<bool> IsOriginalDoctorAsync(Guid doctorId, Guid encounterId, CancellationToken ct)
+    {
+        if (doctorId == Guid.Empty || encounterId == Guid.Empty)
+            return false;
+
+        var encounter = await encounterStore.GetByIdAsync(encounterId, ct);
+        return encounter is not null && encounter.OriginalDoctorId == doctorId;
+    }
+
+    public async Task<bool> IsPostClsConclusionPublishedAsync(Guid encounterId, CancellationToken ct)
+    {
+        if (encounterId == Guid.Empty)
+            return false;
+
+        var record = await encounterStore.GetRecordByEncounterIdAsync(encounterId, ct);
+        return record is { Status: EncounterClinicalRecordStatus.Published }
+            && !string.IsNullOrWhiteSpace(record.PostCLSConclusion);
+    }
+
     public async Task<IReadOnlyList<PrescriptionDto>> GetPrescriptionsByEncounterIdAsync(Guid encounterId, CancellationToken ct)
     {
         if (encounterId == Guid.Empty)

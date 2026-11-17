@@ -180,5 +180,59 @@ public class ClinicalModuleTests
         Assert.Equal("Nhi khoa", result.SpecialtySnapshot);
         Assert.Equal("InProgress", result.Status);
     }
+
+    [Fact]
+    public async Task IsOriginalDoctorAsync_is_true_only_for_the_original_doctor()
+    {
+        var doctorId = Guid.NewGuid();
+        var encounterId = AddEncounter(doctorId);
+        var module = CreateModule();
+
+        Assert.True(await module.IsOriginalDoctorAsync(doctorId, encounterId, CancellationToken.None));
+        Assert.False(await module.IsOriginalDoctorAsync(Guid.NewGuid(), encounterId, CancellationToken.None));
+        Assert.False(await module.IsOriginalDoctorAsync(doctorId, Guid.NewGuid(), CancellationToken.None));
+        Assert.False(await module.IsOriginalDoctorAsync(Guid.Empty, encounterId, CancellationToken.None));
+    }
+
+    [Theory]
+    [InlineData(EncounterClinicalRecordStatus.Published, "Kết luận sau CLS", true)]
+    [InlineData(EncounterClinicalRecordStatus.Published, null, false)]
+    [InlineData(EncounterClinicalRecordStatus.Published, "  ", false)]
+    [InlineData(EncounterClinicalRecordStatus.Draft, "Kết luận sau CLS", false)]
+    public async Task IsPostClsConclusionPublishedAsync_requires_published_record_with_conclusion(
+        EncounterClinicalRecordStatus status, string? conclusion, bool expected)
+    {
+        var encounterId = AddEncounter(Guid.NewGuid());
+        _encounterStore.AddClinicalRecord(new EncounterClinicalRecord
+        {
+            Id = Guid.NewGuid(),
+            EncounterId = encounterId,
+            Status = status,
+            PostCLSConclusion = conclusion,
+        });
+
+        Assert.Equal(expected, await CreateModule().IsPostClsConclusionPublishedAsync(encounterId, CancellationToken.None));
+    }
+
+    [Fact]
+    public async Task IsPostClsConclusionPublishedAsync_is_false_without_record() =>
+        Assert.False(await CreateModule().IsPostClsConclusionPublishedAsync(Guid.NewGuid(), CancellationToken.None));
+
+    private Guid AddEncounter(Guid doctorId)
+    {
+        var id = Guid.NewGuid();
+        _encounterStore.AddEncounter(new Encounter
+        {
+            Id = id,
+            AppointmentId = Guid.NewGuid(),
+            PatientId = Guid.NewGuid(),
+            OriginalDoctorId = doctorId,
+            OriginalRoomId = Guid.NewGuid(),
+            SpecialtySnapshot = "Nội",
+            DoctorRankSnapshot = "BS",
+            Status = EncounterStatus.WaitingCLS,
+        });
+        return id;
+    }
 }
 
