@@ -28,6 +28,11 @@ host.Services.GetRequiredService<IRecurringJobManager>().AddOrUpdate<HoldService
 host.Services.GetRequiredService<IRecurringJobManager>().AddOrUpdate<ClsDayEndService>(
     "billing-cls-day-end", service => service.CancelUnpaidAsync(CancellationToken.None), "5 17 * * *");
 
+// Đối soát VNPAY (Giải pháp §5.3): yêu cầu quá hạn 2 phút mà chưa có IPN thì hỏi querydr; đã thu thì ghi nhận như IPN,
+// cổng không có giao dịch thì chuyển Expired, chưa rõ quá 30 phút thì chuyển Unknown cho người xử lý.
+host.Services.GetRequiredService<IRecurringJobManager>().AddOrUpdate<PaymentReconciliationService>(
+    "billing-reconcile-vnpay", service => service.ReconcileOverdueAsync(CancellationToken.None), "*/5 * * * *");
+
 // Phát Outbox tới handler (W3-00, Giải pháp §8.3). Mỗi lần chạy xử lý tới khi hết bản ghi tới hạn; nhiều worker không nhận trùng.
 host.Services.GetRequiredService<IRecurringJobManager>().AddOrUpdate<OutboxDispatcher>(
     "shared-outbox-dispatch", dispatcher => dispatcher.DispatchPendingAsync(CancellationToken.None),
