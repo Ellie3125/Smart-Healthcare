@@ -236,3 +236,13 @@ Phòng làm việc của bác sĩ theo ngày lấy từ `StaffShiftAssignment.Ro
 - `CanAccessPatientAsync` giữ chữ ký và kết quả, nay gọi bản batch với một PatientId: 1 truy vấn thay cho 4.
 - Lý do: danh sách lịch hẹn của bệnh nhân gọi kiểm quyền theo từng hồ sơ (đo 17/11: ~56 truy vấn cho 14 hồ sơ mỗi trang).
 
+## 10. Tra cứu cho tiếp tân và nhân viên đang hoạt động — thêm 17/11/2026 (trưởng nhóm giao, OWN-10; chờ người phụ trách Identity duyệt)
+
+Chỉ là contract trong tiến trình `IIdentityPatientsModule`; route HTTP do module gọi tự mở (Scheduling `GET /api/scheduling/staff/reception/search`, `ReceptionistOnly`).
+
+- `FindPatientsForReceptionAsync(keyword)` → `ReceptionPatientDto[]` `{ patientId, fullName, dateOfBirth, gender, maskedPhoneNumber, maskedNationalId?, isVerified }`. Bỏ khoảng trắng; độ dài 9–20 ký tự, ngoài khoảng trả rỗng. Khớp **chính xác** `Patient.PhoneNumber` hoặc `Patient.NationalId`, không tìm gần đúng hay theo tên để không lộ hồ sơ; tối đa 20 hồ sơ (một số điện thoại có thể dùng cho cả gia đình). SĐT, CCCD chỉ giữ 3 ký tự cuối. `isVerified` = có người đại diện đang hiệu lực đã `Verified`.
+- `PatientExistsAsync(patientId)` → `bool`: đăng ký tại quầy kiểm hồ sơ tồn tại.
+- `GetActiveStaffAsync(appUserId)` → `ActiveStaffDto?` `{ staffId, staffType, fullName }`: nhân viên của tài khoản trong JWT (`sub`), AppUser và Staff đều đang hoạt động; null nếu không phải nhân viên hoặc đã khóa. Dùng khi ghi `RecordedByStaffId` (điều dưỡng nhập sinh hiệu), người thao tác trong audit.
+- Schema: index không unique `IX_Patient_PhoneNumber` (migration Identity `PatientPhoneNumberIndex`); CCCD dùng index unique có lọc sẵn có.
+- Interface có cài đặt mặc định ném `NotSupportedException` cho ba hàm này để bản giả trong test không phải sửa; bản Identity cài đặt thật.
+
