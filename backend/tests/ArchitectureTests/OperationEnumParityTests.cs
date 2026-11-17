@@ -11,6 +11,7 @@ public class OperationEnumParityTests
     [InlineData(typeof(Contract.OperationType), typeof(Domain.OperationType))]
     [InlineData(typeof(Contract.OperationStatus), typeof(Domain.OperationStatus))]
     [InlineData(typeof(Contract.TargetEntityType), typeof(Domain.TargetEntityType))]
+    [InlineData(typeof(Contract.PatientNotificationKind), typeof(Domain.PatientNotificationKind))]
     public void Contract_and_domain_enums_have_the_same_names(Type contract, Type domain) =>
         Assert.Equal(Enum.GetNames(domain).Order(), Enum.GetNames(contract).Order());
 }
