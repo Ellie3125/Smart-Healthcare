@@ -8,11 +8,12 @@ public sealed class DoctorDayService(IDoctorDirectory doctors, IDoctorDayStore s
 {
     private static readonly TimeSpan IctOffset = TimeSpan.FromHours(7);
 
-    /// <param name="roomId">Phòng khám admin chọn cho phiên (Identity chưa có phòng theo ca trực của bác sĩ).</param>
+    /// <param name="roomId">Phòng admin chọn; <see cref="Guid.Empty"/> thì lấy phòng theo ca trực của bác sĩ trong ngày
+    /// (trưởng nhóm chốt 17/11/2026). Không có ca hoặc ca ở nhiều phòng khác nhau thì admin phải chọn phòng.</param>
     public async Task<(DoctorDayResult Status, DoctorDayQuota? Quota)> OpenAsync(
         Guid doctorId, DateOnly serviceDate, Guid roomId, CancellationToken ct)
     {
-        if (!IsValid(doctorId, serviceDate) || roomId == Guid.Empty)
+        if (!IsValid(doctorId, serviceDate))
         {
             return (DoctorDayResult.InvalidInput, null);
         }
@@ -20,6 +21,17 @@ public sealed class DoctorDayService(IDoctorDirectory doctors, IDoctorDayStore s
         if (!await doctors.IsActiveDoctorAsync(doctorId, ct))
         {
             return (DoctorDayResult.DoctorNotFound, null);
+        }
+
+        if (roomId == Guid.Empty)
+        {
+            var shiftRooms = await doctors.GetShiftRoomIdsAsync(doctorId, serviceDate, ct);
+            if (shiftRooms.Count != 1)
+            {
+                return (DoctorDayResult.RoomRequired, null);
+            }
+
+            roomId = shiftRooms[0];
         }
 
         if (!await doctors.IsActiveClinicalRoomAsync(roomId, ct))
@@ -67,6 +79,10 @@ public interface IDoctorDirectory
 
     /// <summary>Phòng tồn tại, đang hoạt động và là phòng khám (không phải phòng CLS).</summary>
     Task<bool> IsActiveClinicalRoomAsync(Guid roomId, CancellationToken ct);
+
+    /// <summary>Các phòng (không trùng) bác sĩ có ca trực trong ngày. Mặc định rỗng cho bản giả trong test.</summary>
+    Task<IReadOnlyList<Guid>> GetShiftRoomIdsAsync(Guid doctorId, DateOnly serviceDate, CancellationToken ct) =>
+        Task.FromResult<IReadOnlyList<Guid>>([]);
 }
 
 /// <summary>Đọc bác sĩ và phòng từ module Identity.</summary>
@@ -77,6 +93,9 @@ public sealed class IdentityDoctorDirectory(IIdentityPatientsModule identity) : 
 
     public async Task<bool> IsActiveClinicalRoomAsync(Guid roomId, CancellationToken ct) =>
         await identity.GetRoomAsync(roomId, ct) is { IsActive: true, RoomType: "Clinical" };
+
+    public Task<IReadOnlyList<Guid>> GetShiftRoomIdsAsync(Guid doctorId, DateOnly serviceDate, CancellationToken ct) =>
+        identity.GetDoctorShiftRoomIdsAsync(doctorId, serviceDate, ct);
 }
 
 public interface IDoctorDayStore
@@ -93,6 +112,8 @@ public enum DoctorDayResult
     InvalidInput,
     DoctorNotFound,
     RoomNotFound,
+    /// <summary>Không gửi phòng và không suy được từ ca trực (không có ca, hoặc ca ở nhiều phòng).</summary>
+    RoomRequired,
     DayNotFound,
     AlreadyExists,
     HasBookings

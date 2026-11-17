@@ -215,6 +215,12 @@ public sealed class IdentityPatientsModule(IdentityPatientsDbContext dbContext) 
             .Select(s => new ActiveStaffDto(s.Id, s.StaffType.ToString(), s.FullName))
             .FirstOrDefaultAsync(ct);
 
+    public async Task<IReadOnlyList<Guid>> GetDoctorShiftRoomIdsAsync(Guid doctorId, DateOnly date, CancellationToken ct = default) =>
+        await (from d in _dbContext.Doctors.AsNoTracking()
+               join a in _dbContext.StaffShiftAssignments.AsNoTracking() on d.StaffId equals a.StaffId
+               where d.Id == doctorId && a.ShiftDate == date
+               select a.RoomId).Distinct().ToListAsync(ct);
+
     /// <summary>Giữ 3 ký tự cuối để tiếp tân đối chiếu với giấy tờ.</summary>
     private static string? Mask(string? value) =>
         value is null ? null : value.Length <= 3 ? new string('*', value.Length) : new string('*', value.Length - 3) + value[^3..];

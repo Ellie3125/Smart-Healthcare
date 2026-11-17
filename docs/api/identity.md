@@ -243,6 +243,7 @@ Chỉ là contract trong tiến trình `IIdentityPatientsModule`; route HTTP do 
 - `FindPatientsForReceptionAsync(keyword)` → `ReceptionPatientDto[]` `{ patientId, fullName, dateOfBirth, gender, maskedPhoneNumber, maskedNationalId?, isVerified }`. Bỏ khoảng trắng; độ dài 9–20 ký tự, ngoài khoảng trả rỗng. Khớp **chính xác** `Patient.PhoneNumber` hoặc `Patient.NationalId`, không tìm gần đúng hay theo tên để không lộ hồ sơ; tối đa 20 hồ sơ (một số điện thoại có thể dùng cho cả gia đình). SĐT, CCCD chỉ giữ 3 ký tự cuối. `isVerified` = có người đại diện đang hiệu lực đã `Verified`.
 - `PatientExistsAsync(patientId)` → `bool`: đăng ký tại quầy kiểm hồ sơ tồn tại.
 - `GetActiveStaffAsync(appUserId)` → `ActiveStaffDto?` `{ staffId, staffType, fullName }`: nhân viên của tài khoản trong JWT (`sub`), AppUser và Staff đều đang hoạt động; null nếu không phải nhân viên hoặc đã khóa. Dùng khi ghi `RecordedByStaffId` (điều dưỡng nhập sinh hiệu), người thao tác trong audit.
+- `GetDoctorShiftRoomIdsAsync(doctorId, date)` → các `RoomId` không trùng của `StaffShiftAssignment` thuộc bác sĩ (Doctor.Id → Staff) trong ngày; Scheduling dùng khi admin mở ngày trực không chọn phòng. Không thêm index (đi qua FK `StaffId`, đường quản trị ít gọi).
 - Schema: index không unique `IX_Patient_PhoneNumber` (migration Identity `PatientPhoneNumberIndex`); CCCD dùng index unique có lọc sẵn có.
 - Interface có cài đặt mặc định ném `NotSupportedException` cho ba hàm này để bản giả trong test không phải sửa; bản Identity cài đặt thật.
 
