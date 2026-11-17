@@ -46,4 +46,8 @@ public interface IIdentityPatientsModule
 
     /// <summary>Nhân viên đang hoạt động của tài khoản <paramref name="appUserId"/> (sub trong JWT); null nếu không phải nhân viên hoặc đã khóa.</summary>
     Task<ActiveStaffDto?> GetActiveStaffAsync(Guid appUserId, CancellationToken ct = default) => throw new NotSupportedException();
+
+    /// <summary>Các phòng (không trùng) bác sĩ <paramref name="doctorId"/> (Doctor.Id) có ca trực ngày <paramref name="date"/>.</summary>
+    Task<IReadOnlyList<Guid>> GetDoctorShiftRoomIdsAsync(Guid doctorId, DateOnly date, CancellationToken ct = default) =>
+        throw new NotSupportedException();
 }

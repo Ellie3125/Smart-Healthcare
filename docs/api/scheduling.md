@@ -1,6 +1,6 @@
 # Contract module Scheduling
 
-- contract_version: **v0.9** (Draft, chờ trưởng nhóm duyệt; v0.4 Approved 12/11/2026)
+- contract_version: **v0.10** (Draft, chờ trưởng nhóm duyệt; v0.4 Approved 12/11/2026)
 - Trạng thái: **Approved** (H-02, trưởng nhóm duyệt 10/11/2026). Q1 đã chốt 17/11/2026; Q2–Q5 ở §6 vẫn là đề xuất cho tới khi trưởng nhóm chốt từng câu.
 - Người giữ: theo ownership.md mục 1. Task: W1-04.
 - Mã nguồn: `backend/src/Modules/Scheduling/Scheduling.Contracts/` (in-process), `Scheduling.Api/` (HTTP).
@@ -83,7 +83,7 @@ Payload:
 
 `POST /api/scheduling/admin/doctor-days/{doctorId:guid}/{serviceDate}`
 
-- Kênh: **Staff**. Policy `AdminOnly` (vai trò `Admin` và claim `channel` = `Staff`, FIX-013). Body `{ "roomId": "<guid>" }` bắt buộc (v0.5, chốt 17/11/2026: admin chọn phòng khám cho phiên; Identity chưa có phòng theo ca trực của bác sĩ). Không nhận `Idempotency-Key` (gọi lại trả 409 `AlreadyExists` khi ngày đang mở).
+- Kênh: **Staff**. Policy `AdminOnly` (vai trò `Admin` và claim `channel` = `Staff`, FIX-013). Body `{ "roomId": "<guid>" }` **tùy chọn** (v0.10, trưởng nhóm chốt 17/11/2026): có `roomId` thì dùng phòng admin chọn; không có (body rỗng hoặc không gửi body) thì lấy phòng theo ca trực của bác sĩ trong ngày (`StaffShiftAssignment` qua Identity §10); bác sĩ không có ca, hoặc các ca trong ngày ở nhiều phòng khác nhau → 400 `RoomRequired`. Client cũ luôn gửi `roomId` vẫn chạy như trước. Không nhận `Idempotency-Key` (gọi lại trả 409 `AlreadyExists` khi ngày đang mở).
 - Kiểm qua `IIdentityPatientsModule`: bác sĩ tồn tại và đang hoạt động; phòng tồn tại, đang hoạt động và `RoomType = Clinical`.
 - Mở ngày mới với Capacity 30, `SessionStartTimeUtc` 06:30, `BookingCutoffTimeUtc` 09:30, `RescheduleCutoffTimeUtc` 05:00, `CheckInDeadlineUtc` theo cấu hình `Scheduling:DoctorDays:CheckInDeadline` (mặc định 11:00), quy đổi từ giờ Việt Nam sang UTC. Ngày đã đóng (`isOpen = false`) thì mở lại dưới khóa `UPDLOCK, HOLDLOCK` và trả quota cũ, giữ cấu hình cũ.
 - 201 + body (không có header Location):
@@ -96,7 +96,7 @@ Payload:
     "sessionStatus": "Scheduled", "isOpen": true }
   ```
 
-- Lỗi: 400 `InvalidInput` (thiếu/rỗng `roomId`, ngày sai) · 404 `DoctorNotFound` (bác sĩ không có hoặc ngừng hoạt động) · 404 `RoomNotFound` (phòng không có, ngừng, hoặc không phải phòng khám) · 409 `AlreadyExists` · 401/403.
+- Lỗi: 400 `InvalidInput` (ngày sai) · 400 `RoomRequired` (không gửi phòng và không suy được từ ca trực) · 404 `DoctorNotFound` (bác sĩ không có hoặc ngừng hoạt động) · 404 `RoomNotFound` (phòng không có, ngừng, hoặc không phải phòng khám) · 409 `AlreadyExists` · 401/403.
 
 `GET /api/scheduling/admin/doctor-days?serviceDate=yyyy-MM-dd` (v0.5)
 
@@ -329,3 +329,4 @@ Chỉ route và mục đích, để UI (W2-09) mock trước. Body, mã lỗi v�
 | v0.7 | 17/11/2026 | §2.3 hiện thực vé CLS + vé quay lại (Deferred đến khi kích hoạt); thêm §4.8 hàng đợi phòng (call-next, start, finish, requeue) và policy tài khoản phòng |
 | v0.8 | 17/11/2026 | Vé quay lại kích hoạt ghi `ActivatedAtUtc` (giữ `IssuedAtUtc`), hàng chờ theo `QueuedAtUtc`; số vé từ bảng đếm `TicketSequence` (CLA-PERF-001, không đổi route hay body) |
 | v0.9 | 17/11/2026 | Thêm §4.6a: tiếp tân tra hồ sơ theo SĐT/CCCD, route đăng ký tại quầy được nối vào Api (trước đó chưa map) |
+| v0.10 | 17/11/2026 | §4.1 mở ngày trực: `roomId` tùy chọn, thiếu thì lấy phòng theo ca trực; thêm 400 `RoomRequired` |
