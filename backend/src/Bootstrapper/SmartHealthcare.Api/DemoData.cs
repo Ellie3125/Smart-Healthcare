@@ -2,19 +2,17 @@ using Billing.Domain.Entities;
 using Billing.Domain.Enums;
 using Billing.Infrastructure.Persistence;
 using IdentityPatients.Application.Common;
-using IdentityPatients.Contracts;
 using Microsoft.EntityFrameworkCore;
 using Scheduling.Application.DoctorDays;
-using Scheduling.Application.DoctorSearch;
 using Scheduling.Domain.Entities;
 using Scheduling.Infrastructure.Persistence;
 
 namespace SmartHealthcare.Api;
 
 /// <summary>
-/// Dữ liệu demo để đặt thử trên máy dev: bảng giá phí khám theo cấp bậc và lịch khám các ngày tới
-/// cho bác sĩ phòng khám đã seed ở IdentityPatients. Chỉ chạy ở Development (kể cả Api trong Docker Compose dev);
-/// tắt bằng <c>Seed:DemoData=false</c>. Staging/Prod không chạy.
+/// Dữ liệu demo để đặt thử ngay sau khi deploy: bảng giá phí khám GIẢ theo cấp bậc và lịch khám 7 ngày tới cho bác sĩ
+/// phòng khám đã seed ở IdentityPatients. Bật bằng cờ <c>Seed:DemoData</c> (Compose: <c>SEED_DEMO_DATA</c>);
+/// Development mặc định bật, môi trường khác mặc định tắt. Prod phải để false.
 /// </summary>
 public static class DemoData
 {
@@ -49,15 +47,7 @@ public static class DemoData
     ];
 
     public static bool IsEnabled(IConfiguration configuration, IHostEnvironment environment) =>
-        environment.IsDevelopment() && configuration.GetValue(Flag, true);
-
-    /// <summary>Cho Scheduling thấy bác sĩ thật của Identity thay cho danh sách khai tay trong cấu hình.</summary>
-    public static void AddDemoData(this WebApplicationBuilder builder)
-    {
-        builder.Configuration.AddInMemoryCollection(DoctorRooms.Select(x => KeyValuePair.Create(
-            $"Scheduling:DoctorDays:DevelopmentDoctorRooms:{x.DoctorId:D}", (string?)x.RoomId.ToString("D"))));
-        builder.Services.AddScoped<IDoctorSearchDirectory, IdentityDoctorSearchDirectory>();
-    }
+        configuration.GetValue(Flag, environment.IsDevelopment());
 
     public static async Task SeedDemoDataAsync(this WebApplication app, CancellationToken ct = default)
     {
@@ -110,28 +100,16 @@ public static class DemoData
             .Select(x => (x.DoctorId, x.ServiceDate))
             .ToHashSet();
 
-        foreach (var doctorId in doctorIds)
+        foreach (var (doctorId, roomId) in DoctorRooms)
         {
             for (var date = today; date <= lastDate; date = date.AddDays(1))
             {
                 // OpenAsync mở lại ngày đã đóng, nên chỉ gọi cho ngày chưa có.
                 if (!existing.Contains((doctorId, date)))
                 {
-                    await days.OpenAsync(doctorId, date, ct);
+                    await days.OpenAsync(doctorId, date, roomId, ct);
                 }
             }
         }
-    }
-}
-
-internal sealed class IdentityDoctorSearchDirectory(IIdentityPatientsModule identity) : IDoctorSearchDirectory
-{
-    public async Task<IReadOnlyList<DoctorSearchProfile>> GetActiveDoctorsAsync(CancellationToken ct)
-    {
-        var specialties = (await identity.GetSpecialtiesAsync(ct)).ToDictionary(x => x.Id, x => x.Name);
-        return (await identity.SearchDoctorsAsync(new DoctorSearch(IsActive: true), ct))
-            .Select(x => new DoctorSearchProfile(x.DoctorId, x.FullName, x.RankId, x.SpecialtyId, x.RankName,
-                specialties.GetValueOrDefault(x.SpecialtyId)))
-            .ToList();
     }
 }

@@ -15,6 +15,8 @@ services:
       # Staging cần tài khoản demo để test: seed Identity (idempotent) khi bật. Prod để false.
       Seed__Enabled: ${SEED_ENABLED:-false}
       Seed__DefaultPassword: ${SEED_DEFAULT_PASSWORD:-}
+      # Phiên khám 7 ngày tới cho bác sĩ demo + bảng phí khám GIẢ (idempotent, không mở lại ngày admin đã đóng). Prod để false.
+      Seed__DemoData: ${SEED_DEMO_DATA:-false}
 
   web:
     image: ${WEB_IMAGE:?Thiếu WEB_IMAGE}

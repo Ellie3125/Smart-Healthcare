@@ -104,7 +104,7 @@ public sealed class DoctorSearchTests
 
     private static DoctorSearchProfile Doctor(string name) => new(Guid.NewGuid(), name, RankId, SpecialtyId);
 
-    private sealed class Directory(params DoctorSearchProfile[] doctors) : IDoctorSearchDirectory
+    internal sealed class Directory(params DoctorSearchProfile[] doctors) : IDoctorSearchDirectory
     {
         public Task<IReadOnlyList<DoctorSearchProfile>> GetActiveDoctorsAsync(CancellationToken ct) =>
             Task.FromResult<IReadOnlyList<DoctorSearchProfile>>(doctors);
