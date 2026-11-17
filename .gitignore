@@ -1,6 +1,6 @@
 .claude/settings.local.json
 
-# ===== Agent rules & Local Workspace =====
+# ===== Agent rules =====
 AGENTS.md
 **/AGENTS.md
 CLAUDE.md
@@ -10,22 +10,12 @@ GEMINI.md
 .claude/
 .agents/
 docs/ai/
-# Tài liệu nghiệp vụ và giải pháp kỹ thuật
+# Tài liệu nghiệp vụ và giải pháp kỹ thuật 
 docs/business/
 docs/architecture/
-Phạm vi nghiệp vụ*.md
-Giải pháp kỹ thuật*.md
-erd-*.md
-
-# Hồ sơ công việc của agent, prompt & báo cáo tiến độ
+# Hồ sơ công việc của agent 
 docs/tasks/
 docs/evidence/
-Viec-can-lam-*.md
-*Prompt*.md
-result.md
-powershell.cmd
-ui-ux-pro-max-skill-main/
-legacy-ui/
 # ===== end agent rules =====
 
 # ===== Secret cục bộ (CLA-GOV-011) =====
@@ -36,36 +26,9 @@ legacy-ui/
 # Digest image do scripts/build-images.sh in ra.
 release-*.env
 
-# ===== Local Docker & Compose Overrides =====
-docker-compose.yml
-docker-compose.override.yml
-
-# ===== .NET & Build Artifacts =====
-[Bb]in/
-[Oo]bj/
-[Tt]est[Rr]esults/
-*.trx
-*.coverage
-*.dotCover
-
-# ===== IDE & Editors =====
-.vs/
-*.user
-*.userosscache
-*.suo
-.vscode/
-.idea/
-
-# ===== Node & Frontend =====
+# ===== Node =====
 node_modules/
+
+# ===== Frontend build =====
 dist/
 *.tsbuildinfo
-coverage/
-*.log
-
-# ===== OS Files =====
-.DS_Store
-Thumbs.db
-ehthumbs.db
-Desktop.ini
-
