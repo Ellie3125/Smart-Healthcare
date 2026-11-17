@@ -81,7 +81,7 @@ public sealed class SqlDoctorDayStore(SchedulingDbContext db) : IDoctorDayStore
             : null;
 
         var quota = await FindForUpdateAsync(doctorId, serviceDate, ct);
-        if (quota is not { IsOpen: false })
+        if (quota is not { IsOpen: false, SessionStatus: SessionStatus.Scheduled or SessionStatus.InProgress })
         {
             return null;
         }

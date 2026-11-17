@@ -14,6 +14,29 @@ namespace SqlServerTests;
 
 public sealed partial class SchedulingHoldTests
 {
+    [Theory]
+    [InlineData(Scheduling.Domain.Enums.SessionStatus.Completed)]
+    [InlineData(Scheduling.Domain.Enums.SessionStatus.Cancelled)]
+    public async Task Opening_the_same_doctor_day_never_reopens_a_terminal_session(Scheduling.Domain.Enums.SessionStatus status)
+    {
+        var clock = new BoundaryDbClock(AtIct(8, 0)); await using var services = QueueServices(clock);
+        var day = await SeedBoundaryDayAsync(services, clock);
+        try
+        {
+            await ExecAsync($"UPDATE scheduling.DoctorDayQuota SET IsOpen=0,SessionStatus='{status}' WHERE Id='{day.Id}'");
+            await using var scope = services.CreateAsyncScope();
+            var reopened = await scope.ServiceProvider.GetRequiredService<Scheduling.Application.DoctorDays.IDoctorDayStore>().TryOpenAsync(new DoctorDayQuota
+            {
+                Id = Guid.NewGuid(), DoctorId = day.DoctorId, ServiceDate = day.ServiceDate, AssignedRoomId = day.AssignedRoomId,
+                Capacity = day.Capacity, IsOpen = true, SessionStatus = Scheduling.Domain.Enums.SessionStatus.Scheduled,
+                SessionStartTimeUtc = day.SessionStartTimeUtc, BookingCutoffTimeUtc = day.BookingCutoffTimeUtc, RescheduleCutoffTimeUtc = day.RescheduleCutoffTimeUtc
+            }, Ct);
+            Assert.Null(reopened);
+            Assert.Equal(1, await CountAsync($"SELECT COUNT(*) FROM scheduling.DoctorDayQuota WHERE Id='{day.Id}' AND IsOpen=0 AND SessionStatus='{status}'"));
+        }
+        finally { await CleanupQueueAsync(day); }
+    }
+
     [Fact]
     public async Task Queue_rechecks_a_station_disabled_after_resolution()
     {
