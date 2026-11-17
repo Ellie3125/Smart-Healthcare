@@ -32,7 +32,7 @@ public interface ISchedulingModule
     /// không phát sự kiện lần hai.
     /// Lỗi: AppointmentNotFound, InvalidAppointmentState (Cancelled, Absent, Rescheduled, Completed),
     /// CheckInNotOpen (chưa tới ngày D), CheckInDeadlinePassed.
-    /// Vé khám đầu (số thứ tự) phụ thuộc câu hỏi mở "vé khám đầu có trước hay sau Encounter" (docs/api/scheduling.md §6).
+    /// Clinical mở Encounter đồng bộ trước khi tạo vé khám đầu; cùng UoW (Q1 chốt 17/11/2026).
     /// </remarks>
     Task<CheckInResult> CheckInAsync(CheckInAppointment command, CancellationToken ct);
 

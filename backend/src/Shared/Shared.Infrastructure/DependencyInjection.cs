@@ -14,6 +14,7 @@ public static class DependencyInjection
             sql => sql.MigrationsHistoryTable("__EFMigrationsHistory", SharedDbContext.Schema)));
         services.TryAddSingleton(TimeProvider.System);
         services.AddScoped<OutboxWriter>();
+        services.AddScoped<OutboxReader>();
         services.AddScoped<IUnitOfWork, UnitOfWork>();
         services.AddScoped<IIntegrationEventPublisher, IntegrationEventPublisher>();
         services.AddScoped<IProcessedEventStore, ProcessedEventStore>();

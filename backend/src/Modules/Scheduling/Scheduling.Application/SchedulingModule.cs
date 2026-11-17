@@ -1,10 +1,11 @@
 using Scheduling.Application.DoctorSearch;
+using Scheduling.Application.CheckIn;
 using Scheduling.Contracts;
 
 namespace Scheduling.Application;
 
 /// <summary>Hiện thực ISchedulingModule (docs/api/scheduling.md §2). Check in thuộc W3-02, vé CLS thuộc W3-04.</summary>
-public sealed class SchedulingModule(DoctorSearchService doctorSearch) : ISchedulingModule
+public sealed class SchedulingModule(DoctorSearchService doctorSearch, Func<CheckInService> checkIn) : ISchedulingModule
 {
     public Task<DoctorSearchPage> SearchDoctorsAsync(DoctorSearchQuery query, CancellationToken ct)
     {
@@ -22,7 +23,7 @@ public sealed class SchedulingModule(DoctorSearchService doctorSearch) : ISchedu
     }
 
     public Task<CheckInResult> CheckInAsync(CheckInAppointment command, CancellationToken ct) =>
-        throw new NotSupportedException("Check in cài đặt ở W3-02.");
+        checkIn().CheckInAsync(command, ct);
 
     public Task<ClsTicketsCreated> CreateClsTicketsAsync(CreateClsTickets command, CancellationToken ct) =>
         throw new NotSupportedException("Vé CLS và vé quay lại cài đặt ở W3-04.");

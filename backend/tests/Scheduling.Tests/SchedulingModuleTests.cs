@@ -14,6 +14,16 @@ public sealed class SchedulingModuleTests
     private static CancellationToken Ct => TestContext.Current.CancellationToken;
 
     [Fact]
+    public async Task CheckInRejectsEmptyAppointmentBeforeReadingData()
+    {
+        await using var provider = Provider(new DoctorSearchProfile(Guid.NewGuid(), "BS A", Guid.NewGuid(), Guid.NewGuid()),
+            new DoctorSearchTests.SingleQuoteBilling());
+        var error = await Assert.ThrowsAsync<SchedulingException>(() => provider.GetRequiredService<ISchedulingModule>()
+            .CheckInAsync(new CheckInAppointment(Guid.Empty, Guid.NewGuid(), null), Ct));
+        Assert.Equal(SchedulingErrorCode.InvalidInput, error.Code);
+    }
+
+    [Fact]
     public async Task SearchDoctorsReturnsServicePageThroughContract()
     {
         var doctor = new DoctorSearchProfile(Guid.NewGuid(), "BS A", Guid.NewGuid(), Guid.NewGuid(), "Thạc sĩ", "Tim mạch");
@@ -61,6 +71,7 @@ public sealed class SchedulingModuleTests
     private static ServiceProvider Provider(DoctorSearchProfile doctor, IBillingModule billing) =>
         new ServiceCollection()
             .AddSchedulingApplication()
+            .AddCheckInTestServices()
             .AddSingleton<IDoctorSearchDirectory>(new FixedDirectory(doctor))
             .AddSingleton<IDoctorSearchQuotaReader>(
                 new DoctorSearchTests.Quotas([(ServiceDate, new DoctorSearchQuota(doctor.DoctorId, 30, 2, 10, 3))]))
