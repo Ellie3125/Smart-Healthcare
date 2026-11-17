@@ -25,6 +25,8 @@ internal sealed class IntegrationEventPublisher(SharedDbContext shared, OutboxWr
         [EventType.ResultPublished] = AggregateType.CLSResult,
         [EventType.AppointmentConfirmed] = AggregateType.Appointment,
         [EventType.AppointmentCancelled] = AggregateType.Appointment,
+        [EventType.ClsResultsPublishedIntegrationEvent] = AggregateType.Encounter,
+        [EventType.ReturnTicketActivated] = AggregateType.QueueTicket,
     };
 
     public Task PublishAsync<TEvent>(TEvent e, Guid aggregateId, CancellationToken ct) where TEvent : IIntegrationEvent

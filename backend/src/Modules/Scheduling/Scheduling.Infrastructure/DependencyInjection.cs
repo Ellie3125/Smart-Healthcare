@@ -41,6 +41,8 @@ public static class DependencyInjection
             .AddScoped<IRoomQueueReader, SqlRoomQueueReader>()
             .AddScoped<Scheduling.Application.Queues.IQueueStore, Queues.SqlQueueStore>()
             .AddScoped<Scheduling.Application.Queues.IClsTicketStore, Queues.SqlClsTicketStore>()
+            .AddScoped<IIntegrationEventHandler<Clinical.Contracts.ClsResultsPublishedIntegrationEvent>>(provider =>
+                ActivatorUtilities.CreateInstance<Queues.ReturnTicketActivationHandler>(provider))
             // Các service cần IUnitOfWork/IIdempotencyStore (Shared.Infrastructure) và IOperationTracker (Notifications.Infrastructure)
             // nên đăng ký cùng store, không ở AddSchedulingApplication (host test endpoint chỉ có Application).
             .AddScoped<HoldService>()
