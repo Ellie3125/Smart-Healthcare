@@ -2,6 +2,8 @@ using System.Security.Claims;
 using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
+using Billing.Contracts;
+using Clinical.Contracts;
 using DocumentsReporting.Application;
 using DocumentsReporting.Contracts;
 using IdentityPatients.Contracts;
@@ -41,12 +43,34 @@ public static class DocumentsEndpoints
         doctorGroup.MapGet("/{resultId:guid}/files/{fileId:guid}/download", DownloadDoctorFileAsync);
 
         // ================= KÊNH BỆNH NHÂN: BỆNH NHÂN & NGƯỜI ĐẠI DIỆN =================
-        var patientGroup = app.MapGroup("/api/documents/patient/cls-results")
+        var patientClsGroup = app.MapGroup("/api/documents/patient/cls-results")
             .WithTags("DocumentsPatient")
             .RequireAuthorization(Policies.PatientOnly);
 
         // Bệnh nhân/người đại diện tải/xem tệp kết quả (chỉ sau khi bác sĩ ban đầu kết luận sau CLS)
-        patientGroup.MapGet("/{resultId:guid}/files/{fileId:guid}/download", DownloadPatientFileAsync);
+        patientClsGroup.MapGet("/{resultId:guid}/files/{fileId:guid}/download", DownloadPatientFileAsync);
+
+        var patientEncountersGroup = app.MapGroup("/api/documents/patient/encounters")
+            .WithTags("DocumentsPatient")
+            .RequireAuthorization(Policies.PatientOnly);
+
+        // Danh sách tóm tắt lịch sử khám của bệnh nhân (phân trang, chỉ hồ sơ Verified)
+        patientEncountersGroup.MapGet("", GetPatientEncountersListAsync)
+            .WithName("GetPatientEncountersList")
+            .WithSummary("Danh sách tóm tắt lịch sử khám của bệnh nhân (phân trang, chỉ hồ sơ Verified)")
+            .Produces<PatientEncountersResponse>(StatusCodes.Status200OK)
+            .ProducesProblem(StatusCodes.Status400BadRequest)
+            .ProducesProblem(StatusCodes.Status403Forbidden)
+            .Produces(StatusCodes.Status401Unauthorized);
+
+        // Chi tiết lịch sử khám tổng hợp Clinical + Billing + Documents (chỉ sau khi bác sĩ kết luận sau CLS)
+        patientEncountersGroup.MapGet("/{id:guid}", GetPatientEncounterDetailAsync)
+            .WithName("GetPatientEncounterDetail")
+            .WithSummary("Chi tiết lịch sử khám tổng hợp Clinical + Billing + Documents (chỉ sau khi bác sĩ kết luận sau CLS)")
+            .Produces<PatientEncounterDetailDto>(StatusCodes.Status200OK)
+            .ProducesProblem(StatusCodes.Status404NotFound)
+            .ProducesProblem(StatusCodes.Status403Forbidden)
+            .Produces(StatusCodes.Status401Unauthorized);
     }
 
     private static async Task<IResult> UploadResultFileAsync(
@@ -294,4 +318,267 @@ public static class DocumentsEndpoints
             title: title,
             detail: dex.Message);
     }
+
+    private static async Task<IResult> GetPatientEncountersListAsync(
+        [FromQuery] Guid? patientProfileId,
+        [FromQuery] Guid? patientId,
+        [FromQuery] int page = 1,
+        [FromQuery] int pageSize = 10,
+        ClaimsPrincipal user = null!,
+        [FromServices] IDocumentsModule documentsModule = null!,
+        [FromServices] IClinicalModule clinicalModule = null!,
+        [FromServices] IIdentityPatientsModule identityModule = null!,
+        CancellationToken ct = default)
+    {
+        var targetPatientId = patientProfileId ?? patientId;
+        if (!targetPatientId.HasValue || targetPatientId.Value == Guid.Empty)
+        {
+            return Results.Problem(
+                statusCode: StatusCodes.Status400BadRequest,
+                title: "Yêu cầu không hợp lệ",
+                detail: "patientProfileId là bắt buộc.");
+        }
+
+        var userIdClaim = user.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+        if (!Guid.TryParse(userIdClaim, out var userId) || userId == Guid.Empty)
+        {
+            return Results.Problem(
+                statusCode: StatusCodes.Status401Unauthorized,
+                title: "Chưa đăng nhập",
+                detail: "Yêu cầu đăng nhập tài khoản bệnh nhân để xem lịch sử khám.");
+        }
+
+        // Kiểm quyền trên hồ sơ (chỉ Verified mới có quyền ClinicalRecords - SEC-01 & GP §8.1.6)
+        var canAccess = await identityModule.CanAccessPatientAsync(userId, targetPatientId.Value, AccessLevel.ClinicalRecords, ct);
+        if (!canAccess)
+        {
+            return Results.Problem(
+                statusCode: StatusCodes.Status403Forbidden,
+                title: "AccessDenied",
+                detail: "Hồ sơ chưa được xác minh danh tính (Verified) hoặc bạn không có quyền xem bệnh án.");
+        }
+
+        if (page < 1) page = 1;
+        if (pageSize is < 1 or > 50) pageSize = 10;
+
+        var encounters = await clinicalModule.GetPatientEncountersAsync(targetPatientId.Value, ct);
+        var totalCount = encounters.Count;
+        var paged = encounters.Skip((page - 1) * pageSize).Take(pageSize).ToList();
+
+        var summaryList = new List<PatientEncounterSummaryDto>(paged.Count);
+        foreach (var enc in paged)
+        {
+            var fullEnc = await clinicalModule.GetEncounterByIdAsync(enc.Id, ct);
+            var doctorName = "Bác sĩ phụ trách";
+            if (fullEnc is not null)
+            {
+                var doctor = await identityModule.GetDoctorAsync(fullEnc.OriginalDoctorId, ct);
+                if (doctor is not null)
+                {
+                    doctorName = doctor.FullName;
+                }
+            }
+            else if (!string.IsNullOrWhiteSpace(enc.DoctorRankSnapshot))
+            {
+                doctorName = $"{enc.DoctorRankSnapshot} ({enc.SpecialtySnapshot})";
+            }
+
+            var clinicalRecord = await clinicalModule.GetClinicalRecordByEncounterIdAsync(enc.Id, ct);
+            var primaryDiagnosis = clinicalRecord?.InitialClinicalImpression ?? clinicalRecord?.ChiefComplaint;
+
+            var prescriptions = await clinicalModule.GetPrescriptionsByEncounterIdAsync(enc.Id, ct);
+            var hasPrescription = prescriptions.Count > 0;
+
+            var attachments = await documentsModule.GetPublishedAttachmentsByEncounterAsync(enc.Id, ct);
+            var hasAttachments = attachments.Count > 0;
+
+            var isPublished = enc.Status == "Completed" || (clinicalRecord is { Status: "Published" });
+            var code = $"PK-{enc.Id.ToString()[..8].ToUpperInvariant()}";
+
+            summaryList.Add(new PatientEncounterSummaryDto(
+                Id: enc.Id,
+                EncounterCode: code,
+                ServiceDate: enc.CheckedInAtUtc,
+                DoctorName: doctorName,
+                SpecialtyName: enc.SpecialtySnapshot,
+                PrimaryDiagnosis: primaryDiagnosis,
+                Status: enc.Status,
+                HasPrescription: hasPrescription,
+                HasPublishedAttachments: hasAttachments,
+                PatientName: null,
+                PatientProfileId: targetPatientId.Value,
+                IsPublished: isPublished,
+                HasClsResults: hasAttachments));
+        }
+
+        var response = new PatientEncountersResponse(
+            summaryList,
+            totalCount,
+            page,
+            pageSize,
+            (page * pageSize) < totalCount);
+
+        return Results.Ok(response);
+    }
+
+    private static async Task<IResult> GetPatientEncounterDetailAsync(
+        [FromRoute] Guid id,
+        ClaimsPrincipal user,
+        [FromServices] IDocumentsModule documentsModule,
+        [FromServices] IClinicalModule clinicalModule,
+        [FromServices] IBillingModule billingModule,
+        [FromServices] IIdentityPatientsModule identityModule,
+        CancellationToken ct)
+    {
+        var userIdClaim = user.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+        if (!Guid.TryParse(userIdClaim, out var userId) || userId == Guid.Empty)
+        {
+            return Results.Problem(
+                statusCode: StatusCodes.Status401Unauthorized,
+                title: "Chưa đăng nhập",
+                detail: "Yêu cầu đăng nhập tài khoản bệnh nhân để xem chi tiết lượt khám.");
+        }
+
+        var encounter = await clinicalModule.GetEncounterByIdAsync(id, ct);
+        if (encounter is null)
+        {
+            return Results.Problem(
+                statusCode: StatusCodes.Status404NotFound,
+                title: "EncounterNotFound",
+                detail: "Không tìm thấy thông tin lượt khám.");
+        }
+
+        // Kiểm quyền trên hồ sơ bệnh nhân (AccessLevel.ClinicalRecords)
+        var canAccess = await identityModule.CanAccessPatientAsync(userId, encounter.PatientId, AccessLevel.ClinicalRecords, ct);
+        if (!canAccess)
+        {
+            return Results.Problem(
+                statusCode: StatusCodes.Status403Forbidden,
+                title: "AccessDenied",
+                detail: "Bạn không có quyền truy cập hồ sơ bệnh án này hoặc hồ sơ chưa được xác minh.");
+        }
+
+        var doctor = await identityModule.GetDoctorAsync(encounter.OriginalDoctorId, ct);
+        var doctorName = doctor?.FullName ?? "Bác sĩ phụ trách";
+        var room = await identityModule.GetRoomAsync(encounter.OriginalRoomId, ct);
+        var roomName = room?.Name;
+
+        var clinicalRecord = await clinicalModule.GetClinicalRecordByEncounterIdAsync(id, ct);
+        var prescriptions = await clinicalModule.GetPrescriptionsByEncounterIdAsync(id, ct);
+        var hasPrescription = prescriptions.Count > 0;
+
+        // Kiểm tra bác sĩ khám ban đầu đã phát hành kết luận sau CLS chưa (GP §6.5)
+        var isPostClsPublished = await clinicalModule.IsPostClsConclusionPublishedAsync(id, ct);
+
+        // Lấy 5 chỉ tiêu chi phí từ Billing (không tự tính lại)
+        EncounterBillingSummaryDto? billingSummary = null;
+        try
+        {
+            var cost = await billingModule.GetEncounterCostSummaryAsync(id, ct);
+            if (cost is not null)
+            {
+                billingSummary = new EncounterBillingSummaryDto(
+                    cost.EncounterId,
+                    "VND",
+                    cost.TotalPayable,
+                    cost.TotalPaid,
+                    cost.TotalRefunded,
+                    cost.NetCollected,
+                    cost.Outstanding,
+                    cost.CreditPendingRefund);
+            }
+        }
+        catch
+        {
+            // Nếu chưa có giao dịch hoặc billing chưa phát sinh khoản thu cho lượt này
+        }
+
+        var code = $"PK-{encounter.Id.ToString()[..8].ToUpperInvariant()}";
+
+        // Nếu bác sĩ CHƯA phát hành kết luận sau CLS: KHÔNG trả kết quả CLS và tệp cho bệnh nhân
+        if (!isPostClsPublished)
+        {
+            var unpublishedDetail = new PatientEncounterDetailDto(
+                Id: encounter.Id,
+                EncounterCode: code,
+                ServiceDate: encounter.CheckedInAtUtc,
+                DoctorName: doctorName,
+                SpecialtyName: encounter.SpecialtySnapshot,
+                DoctorRankName: encounter.DoctorRankSnapshot,
+                RoomName: roomName,
+                Symptoms: clinicalRecord?.Symptoms ?? clinicalRecord?.ChiefComplaint,
+                ClinicalNotes: null, // ẩn ghi chú lâm sàng nội bộ
+                Vitals: null,
+                Diagnoses: [],
+                Conclusion: null, // ẩn kết luận sau CLS
+                FollowUpInstruction: null,
+                PublishedAtUtc: null,
+                Version: 1,
+                IsPublished: false,
+                HasPrescription: hasPrescription,
+                ClsResults: [], // Không hiển thị tệp và kết quả CLS
+                BillingSummary: billingSummary,
+                PatientName: null);
+
+            return Results.Ok(unpublishedDetail);
+        }
+
+        // Khi bác sĩ ĐÃ phát hành kết luận sau CLS: ghép đầy đủ kết quả CLS và tệp đã phát hành
+        var serviceOrders = await clinicalModule.GetServiceOrdersByEncounterIdAsync(id, ct);
+        var publishedAttachments = await documentsModule.GetPublishedAttachmentsByEncounterAsync(id, ct);
+
+        var clsResultsList = new List<EncounterClsResultDto>();
+        foreach (var order in serviceOrders)
+        {
+            foreach (var item in order.Items)
+            {
+                var itemAttachments = item.Result is null
+                    ? []
+                    : publishedAttachments.Where(a => a.CLSResultId == item.Result.Id).ToList();
+
+                clsResultsList.Add(new EncounterClsResultDto(
+                    Id: item.Result?.Id ?? item.Id,
+                    ServiceCode: item.Id.ToString()[..8],
+                    ServiceName: item.ServiceNameSnapshot,
+                    Status: item.Result?.ResultStatus ?? item.ItemStatus,
+                    SummaryText: item.Result?.ResultSummary,
+                    TechnicalConclusion: item.Result?.DetailedFindings,
+                    Attachments: itemAttachments));
+            }
+        }
+
+        var detail = new PatientEncounterDetailDto(
+            Id: encounter.Id,
+            EncounterCode: code,
+            ServiceDate: encounter.CheckedInAtUtc,
+            DoctorName: doctorName,
+            SpecialtyName: encounter.SpecialtySnapshot,
+            DoctorRankName: encounter.DoctorRankSnapshot,
+            RoomName: roomName,
+            Symptoms: clinicalRecord?.Symptoms ?? clinicalRecord?.ChiefComplaint,
+            ClinicalNotes: clinicalRecord?.ClinicalExaminationNotes,
+            Vitals: null,
+            Diagnoses: !string.IsNullOrWhiteSpace(clinicalRecord?.InitialClinicalImpression)
+                ? [new DocumentsReporting.Contracts.EncounterDiagnosisDto("R69", clinicalRecord.InitialClinicalImpression, true)]
+                : [],
+            Conclusion: clinicalRecord?.PostCLSConclusion,
+            FollowUpInstruction: clinicalRecord?.FollowUpInstructions,
+            PublishedAtUtc: clinicalRecord?.PublishedAtUtc,
+            Version: 1,
+            IsPublished: true,
+            HasPrescription: hasPrescription,
+            ClsResults: clsResultsList,
+            BillingSummary: billingSummary,
+            PatientName: null);
+
+        return Results.Ok(detail);
+    }
 }
+
+public sealed record PatientEncountersResponse(
+    IReadOnlyList<PatientEncounterSummaryDto> Items,
+    int TotalCount,
+    int Page,
+    int PageSize,
+    bool HasMore,
+    bool BlockedPendingProfile = false);

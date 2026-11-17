@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from "react";
 import { apiClient } from "../../api/client";
+import { receptionApi } from "../../api/receptionApi";
 import {
   PagedResult,
   VerificationDetailDto,
@@ -46,6 +47,80 @@ export const ReceptionPage: React.FC = () => {
   const [editPhone, setEditPhone] = useState("");
   const [editAddress, setEditAddress] = useState("");
   const [editReason, setEditReason] = useState("");
+
+  // Check-in (Tiếp đón khám bệnh) States
+  const [todayAppointments, setTodayAppointments] = useState<{
+    appointmentId: string;
+    appointmentNumber: string;
+    patientId: string;
+    doctorId: string;
+    assignedRoomId: string;
+    serviceDate: string;
+    status: string;
+    checkInDeadlineUtc: string;
+  }[]>([]);
+  const [todayLoading, setTodayLoading] = useState(false);
+  const [todayError, setTodayError] = useState<string | null>(null);
+  const [todaySuccess, setTodaySuccess] = useState<string | null>(null);
+  const [aptSearch, setAptSearch] = useState("");
+  const [verifiedApts, setVerifiedApts] = useState<Record<string, boolean>>({});
+  const [checkingInId, setCheckingInId] = useState<string | null>(null);
+
+  const fetchTodayAppointments = async () => {
+    setTodayLoading(true);
+    setTodayError(null);
+    try {
+      const res = await receptionApi.listTodayAppointments({
+        appointmentNumber: aptSearch.trim() || undefined,
+        pageSize: 50,
+      });
+      setTodayAppointments(res.items || []);
+    } catch (err: any) {
+      setTodayError(err?.message || "Không thể tải danh sách lịch hẹn hôm nay.");
+    } finally {
+      setTodayLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    if (activeTab === "checkin") {
+      fetchTodayAppointments();
+    }
+  }, [activeTab]);
+
+  const handleCheckIn = async (appointmentId: string) => {
+    setCheckingInId(appointmentId);
+    setTodayError(null);
+    setTodaySuccess(null);
+    try {
+      const res = await receptionApi.checkIn(appointmentId);
+      if (res.alreadyCheckedIn) {
+        setTodaySuccess(`Lịch hẹn đã check-in trước đó. Số thứ tự: ${res.sequenceNumber} (Mã vé: ${res.ticketNumber})`);
+      } else {
+        setTodaySuccess(`Check-in thành công! Cấp số thứ tự khám: ${res.sequenceNumber} (Mã vé: ${res.ticketNumber})`);
+      }
+      await fetchTodayAppointments();
+    } catch (err: any) {
+      const code = err?.response?.data?.code || err?.code;
+      let msg = "Lỗi khi thực hiện check-in.";
+      if (code === "CheckInDeadlinePassed") {
+        msg = "Đã quá hạn tiếp nhận (CheckInDeadline). Bệnh nhân bị tính vắng mặt, vui lòng liên hệ quầy xử lý ngoại lệ.";
+      } else if (code === "CheckInNotOpen") {
+        msg = "Chưa tới ngày khám bệnh theo giờ Việt Nam.";
+      } else if (code === "InvalidAppointmentState") {
+        msg = "Lịch hẹn ở trạng thái không thể tiếp nhận (đã hoàn thành hoặc đã bị hủy).";
+      } else if (code === "AppointmentNotFound") {
+        msg = "Không tìm thấy thông tin lịch hẹn trên hệ thống.";
+      } else if (err?.response?.data?.detail) {
+        msg = err.response.data.detail;
+      } else if (err?.message) {
+        msg = err.message;
+      }
+      setTodayError(msg);
+    } finally {
+      setCheckingInId(null);
+    }
+  };
 
   const fetchVerifications = async (targetPage = page) => {
     setIsLoading(true);
@@ -516,68 +591,219 @@ export const ReceptionPage: React.FC = () => {
         </div>
       ) : (
         <div className="space-y-6">
+          {/* KPI Cards */}
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             <div className="bg-surface-container-lowest p-5 rounded-2xl shadow-[0_1px_10px_rgba(15,31,24,0.04)]">
               <span className="text-[11px] font-semibold text-on-surface-variant uppercase tracking-wider">
-                Số vé trong ngày
+                Tổng lịch hẹn hôm nay
               </span>
               <div className="font-data-tabular text-3xl font-extrabold text-primary mt-2">
-                24 / 30
-              </div>
-              <div className="mt-2.5 h-2 w-full overflow-hidden rounded-full bg-surface-container-high">
-                <div className="h-full rounded-full bg-primary" style={{ width: "80%" }} />
+                {todayAppointments.length}
               </div>
               <span className="text-xs text-on-surface-variant mt-1.5 block">
-                Hạn mức phiên sáng (POL-01)
+                Ca tiếp đón ngày {new Date().toLocaleDateString("vi-VN")}
               </span>
             </div>
             <div className="bg-surface-container-lowest p-5 rounded-2xl shadow-[0_1px_10px_rgba(15,31,24,0.04)]">
               <span className="text-[11px] font-semibold text-on-surface-variant uppercase tracking-wider">
                 Đã check-in
               </span>
-              <div className="font-data-tabular text-3xl font-extrabold text-on-surface mt-2">18</div>
+              <div className="font-data-tabular text-3xl font-extrabold text-on-surface mt-2">
+                {todayAppointments.filter((a) => a.status === "CheckedIn").length}
+              </div>
               <span className="text-xs text-on-surface-variant mt-2 block">
-                Sẵn sàng phân luồng đo sinh hiệu
+                Đã cấp số thứ tự vào phòng khám
               </span>
             </div>
             <div className="bg-surface-container-lowest p-5 rounded-2xl shadow-[0_1px_10px_rgba(15,31,24,0.04)]">
               <span className="text-[11px] font-semibold text-on-surface-variant uppercase tracking-wider">
-                Thời gian khóa đăng ký
+                Chờ tiếp nhận
               </span>
-              <div className="font-data-tabular text-3xl font-extrabold text-error mt-2">
-                09:30
+              <div className="font-data-tabular text-3xl font-extrabold text-[#b3261e] mt-2">
+                {todayAppointments.filter((a) => a.status !== "CheckedIn").length}
               </div>
               <span className="text-xs text-on-surface-variant mt-2 block">
-                BookingCutoff ngày D (POL-02)
+                Chưa đến hoặc chờ đối chiếu giấy tờ
               </span>
             </div>
           </div>
 
+          {/* Search bar */}
+          <div className="bg-surface-container-lowest p-4 rounded-2xl shadow-[0_1px_10px_rgba(15,31,24,0.04)] flex flex-wrap gap-3 items-center justify-between">
+            <div className="flex flex-wrap items-center gap-3 flex-1">
+              <div className="relative min-w-[240px] flex-1 max-w-md">
+                <span className="material-symbols-outlined text-[18px] text-on-surface-variant absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none w-5 h-5 flex items-center justify-center overflow-hidden shrink-0 select-none">
+                  search
+                </span>
+                <input
+                  type="text"
+                  value={aptSearch}
+                  onChange={(e) => setAptSearch(e.target.value)}
+                  placeholder="Tìm theo mã lịch hẹn (VD: SH-2611...)"
+                  className="w-full h-10 pl-10 pr-3 rounded-xl border border-transparent bg-surface-container-low/70 text-xs text-on-surface focus:bg-white focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/15"
+                />
+              </div>
+              <button
+                type="button"
+                onClick={() => fetchTodayAppointments()}
+                className="h-10 px-4 rounded-xl bg-primary text-white text-xs font-semibold hover:bg-[#005231] transition-colors shadow-sm"
+              >
+                Tìm kiếm
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setAptSearch("");
+                  fetchTodayAppointments();
+                }}
+                className="h-10 px-3 rounded-xl border border-surface-container-high text-xs font-semibold hover:bg-surface-container-low transition-colors"
+              >
+                Làm mới
+              </button>
+            </div>
+          </div>
+
+          {todaySuccess && (
+            <div className="p-3 rounded-lg bg-[#ECFDF5] border border-[#A7F3D0] text-xs text-[#065F46] flex items-center justify-between">
+              <span>{todaySuccess}</span>
+              <button onClick={() => setTodaySuccess(null)} className="text-xs font-bold">
+                ✕
+              </button>
+            </div>
+          )}
+
+          {todayError && (
+            <div className="p-3 rounded-lg bg-[#FEE2E2] border border-[#FECACA] text-xs text-[#B91C1C] flex items-center justify-between">
+              <span>{todayError}</span>
+              <button onClick={() => setTodayError(null)} className="text-xs font-bold">
+                ✕
+              </button>
+            </div>
+          )}
+
+          {/* Table */}
           <div className="bg-surface-container-lowest rounded-2xl overflow-hidden shadow-[0_1px_10px_rgba(15,31,24,0.04)]">
             <div className="p-4 border-b border-surface-container-high/60 flex items-center justify-between">
               <h2 className="font-semibold text-on-surface">
-                Danh sách bệnh nhân đăng ký hôm nay
+                Danh sách lịch hẹn hôm nay (Check-in tiếp đón)
               </h2>
               <span className="text-xs text-on-surface-variant">
-                Dữ liệu check-in trong ca
+                Dữ liệu trực tiếp từ Scheduling Module
               </span>
             </div>
             <div className="overflow-x-auto">
-              <table className="w-full text-left text-sm">
-                <thead className="bg-surface-container-low/85 text-on-surface-variant text-xs uppercase tracking-wider">
+              <table className="w-full text-left text-xs">
+                <thead className="bg-surface-container-low/85 text-on-surface-variant uppercase tracking-wider">
                   <tr>
-                    <th className="py-3 px-4 font-semibold">Số vé</th>
-                    <th className="py-3 px-4 font-semibold">Họ và tên</th>
-                    <th className="py-3 px-4 font-semibold">Giờ hẹn</th>
+                    <th className="py-3 px-4 font-semibold">Mã lịch hẹn</th>
+                    <th className="py-3 px-4 font-semibold">Mã bệnh nhân</th>
+                    <th className="py-3 px-4 font-semibold">Hạn tiếp nhận</th>
                     <th className="py-3 px-4 font-semibold">Trạng thái</th>
+                    <th className="py-3 px-4 font-semibold">Đối chiếu CCCD</th>
+                    <th className="py-3 px-4 font-semibold text-right">Thao tác</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-surface-container-high/50">
-                  <tr>
-                    <td colSpan={4} className="py-6 px-4 text-center text-on-surface-variant">
-                      Chưa có API danh sách vé check in trong ngày (Scheduling W3-02).
-                    </td>
-                  </tr>
+                  {todayLoading ? (
+                    <tr>
+                      <td colSpan={6} className="py-8 text-center text-on-surface-variant">
+                        Đang tải danh sách lịch hẹn hôm nay...
+                      </td>
+                    </tr>
+                  ) : todayAppointments.length === 0 ? (
+                    <tr>
+                      <td colSpan={6} className="py-8 text-center text-on-surface-variant">
+                        Không có lịch hẹn nào cho ngày hôm nay.
+                      </td>
+                    </tr>
+                  ) : (
+                    todayAppointments.map((apt) => {
+                      const isPastDeadline =
+                        apt.checkInDeadlineUtc &&
+                        new Date(apt.checkInDeadlineUtc) < new Date();
+                      const isCheckedIn = apt.status === "CheckedIn";
+                      const isVerified = Boolean(verifiedApts[apt.appointmentId]);
+
+                      return (
+                        <tr key={apt.appointmentId} className="hover:bg-surface-container-low/50">
+                          <td className="py-3 px-4 font-mono font-semibold text-primary">
+                            {apt.appointmentNumber}
+                          </td>
+                          <td className="py-3 px-4 font-mono text-on-surface-variant">
+                            {apt.patientId.slice(0, 8)}...
+                          </td>
+                          <td className="py-3 px-4">
+                            {isPastDeadline ? (
+                              <span className="inline-flex items-center gap-1 text-[#b3261e] font-semibold">
+                                Quá hạn ({new Date(apt.checkInDeadlineUtc).toLocaleTimeString("vi-VN", { hour: "2-digit", minute: "2-digit" })})
+                              </span>
+                            ) : apt.checkInDeadlineUtc ? (
+                              <span>
+                                Trước {new Date(apt.checkInDeadlineUtc).toLocaleTimeString("vi-VN", { hour: "2-digit", minute: "2-digit" })}
+                              </span>
+                            ) : (
+                              "—"
+                            )}
+                          </td>
+                          <td className="py-3 px-4">
+                            <span
+                              className={`px-2.5 py-0.5 rounded-full text-[11px] font-semibold ${
+                                isCheckedIn
+                                  ? "bg-[#D1FAE5] text-[#065F46]"
+                                  : isPastDeadline
+                                  ? "bg-[#FEE2E2] text-[#991B1B]"
+                                  : "bg-surface-container-high text-on-surface"
+                              }`}
+                            >
+                              {isCheckedIn ? "Đã check-in" : isPastDeadline ? "Vắng mặt (Trễ)" : apt.status}
+                            </span>
+                          </td>
+                          <td className="py-3 px-4">
+                            {!isCheckedIn && !isPastDeadline ? (
+                              <label className="inline-flex items-center gap-1.5 cursor-pointer">
+                                <input
+                                  type="checkbox"
+                                  checked={isVerified}
+                                  onChange={(e) =>
+                                    setVerifiedApts((prev) => ({
+                                      ...prev,
+                                      [apt.appointmentId]: e.target.checked,
+                                    }))
+                                  }
+                                  className="h-3.5 w-3.5 accent-primary rounded"
+                                />
+                                <span className="text-[11px]">Đã xem CCCD gốc</span>
+                              </label>
+                            ) : (
+                              <span className="text-on-surface-variant">—</span>
+                            )}
+                          </td>
+                          <td className="py-3 px-4 text-right">
+                            {isCheckedIn ? (
+                              <span className="text-xs font-semibold text-[#006a41]">
+                                Đã tiếp nhận
+                              </span>
+                            ) : isPastDeadline ? (
+                              <span className="text-xs font-medium text-[#b3261e]">
+                                Quá hạn tiếp nhận
+                              </span>
+                            ) : (
+                              <button
+                                type="button"
+                                disabled={!isVerified || checkingInId === apt.appointmentId}
+                                onClick={() => handleCheckIn(apt.appointmentId)}
+                                className="h-8 px-3 rounded-lg bg-primary text-white text-xs font-semibold hover:bg-[#005231] disabled:opacity-40 transition-colors shadow-xs"
+                              >
+                                {checkingInId === apt.appointmentId
+                                  ? "Đang xử lý..."
+                                  : "Xác nhận Check-in"}
+                              </button>
+                            )}
+                          </td>
+                        </tr>
+                      );
+                    })
+                  )}
                 </tbody>
               </table>
             </div>
