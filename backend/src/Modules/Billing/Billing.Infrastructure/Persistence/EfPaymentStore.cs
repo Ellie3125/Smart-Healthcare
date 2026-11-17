@@ -136,6 +136,22 @@ internal sealed class EfPaymentStore(BillingDbContext db, OutboxWriter outbox) :
     public async Task<IReadOnlyList<PaymentAllocation>> GetAllocationsAsync(Guid paymentTransactionId, CancellationToken ct) =>
         await db.Set<PaymentAllocation>().Where(a => a.PaymentTransactionId == paymentTransactionId).ToListAsync(ct);
 
+    public Task<bool> HasRetainedExamPaymentAsync(Guid bookingAttemptId, Guid exceptPaymentIntentId, CancellationToken ct) =>
+        (
+            from intent in db.Set<PaymentIntent>()
+            join transaction in db.Set<PaymentTransaction>() on intent.Id equals transaction.PaymentIntentId
+            join allocation in db.Set<PaymentAllocation>() on transaction.Id equals allocation.PaymentTransactionId
+            where intent.BookingAttemptId == bookingAttemptId && intent.Id != exceptPaymentIntentId
+                  && intent.Status == PaymentIntentStatus.Succeeded && transaction.PaymentStatus == PaymentStatus.Success
+                  && !db.Set<RefundRequest>().Any(r => r.OriginalPaymentTransactionId == transaction.Id
+                                                       && r.BillingItemId == allocation.BillingItemId
+                                                       && (r.Status == RefundRequestStatus.Pending || r.Status == RefundRequestStatus.Approved
+                                                           || r.Status == RefundRequestStatus.Settled))
+            select allocation.Id)
+        .AnyAsync(ct);
+
+    public void AddRefundRequest(RefundRequest request) => db.Add(request);
+
     public Task SaveChangesAsync(CancellationToken ct) => db.SaveChangesAsync(ct);
 
     public Task EnqueueAsync(PaymentVerified integrationEvent, CancellationToken ct) =>

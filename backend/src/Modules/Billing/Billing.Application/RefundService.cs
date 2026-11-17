@@ -129,7 +129,13 @@ public sealed class RefundService(IPaymentStore store, IRefundStore refunds, ICh
         return await CreateRequestsAsync(chargeIds, paymentIntentId: null, reason, e.AppointmentId, ct);
     }
 
-    public async Task<int> RequestPaidUnallocatedRefundAsync(Guid paymentIntentId, CancellationToken ct)
+    public Task<int> RequestPaidUnallocatedRefundAsync(Guid paymentIntentId, CancellationToken ct) =>
+        RequestForPaymentAsync(paymentIntentId, RefundReason.PaidUnallocated, ct);
+
+    public Task<int> RequestDuplicatePaymentRefundAsync(Guid paymentIntentId, CancellationToken ct) =>
+        RequestForPaymentAsync(paymentIntentId, RefundReason.DuplicatePayment, ct);
+
+    private async Task<int> RequestForPaymentAsync(Guid paymentIntentId, RefundReason reason, CancellationToken ct)
     {
         if (paymentIntentId == Guid.Empty)
             throw new BillingException(BillingErrorCode.InvalidRequest, "Thiếu PaymentIntentId.");
@@ -138,8 +144,7 @@ public sealed class RefundService(IPaymentStore store, IRefundStore refunds, ICh
         if (paid.Count == 0)
             return 0;
 
-        return await CreateRequestsAsync(paid.Select(p => p.ChargeId).Distinct().ToList(), paymentIntentId, RefundReason.PaidUnallocated,
-            appointmentId: null, ct);
+        return await CreateRequestsAsync(paid.Select(p => p.ChargeId).Distinct().ToList(), paymentIntentId, reason, appointmentId: null, ct);
     }
 
     public Task<IReadOnlyList<RefundView>> ListAsync(RefundQuery query, CancellationToken ct)
@@ -277,8 +282,13 @@ public sealed class RefundService(IPaymentStore store, IRefundStore refunds, ICh
             }
 
             // Lịch đã hủy (hoặc chưa từng có): phí khám không còn là nghĩa vụ; tiền đã thu thành tiền chờ hoàn trong tổng hợp chi phí.
+            // Hoàn theo một lần trả: chỉ hủy khoản mà toàn bộ tiền đang giữ đến từ lần trả này, để không hủy phí của lịch đang dùng.
             foreach (var charge in exam.Values.Where(c => c.IsInEffect && paid.Any(p => p.ChargeId == c.Id)))
-                charge.Status = BillingItemStatus.Cancelled;
+            {
+                var fromThisPayment = paid.Where(p => p.ChargeId == charge.Id).Sum(p => p.AllocatedAmount);
+                if (paymentIntentId is null || charge.PaidAmount - charge.RefundedAmount <= fromThisPayment)
+                    charge.Status = BillingItemStatus.Cancelled;
+            }
 
             await store.SaveChangesAsync(token);
             return created;

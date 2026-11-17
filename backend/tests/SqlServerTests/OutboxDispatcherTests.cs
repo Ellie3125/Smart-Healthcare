@@ -337,6 +337,7 @@ public sealed class OutboxDispatcherTests
     private sealed class NoRefunds : IPaymentRefunds
     {
         public Task<int> RequestPaidUnallocatedRefundAsync(Guid paymentIntentId, CancellationToken ct) => throw new NotSupportedException();
+        public Task<int> RequestDuplicatePaymentRefundAsync(Guid paymentIntentId, CancellationToken ct) => throw new NotSupportedException();
     }
 
     // ---------- SQL ----------

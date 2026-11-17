@@ -50,4 +50,12 @@ public interface IPaymentRefunds
     /// </summary>
     /// <returns>Số yêu cầu hoàn vừa tạo.</returns>
     Task<int> RequestPaidUnallocatedRefundAsync(Guid paymentIntentId, CancellationToken ct);
+
+    /// <summary>
+    /// Lịch của lượt đặt lịch đã được xác nhận bằng một lần trả khác (Scheduling gặp AlreadyConfirmed): tạo yêu cầu hoàn toàn bộ
+    /// số đã thu của <paramref name="paymentIntentId"/> (DuplicatePayment). Khoản phí chỉ lập cho lần trả này chuyển Cancelled.
+    /// Gọi trong unit of work của handler PaymentVerified; gọi lặp không tạo yêu cầu thứ hai.
+    /// </summary>
+    /// <returns>Số yêu cầu hoàn vừa tạo.</returns>
+    Task<int> RequestDuplicatePaymentRefundAsync(Guid paymentIntentId, CancellationToken ct);
 }
