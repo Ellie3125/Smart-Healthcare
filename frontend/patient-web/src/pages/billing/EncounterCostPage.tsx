@@ -32,10 +32,10 @@ export const EncounterCostPage: React.FC = () => {
   const c = query.data;
   const metrics = [
     { label: 'Tổng đã trả', value: c.totalPaid, accent: 'text-on-surface', bg: 'bg-surface-container-lowest' },
-    { label: 'Tổng đã duyệt hoàn', value: c.totalApprovedRefund, accent: 'text-[#0b57d0]', bg: 'bg-surface-container-lowest' },
-    { label: 'Còn giữ ròng', value: c.netHeld, accent: 'text-primary', bg: 'bg-secondary-container/45' },
-    { label: 'Miễn giảm', value: c.totalWaived, accent: 'text-[#9a5b00]', bg: 'bg-surface-container-lowest' },
-    { label: 'Hoàn thành công', value: c.totalCompletedRefund, accent: 'text-primary', bg: 'bg-surface-container-lowest' },
+    { label: 'Tổng đã duyệt hoàn', value: c.totalApprovedRefund ?? c.totalRefunded ?? 0, accent: 'text-[#0b57d0]', bg: 'bg-surface-container-lowest' },
+    { label: 'Còn giữ ròng', value: c.netHeld ?? c.netCollected ?? (c.totalPaid - (c.totalRefunded ?? 0)), accent: 'text-primary', bg: 'bg-secondary-container/45' },
+    { label: 'Miễn giảm', value: c.totalWaived ?? (c.totalPayable && c.totalPayable > c.totalPaid ? c.totalPayable - c.totalPaid : 0), accent: 'text-[#9a5b00]', bg: 'bg-surface-container-lowest' },
+    { label: 'Hoàn thành công', value: c.totalCompletedRefund ?? c.totalRefunded ?? 0, accent: 'text-primary', bg: 'bg-surface-container-lowest' },
   ];
 
   return (

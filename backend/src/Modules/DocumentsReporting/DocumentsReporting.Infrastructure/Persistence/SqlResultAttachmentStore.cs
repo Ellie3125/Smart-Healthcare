@@ -22,6 +22,12 @@ public sealed class SqlResultAttachmentStore(DocumentsDbContext context) : IResu
             .OrderBy(x => x.AttachmentVersion)
             .ToListAsync(ct);
 
+    public async Task<IReadOnlyList<ResultAttachment>> GetByEncounterIdAsync(Guid encounterId, CancellationToken ct = default) =>
+        await context.ResultAttachments
+            .Where(x => x.EncounterId == encounterId && x.IsPublished)
+            .OrderBy(x => x.AttachmentVersion)
+            .ToListAsync(ct);
+
     public Task<ResultAttachment?> FindLatestDraftByTicketAndNameAsync(Guid queueTicketId, string fileName, CancellationToken ct = default) =>
         context.ResultAttachments
             .Where(x => x.QueueTicketId == queueTicketId && x.OriginalFileName == fileName && x.UploadStatus == UploadStatus.Draft)

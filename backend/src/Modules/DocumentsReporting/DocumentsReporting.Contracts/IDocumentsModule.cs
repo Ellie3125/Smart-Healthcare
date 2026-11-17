@@ -51,6 +51,11 @@ public interface IDocumentsModule
     Task<IReadOnlyList<ResultAttachmentDto>> GetPublishedAttachmentsByClsResultIdAsync(Guid clsResultId, CancellationToken ct = default);
 
     /// <summary>
+    /// Lấy danh sách toàn bộ tệp đính kèm đã phát hành theo EncounterId (phục vụ ghép hồ sơ bệnh án).
+    /// </summary>
+    Task<IReadOnlyList<ResultAttachmentDto>> GetPublishedAttachmentsByEncounterAsync(Guid encounterId, CancellationToken ct = default);
+
+    /// <summary>
     /// Phòng xóa tệp Draft của phòng mình trước khi trả kết quả.
     /// </summary>
     Task<bool> DeleteDraftAttachmentAsync(Guid fileId, Guid roomId, CancellationToken ct = default);

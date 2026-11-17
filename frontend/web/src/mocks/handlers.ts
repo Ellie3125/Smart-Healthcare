@@ -557,7 +557,7 @@ export const staffHandlers = [
     const draft = store.roomDrafts[String(params.queueTicketId)] ?? store.roomDrafts['cls-ord-1'];
     if (!draft) return HttpResponse.json([]);
     return HttpResponse.json(
-      draft.draftFiles.map((f, idx) => ({
+      draft.draftFiles.map((f) => ({
         id: f.fileId,
         clsResultId: String(params.queueTicketId),
         queueTicketId: String(params.queueTicketId),
