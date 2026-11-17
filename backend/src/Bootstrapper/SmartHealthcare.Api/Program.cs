@@ -169,6 +169,7 @@ if (app.Environment.IsDevelopment())
 app.MapIdentityPatientsEndpoints();
 app.MapSchedulingEndpoints();
 app.MapSchedulingCheckInEndpoints();
+app.MapSchedulingWalkInEndpoints();
 app.MapClinicalEndpoints();
 app.MapMedicationCatalogEndpoints();
 app.MapBillingEndpoints();

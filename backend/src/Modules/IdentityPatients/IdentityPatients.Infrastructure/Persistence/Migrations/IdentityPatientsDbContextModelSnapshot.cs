@@ -180,6 +180,8 @@ namespace IdentityPatients.Infrastructure.Persistence.Migrations
                         .IsUnique()
                         .HasFilter("[NationalId] IS NOT NULL");
 
+                    b.HasIndex("PhoneNumber");
+
                     b.ToTable("Patient", "identity");
                 });
 

@@ -40,6 +40,21 @@ public sealed record StaffDutyLeaderDto(
     DateOnly ShiftDate,
     string ShiftName);
 
+/// <summary>Hồ sơ bệnh nhân tiếp tân tìm thấy; CCCD và SĐT đã che, chỉ để đối chiếu với giấy tờ.</summary>
+/// <param name="IsVerified">Có ít nhất một người đại diện đang hiệu lực đã được xác minh.</param>
+public sealed record ReceptionPatientDto(
+    Guid PatientId,
+    string FullName,
+    DateOnly DateOfBirth,
+    string Gender,
+    string MaskedPhoneNumber,
+    string? MaskedNationalId,
+    bool IsVerified);
+
+/// <summary>Nhân viên đang hoạt động gắn với một tài khoản đăng nhập.</summary>
+/// <param name="StaffType">Tên enum StaffType của Identity: Doctor, Nurse, Receptionist, Admin...</param>
+public sealed record ActiveStaffDto(Guid StaffId, string StaffType, string FullName);
+
 public sealed record PatientProfileDto(
     Guid PatientId,
     Guid RepresentativeId,

@@ -1,6 +1,6 @@
 # Contract module Scheduling
 
-- contract_version: **v0.8** (Draft, chờ trưởng nhóm duyệt; v0.4 Approved 12/11/2026)
+- contract_version: **v0.9** (Draft, chờ trưởng nhóm duyệt; v0.4 Approved 12/11/2026)
 - Trạng thái: **Approved** (H-02, trưởng nhóm duyệt 10/11/2026). Q1 đã chốt 17/11/2026; Q2–Q5 ở §6 vẫn là đề xuất cho tới khi trưởng nhóm chốt từng câu.
 - Người giữ: theo ownership.md mục 1. Task: W1-04.
 - Mã nguồn: `backend/src/Modules/Scheduling/Scheduling.Contracts/` (in-process), `Scheduling.Api/` (HTTP).
@@ -222,6 +222,18 @@ Bốn route chỉ map ở Development; policy `PatientOnly`. Thứ tự gọi c�
 
 - 200 `{ tickets: [{ ticketNumber, sequenceNumber }] }`: vé đang `Called`/`InProgress` của phòng, mới nhất trước. Chỉ số vé, không PII. `roomId` thiếu hoặc sai → 400 `InvalidInput`.
 
+### 4.6a Tra hồ sơ và đăng ký tại quầy (W3-01; v0.9, 17/11/2026)
+
+`GET /api/scheduling/staff/reception/search?keyword=` — `ReceptionistOnly`
+
+- `keyword`: số điện thoại hoặc CCCD, bỏ khoảng trắng còn 9–20 ký tự; sai → 400 `InvalidInput`. Khớp chính xác (Identity §10), tối đa 20 hồ sơ.
+- 200 `[{ patientId, fullName, dateOfBirth, gender, maskedPhoneNumber, maskedNationalId?, isVerified }]`; không thấy → `[]`. Chưa kèm lịch hẹn hôm nay: dùng `GET /staff/appointments/today` (§4.6).
+
+`POST /api/scheduling/staff/walk-in` — `ReceptionistOnly`, header `Idempotency-Key` (≤ 64 ký tự)
+
+- Body `{ patientId, doctorId }` (PatientId lấy từ tra cứu ở trên). Hôm nay theo giờ DB; giữ chỗ dùng chung quota 30 suất với đặt online, thu tiền mặt phí khám (Billing `Counter`), xác nhận và check-in ngay.
+- 201 `{ result: "Registered", bookingAttemptId, appointmentNumber, checkIn, receipt }`. 400 `InvalidInput`; 404 `PatientNotFound` | `DoctorNotFound` | `DayNotFound`; 409 mã giữ chỗ (`Full`, `DayClosed`, `CutoffPassed`, `AlreadyClaimed`), `InProgress`, `IdempotencyConflict`. Gửi lặp cùng khóa trả kết quả cũ.
+
 ### 4.7 Hủy, đổi lịch và tiến trình dang dở phía bệnh nhân (W2-07, W2-04; v0.6, 17/11/2026)
 
 Chung: policy `PatientOnly`. Lịch không có, không do người gọi đặt, hoặc người gọi mất quyền Booking trên hồ sơ đều trả cùng 404 `AppointmentNotFound`. Header `Idempotency-Key` bắt buộc (một giá trị); gửi lại cùng khóa và nội dung trả kết quả đã lưu, khác nội dung trả 409 `IdempotencyConflict`; lệnh cùng khóa đang chạy trả 202 `{ operationId }`. Body phải là JSON (415 `UnsupportedMediaType`). Mốc 05:00 ngày D so bằng giờ DB sau khi nhận khóa. Lỗi nghiệp vụ là ProblemDetails có `code` = tên `ChangeResult`.
@@ -316,3 +328,4 @@ Chỉ route và mục đích, để UI (W2-09) mock trước. Body, mã lỗi v�
 | v0.6 | 17/11/2026 | Thêm §4.7: bệnh nhân hủy, đổi lịch (Idempotency-Key) và `GET /patient/booking-attempts/recoverable` |
 | v0.7 | 17/11/2026 | §2.3 hiện thực vé CLS + vé quay lại (Deferred đến khi kích hoạt); thêm §4.8 hàng đợi phòng (call-next, start, finish, requeue) và policy tài khoản phòng |
 | v0.8 | 17/11/2026 | Vé quay lại kích hoạt ghi `ActivatedAtUtc` (giữ `IssuedAtUtc`), hàng chờ theo `QueuedAtUtc`; số vé từ bảng đếm `TicketSequence` (CLA-PERF-001, không đổi route hay body) |
+| v0.9 | 17/11/2026 | Thêm §4.6a: tiếp tân tra hồ sơ theo SĐT/CCCD, route đăng ký tại quầy được nối vào Api (trước đó chưa map) |

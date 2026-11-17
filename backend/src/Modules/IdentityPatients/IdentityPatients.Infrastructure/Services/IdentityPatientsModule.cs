@@ -181,4 +181,41 @@ public sealed class IdentityPatientsModule(IdentityPatientsDbContext dbContext) 
 
         return await query.FirstOrDefaultAsync(ct);
     }
+
+    public async Task<IReadOnlyList<ReceptionPatientDto>> FindPatientsForReceptionAsync(string keyword, CancellationToken ct = default)
+    {
+        var key = string.Concat((keyword ?? "").Where(c => !char.IsWhiteSpace(c)));
+        if (key.Length is < 9 or > 20)
+        {
+            return [];
+        }
+
+        // Khớp chính xác: index IX_Patient_PhoneNumber và index unique có lọc của NationalId; không tìm gần đúng để tránh lộ hồ sơ.
+        var rows = await _dbContext.Patients.AsNoTracking()
+            .Where(p => p.PhoneNumber == key || p.NationalId == key)
+            .OrderBy(p => p.FullName).ThenBy(p => p.Id)
+            .Take(20)
+            .Select(p => new
+            {
+                p.Id, p.FullName, p.DateOfBirth, p.Gender, p.PhoneNumber, p.NationalId,
+                IsVerified = _dbContext.PatientRepresentatives.Any(r => r.PatientId == p.Id && r.IsActive
+                    && r.VerificationStatus == VerificationStatus.Verified)
+            })
+            .ToListAsync(ct);
+        return rows.Select(p => new ReceptionPatientDto(p.Id, p.FullName, p.DateOfBirth, p.Gender.ToString(),
+            Mask(p.PhoneNumber)!, Mask(p.NationalId), p.IsVerified)).ToList();
+    }
+
+    public Task<bool> PatientExistsAsync(Guid patientId, CancellationToken ct = default) =>
+        _dbContext.Patients.AsNoTracking().AnyAsync(p => p.Id == patientId, ct);
+
+    public Task<ActiveStaffDto?> GetActiveStaffAsync(Guid appUserId, CancellationToken ct = default) =>
+        _dbContext.Staffs.AsNoTracking()
+            .Where(s => s.AppUserId == appUserId && s.IsActive && _dbContext.AppUsers.Any(u => u.Id == appUserId && u.IsActive))
+            .Select(s => new ActiveStaffDto(s.Id, s.StaffType.ToString(), s.FullName))
+            .FirstOrDefaultAsync(ct);
+
+    /// <summary>Giữ 3 ký tự cuối để tiếp tân đối chiếu với giấy tờ.</summary>
+    private static string? Mask(string? value) =>
+        value is null ? null : value.Length <= 3 ? new string('*', value.Length) : new string('*', value.Length - 3) + value[^3..];
 }

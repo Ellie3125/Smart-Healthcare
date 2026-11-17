@@ -34,4 +34,16 @@ public interface IIdentityPatientsModule
     Task<RoomDto?> GetRoomAsync(Guid roomId, CancellationToken ct = default);
     Task<IReadOnlyList<RoomDto>> GetRoomsAsync(string? roomType = null, bool? isActive = null, CancellationToken ct = default);
     Task<StaffDutyLeaderDto?> GetRoomShiftLeaderAsync(Guid roomId, DateOnly date, string shiftName, CancellationToken ct = default);
+
+    // Bản mặc định ném lỗi để các bản giả trong test không phải cài lại; bản Identity cài đặt thật.
+
+    /// <summary>Tiếp tân tra hồ sơ: khớp chính xác số điện thoại hoặc CCCD (bỏ khoảng trắng), tối đa 20 hồ sơ.</summary>
+    Task<IReadOnlyList<ReceptionPatientDto>> FindPatientsForReceptionAsync(string keyword, CancellationToken ct = default) =>
+        throw new NotSupportedException();
+
+    /// <summary>Hồ sơ bệnh nhân tồn tại (tiếp tân đăng ký tại quầy cho PatientId đã tra).</summary>
+    Task<bool> PatientExistsAsync(Guid patientId, CancellationToken ct = default) => throw new NotSupportedException();
+
+    /// <summary>Nhân viên đang hoạt động của tài khoản <paramref name="appUserId"/> (sub trong JWT); null nếu không phải nhân viên hoặc đã khóa.</summary>
+    Task<ActiveStaffDto?> GetActiveStaffAsync(Guid appUserId, CancellationToken ct = default) => throw new NotSupportedException();
 }
