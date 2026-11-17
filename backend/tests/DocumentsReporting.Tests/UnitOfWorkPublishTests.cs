@@ -163,6 +163,15 @@ public sealed class UnitOfWorkPublishTests
             return Task.FromResult(list);
         }
 
+        public Task<IReadOnlyList<ResultAttachment>> GetByEncounterIdAsync(Guid encounterId, CancellationToken ct = default)
+        {
+            IReadOnlyList<ResultAttachment> list = _active.Values
+                .Where(x => x.EncounterId == encounterId && x.IsPublished)
+                .OrderBy(x => x.AttachmentVersion)
+                .ToList();
+            return Task.FromResult(list);
+        }
+
         public Task<ResultAttachment?> FindLatestDraftByTicketAndNameAsync(Guid queueTicketId, string fileName, CancellationToken ct = default)
         {
             var att = _active.Values

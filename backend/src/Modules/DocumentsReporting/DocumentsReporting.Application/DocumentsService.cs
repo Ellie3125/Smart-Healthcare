@@ -226,6 +226,15 @@ public sealed class DocumentsService(
             .ToList();
     }
 
+    public async Task<IReadOnlyList<ResultAttachmentDto>> GetPublishedAttachmentsByEncounterAsync(Guid encounterId, CancellationToken ct = default)
+    {
+        var items = await store.GetByEncounterIdAsync(encounterId, ct);
+        return items
+            .Where(x => x.IsPublished && x.UploadStatus != UploadStatus.Removed)
+            .Select(ToAttachmentDto)
+            .ToList();
+    }
+
     public async Task<bool> DeleteDraftAttachmentAsync(Guid fileId, Guid roomId, CancellationToken ct = default)
     {
         var file = await store.FindByIdAsync(fileId, ct);

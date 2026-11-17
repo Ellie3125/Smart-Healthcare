@@ -48,11 +48,18 @@ export interface EncounterCostSummary {
   serviceDate: string;
   doctorName: string;
   specialtyName: string;
+  // 5 chỉ tiêu tài chính chuẩn theo Phạm vi nghiệp vụ v2.12 §5.5 & Billing.Contracts
+  totalPayable?: number;
   totalPaid: number;
-  totalApprovedRefund: number;
-  netHeld: number;
-  totalWaived: number;
-  totalCompletedRefund: number;
+  totalRefunded?: number;
+  netCollected?: number;
+  outstanding?: number;
+  creditPendingRefund?: number;
+  // Tương thích mock cũ
+  totalApprovedRefund?: number;
+  netHeld?: number;
+  totalWaived?: number;
+  totalCompletedRefund?: number;
   lineItems: {
     id: string;
     category: string;

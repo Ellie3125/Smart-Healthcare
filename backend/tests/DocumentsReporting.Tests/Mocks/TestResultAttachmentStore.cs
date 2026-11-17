@@ -25,6 +25,12 @@ public sealed class TestResultAttachmentStore : IResultAttachmentStore
         return Task.FromResult(list);
     }
 
+    public Task<IReadOnlyList<ResultAttachment>> GetByEncounterIdAsync(Guid encounterId, CancellationToken ct = default)
+    {
+        IReadOnlyList<ResultAttachment> list = _attachments.Where(x => x.EncounterId == encounterId && x.IsPublished).ToList();
+        return Task.FromResult(list);
+    }
+
     public Task<ResultAttachment?> FindLatestDraftByTicketAndNameAsync(Guid queueTicketId, string fileName, CancellationToken ct = default) =>
         Task.FromResult(_attachments
             .Where(x => x.QueueTicketId == queueTicketId && x.OriginalFileName == fileName && x.UploadStatus == UploadStatus.Draft)
