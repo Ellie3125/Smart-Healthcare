@@ -56,6 +56,12 @@ services:
       Vnpay__TmnCode: ${VNPAY_TMN_CODE:-}
       Vnpay__HashSecret: ${VNPAY_HASH_SECRET:-}
       Vnpay__ReturnUrl: ${VNPAY_RETURN_URL:-}
+      # Cloudflare R2 (bucket private). Điền đủ 4 biến thì tệp lưu trên R2, restart không mất.
+      # Thiếu biến nào thì Api tự lưu tệp tạm trong RAM (mất khi restart container), chỉ dùng cho dev.
+      CloudflareR2__AccountId: ${R2_ACCOUNT_ID:-}
+      CloudflareR2__AccessKeyId: ${R2_ACCESS_KEY_ID:-}
+      CloudflareR2__SecretAccessKey: ${R2_SECRET_ACCESS_KEY:-}
+      CloudflareR2__BucketName: ${R2_BUCKET_NAME:-}
     depends_on:
       sqlserver:
         condition: service_healthy
