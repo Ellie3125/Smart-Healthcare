@@ -447,6 +447,10 @@ namespace Clinical.Infrastructure.Persistence.Migrations
                         .HasPrecision(5, 1)
                         .HasColumnType("decimal(5,1)");
 
+                    b.Property<string>("NurseNote")
+                        .HasMaxLength(1000)
+                        .HasColumnType("nvarchar(1000)");
+
                     b.Property<int?>("PulseRate")
                         .HasColumnType("int");
 
@@ -455,6 +459,9 @@ namespace Clinical.Infrastructure.Persistence.Migrations
 
                     b.Property<Guid>("RecordedByStaffId")
                         .HasColumnType("uniqueidentifier");
+
+                    b.Property<int?>("RespiratoryRate")
+                        .HasColumnType("int");
 
                     b.Property<decimal?>("SpO2")
                         .HasPrecision(5, 2)

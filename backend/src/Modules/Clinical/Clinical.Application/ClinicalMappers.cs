@@ -37,6 +37,8 @@ internal static class ClinicalMappers
         v.PulseRate,
         v.BodyTemperature,
         v.SpO2,
+        v.RespiratoryRate,
+        v.NurseNote,
         v.RecordedByStaffId,
         v.RecordedAtUtc);
 
