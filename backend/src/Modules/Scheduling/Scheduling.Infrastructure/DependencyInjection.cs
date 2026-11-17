@@ -45,6 +45,8 @@ public static class DependencyInjection
             .AddScoped<Scheduling.Application.Queues.IQueueStore, Queues.SqlQueueStore>()
             .AddScoped<Scheduling.Application.Queues.IClsTicketStore, Queues.SqlClsTicketStore>()
             .AddScoped(provider => ActivatorUtilities.CreateInstance<Queues.ClsDayEndJob>(provider))
+            .AddScoped<Scheduling.Contracts.ICoordinationExceptionReader>(provider => ActivatorUtilities.CreateInstance<Coordination.CoordinationExceptionReader>(provider))
+            .AddScoped(provider => ActivatorUtilities.CreateInstance<Sessions.SessionCompletionJob>(provider))
             // Các service cần IUnitOfWork/IIdempotencyStore (Shared.Infrastructure) và IOperationTracker (Notifications.Infrastructure)
             // nên đăng ký cùng store, không ở AddSchedulingApplication (host test endpoint chỉ có Application).
             .AddScoped<HoldService>()
