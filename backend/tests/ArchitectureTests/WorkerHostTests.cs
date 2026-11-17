@@ -1,6 +1,7 @@
 using Hangfire;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
+using Scheduling.Application.CheckIn;
 using Scheduling.Application.Holds;
 using Shared.Infrastructure.Outbox;
 using SmartHealthcare.Worker;
@@ -22,6 +23,7 @@ public class WorkerHostTests
 
         using var scope = host.Services.CreateScope();
         Assert.NotNull(scope.ServiceProvider.GetRequiredService<HoldService>());
+        Assert.NotNull(scope.ServiceProvider.GetRequiredService<CheckInDeadlineJob>());
         Assert.NotNull(scope.ServiceProvider.GetRequiredService<OutboxDispatcher>());
         Assert.NotNull(host.Services.GetRequiredService<IRecurringJobManager>());
     }

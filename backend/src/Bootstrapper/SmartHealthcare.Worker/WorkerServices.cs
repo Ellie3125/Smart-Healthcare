@@ -48,6 +48,8 @@ public static class WorkerServices
             // không gọi AddOutboxEvent lần nữa.
             .AddOutboxEvent<AppointmentConfirmed>()
             // Billing tạo yêu cầu hoàn phí khám khi hủy lịch được hoàn (RefundService); module khác chỉ đăng ký handler.
-            .AddOutboxEvent<AppointmentCancelled>();
+            .AddOutboxEvent<AppointmentCancelled>()
+            // Check-in phát TicketCheckedIn; Clinical không có handler (Q1), dispatcher vẫn phải nhận để bản ghi không kẹt Pending.
+            .AddOutboxEvent<TicketCheckedIn>();
     }
 }

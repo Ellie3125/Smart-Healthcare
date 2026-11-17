@@ -237,6 +237,31 @@ public sealed partial class SchedulingHoldTests
         finally { await CleanupAttendanceAsync(day); }
     }
 
+    [Fact]
+    public async Task CheckIn_rolls_back_appointment_ticket_and_encounter_when_clinical_fails_after_writing()
+    {
+        var clock = new BoundaryDbClock(AtIct(8, 0));
+        await using var services = AttendanceServices(clock);
+        var day = await SeedBoundaryDayAsync(services, clock);
+        try
+        {
+            var a = await BookedAsync(services, day);
+            await using var scope = services.CreateAsyncScope();
+            // Clinical ghi Encounter thật rồi lỗi: Encounter phải rollback cùng transaction của Scheduling.
+            var clinical = FailingAfterWriteClinical.Create(scope.ServiceProvider.GetRequiredService<IClinicalModule>());
+            var service = ActivatorUtilities.CreateInstance<CheckInService>(scope.ServiceProvider, (IClinicalModule)clinical);
+            await Assert.ThrowsAsync<RollbackSignal>(() => service.CheckInAsync(new(a.AppointmentId, Guid.NewGuid(), null), Ct));
+            Assert.True(clinical.Wrote);
+            await AssertAppointmentAsync(services, a.AppointmentId, AppointmentStatus.Scheduled, claimActive: true);
+            Assert.Equal(0, await CountAsync($"SELECT COUNT(*) FROM clinical.Encounter WHERE AppointmentId = '{a.AppointmentId}'"));
+            Assert.Equal(0, await CountAsync($"SELECT COUNT(*) FROM scheduling.QueueTicket WHERE TicketNumber LIKE '{day.Id:N}-%'"));
+            Assert.Equal(0, await CountAsync($"SELECT COUNT(*) FROM shared.OutboxMessage WHERE EventType = 'TicketCheckedIn' AND PayloadJson LIKE '%{a.AppointmentId}%'"));
+            // Sau lỗi, check-in lại vẫn thành công: không còn Encounter mồ côi chặn ActiveEncounter.
+            Assert.Equal(1, (await CheckInAsync(services, a.AppointmentId)).SequenceNumber);
+        }
+        finally { await CleanupAttendanceAsync(day); }
+    }
+
     [Theory]
     [InlineData("Cancelled")]
     [InlineData("Absent")]
@@ -324,6 +349,32 @@ public sealed partial class SchedulingHoldTests
         protected override object? Invoke(MethodInfo? method, object?[]? args) => method?.Name == "GetDoctorAsync"
             ? Task.FromResult<DoctorDto?>(new((Guid)args![0]!, "BS Test", Guid.NewGuid(), "TEST", Guid.NewGuid(), "BS", true))
             : throw new NotSupportedException(method?.Name);
+    }
+
+    // Gọi StartEncounterAsync thật (ghi Encounter) rồi ném lỗi; method khác chuyển thẳng cho module thật.
+    public class FailingAfterWriteClinical : DispatchProxy
+    {
+        public IClinicalModule Inner { get; set; } = null!;
+        public bool Wrote { get; private set; }
+
+        public static FailingAfterWriteClinical Create(IClinicalModule inner)
+        {
+            var proxy = (FailingAfterWriteClinical)(object)DispatchProxy.Create<IClinicalModule, FailingAfterWriteClinical>();
+            proxy.Inner = inner;
+            return proxy;
+        }
+
+        protected override object? Invoke(MethodInfo? method, object?[]? args) =>
+            method!.Name == nameof(IClinicalModule.StartEncounterAsync)
+                ? FailAsync((StartEncounterCommand)args![0]!, (CancellationToken)args[1]!)
+                : method.Invoke(Inner, args);
+
+        private async Task<EncounterDto> FailAsync(StartEncounterCommand command, CancellationToken ct)
+        {
+            await Inner.StartEncounterAsync(command, ct);
+            Wrote = true;
+            throw new RollbackSignal();
+        }
     }
 
     private sealed class FailingCheckInPublisher : IIntegrationEventPublisher
