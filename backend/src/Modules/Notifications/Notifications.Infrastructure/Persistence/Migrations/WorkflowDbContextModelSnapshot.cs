@@ -74,6 +74,11 @@ namespace Notifications.Infrastructure.Persistence.Migrations
 
                     b.HasIndex("InitiatedByUserId");
 
+                    b.HasIndex(new[] { "Status", "CreatedAtUtc" }, "IX_Operation_Unfinished")
+                        .HasFilter("[Status] IN (N'Pending', N'Running', N'WaitingExternal', N'Failed', N'NeedsAction', N'ManualReview')");
+
+                    SqlServerIndexBuilderExtensions.IncludeProperties(b.HasIndex(new[] { "Status", "CreatedAtUtc" }, "IX_Operation_Unfinished"), new[] { "OperationType", "TargetEntityId" });
+
                     b.ToTable("Operation", "workflow");
                 });
 #pragma warning restore 612, 618
