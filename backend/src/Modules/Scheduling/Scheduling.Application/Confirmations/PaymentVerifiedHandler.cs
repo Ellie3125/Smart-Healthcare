@@ -45,6 +45,11 @@ public sealed class PaymentVerifiedHandler(IConfirmationStore store, IBillingMod
                         c.PatientId, c.DoctorId, c.ServiceDate, c.AppointmentNumber, null, c.ConfirmedAtUtc, e.OperationId),
                         c.AppointmentId, t);
                     break;
+                case ConfirmResult.AlreadyConfirmed:
+                    // Billing phát đúng một PaymentVerified cho mỗi PaymentIntent và EventId đã được đánh dấu ở trên, nên lịch đã được
+                    // xác nhận bằng một lần trả khác: tiền của lần này là trả trùng, Billing tạo yêu cầu hoàn chờ duyệt (Phạm vi §5.6).
+                    await refunds.RequestDuplicatePaymentRefundAsync(e.PaymentIntentId, t);
+                    break;
                 case ConfirmResult.PaidUnallocated late:
                     await store.MarkPaidUnallocatedAsync(attemptId, t);
                     // Billing tạo yêu cầu hoàn toàn bộ, chờ nhân viên duyệt (Phạm vi §5.6), cùng transaction.
@@ -71,7 +76,7 @@ public abstract record ConfirmResult
     public sealed record Confirmed(Guid AppointmentId, string AppointmentNumber, Guid PatientId, Guid DoctorId, DateOnly ServiceDate,
         DateTime ConfirmedAtUtc) : ConfirmResult;
 
-    /// <summary>Reservation đã xác nhận trước đó (sự kiện khác cùng giao dịch): không làm gì.</summary>
+    /// <summary>Reservation đã được xác nhận bằng một lần trả khác của cùng lượt đặt lịch: lần trả này là trả trùng, yêu cầu Billing hoàn.</summary>
     public sealed record AlreadyConfirmed : ConfirmResult;
 
     /// <summary>Đã thu tiền nhưng giữ chỗ không còn hợp lệ (Expired, Cancelled, quá ExpiresAt).</summary>

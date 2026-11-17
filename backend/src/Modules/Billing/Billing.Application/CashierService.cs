@@ -151,6 +151,10 @@ public sealed class CashierService(IChargeStore charges, IPaymentStore store, IC
             if (charge.Outstanding <= 0m)
                 throw new BillingException(BillingErrorCode.ChargeNotPayable,
                     $"Phí khám {command.ChargeId} đã được trả bằng giao dịch khác hoặc đã hủy.");
+            // Lượt đặt lịch đã trả phí khám ở khoản khác (ví dụ trên VNPAY): thu nữa là trả trùng.
+            if (await store.HasRetainedExamPaymentAsync(command.BookingAttemptId, Guid.Empty, token))
+                throw new BillingException(BillingErrorCode.ChargeNotPayable,
+                    $"Lượt đặt lịch {command.BookingAttemptId} đã được thanh toán phí khám.");
 
             var now = clock.GetUtcNow().UtcDateTime;
             var cash = await RecordCashAsync([charge], PaymentPurpose.InitialConsultation, command.PatientId, command.BookingAttemptId,

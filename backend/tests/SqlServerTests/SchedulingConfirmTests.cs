@@ -27,9 +27,13 @@ public sealed partial class SchedulingHoldTests
             var (attempt, held) = await HeldAttemptAsync(services, day);
             var paid = Paid(attempt);
 
+            var duplicate = Paid(attempt);
             await HandleAsync(services, paid);
             await HandleAsync(services, paid); // Outbox giao lặp cùng EventId
-            await HandleAsync(services, Paid(attempt)); // sự kiện khác của cùng giao dịch
+            await HandleAsync(services, duplicate); // lần trả khác của cùng lượt đặt lịch
+
+            Assert.DoesNotContain(paid.PaymentIntentId, RecordingRefunds.Duplicates);
+            Assert.Contains(duplicate.PaymentIntentId, RecordingRefunds.Duplicates); // Billing được yêu cầu hoàn lần trả trùng
 
             var quota = await ReadQuotaAsync(services, day);
             Assert.Equal((0, 1), (quota.HeldCount, quota.AdmittedCount));
@@ -254,9 +258,17 @@ public sealed partial class SchedulingHoldTests
     {
         public static readonly System.Collections.Concurrent.ConcurrentBag<Guid> Requested = [];
 
+        public static readonly System.Collections.Concurrent.ConcurrentBag<Guid> Duplicates = [];
+
         public Task<int> RequestPaidUnallocatedRefundAsync(Guid paymentIntentId, CancellationToken ct)
         {
             Requested.Add(paymentIntentId);
+            return Task.FromResult(1);
+        }
+
+        public Task<int> RequestDuplicatePaymentRefundAsync(Guid paymentIntentId, CancellationToken ct)
+        {
+            Duplicates.Add(paymentIntentId);
             return Task.FromResult(1);
         }
     }

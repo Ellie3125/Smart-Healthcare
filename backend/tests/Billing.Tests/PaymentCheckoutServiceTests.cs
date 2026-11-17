@@ -156,6 +156,11 @@ public class PaymentCheckoutServiceTests
         public Task<bool> IsProviderTransactionIdTakenAsync(string providerTransactionId, Guid exceptTransactionId, CancellationToken ct) =>
             Task.FromResult(false);
 
+        public Task<bool> HasRetainedExamPaymentAsync(Guid bookingAttemptId, Guid exceptPaymentIntentId, CancellationToken ct) =>
+            throw new NotSupportedException();
+
+        public void AddRefundRequest(RefundRequest request) => throw new NotSupportedException();
+
         public Task SaveChangesAsync(CancellationToken ct)
         {
             Saves++;

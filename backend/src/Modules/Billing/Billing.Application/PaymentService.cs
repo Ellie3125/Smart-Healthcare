@@ -119,11 +119,43 @@ public sealed class PaymentService(IPaymentStore store, TimeProvider clock)
 
             var allocations = await store.GetAllocationsAsync(transaction.Id, token);
             var charges = await store.LockChargesAsync(allocations.Select(a => a.BillingItemId).Order().ToList(), token);
+
+            // Phí khám của lượt đặt lịch đã được thu và giữ bằng yêu cầu khác (giữ chỗ lại rồi cả hai lần đều trả): cả lần này là trả trùng.
+            var duplicateBooking = intent.PaymentType == PaymentType.InitialConsultation && intent.BookingAttemptId is { } attemptId
+                && await store.HasRetainedExamPaymentAsync(attemptId, intent.Id, token);
+            var refunds = 0;
             foreach (var allocation in allocations)
-                charges.Single(c => c.Id == allocation.BillingItemId).ApplyPayment(allocation.AllocatedAmount);
+            {
+                var charge = charges.Single(c => c.Id == allocation.BillingItemId);
+                var (refundable, reason) = Excess(charge, allocation.AllocatedAmount, duplicateBooking);
+                var hadMoney = charge.PaidAmount - charge.RefundedAmount > 0m;
+                charge.ApplyPayment(allocation.AllocatedAmount);
+                if (refundable <= 0m)
+                    continue;
+
+                // Khoản chỉ được lập cho lần trả trùng này thì không còn là nghĩa vụ.
+                if (duplicateBooking && !hadMoney && charge.IsInEffect)
+                    charge.Status = BillingItemStatus.Cancelled;
+                store.AddRefundRequest(new RefundRequest
+                {
+                    BillingItemId = charge.Id,
+                    OriginalPaymentTransactionId = transaction.Id,
+                    AppointmentId = charge.AppointmentId,
+                    RequestedAmount = refundable,
+                    RefundReason = reason,
+                    PolicyRuleApplied = PolicyRuleApplied.CustomApproval,
+                    Status = RefundRequestStatus.Pending,
+                    RequestedAtUtc = now,
+                });
+                refunds++;
+            }
 
             var paidChargeIds = charges.Where(c => c.Status == BillingItemStatus.Paid).Select(c => c.Id).ToList();
             await store.SaveChangesAsync(token);
+            // Trả trùng cả lượt đặt lịch: lịch đã được xác nhận bằng lần trả trước, không báo Scheduling lần nữa.
+            if (duplicateBooking)
+                return new PaymentConfirmation(intent.Id, AlreadyRecorded: false, [], refunds);
+
             await store.EnqueueAsync(new PaymentVerified(
                 Guid.CreateVersion7(),
                 intent.Id,
@@ -135,8 +167,22 @@ public sealed class PaymentService(IPaymentStore store, TimeProvider clock)
                 now,
                 OperationId: null), token);
 
-            return new PaymentConfirmation(intent.Id, AlreadyRecorded: false, paidChargeIds);
+            return new PaymentConfirmation(intent.Id, AlreadyRecorded: false, paidChargeIds, refunds);
         }, ct);
+    }
+
+    /// <summary>
+    /// Phần tiền của một phân bổ phải hoàn (Phạm vi §5.6), tính trước khi cộng vào khoản. Trả trùng cả lượt đặt lịch: hoàn hết
+    /// (DuplicatePayment). Khoản đã hủy/miễn: tiền không còn gì để trả, hoàn hết (PaidUnallocated). Khoản còn hiệu lực: hoàn phần
+    /// vượt số còn phải trả (DuplicatePayment). Khoản CLS đã trả rồi mới hủy cuối ngày D không đi qua đây (không hoàn).
+    /// </summary>
+    private static (decimal Amount, RefundReason Reason) Excess(BillingItem charge, decimal allocated, bool duplicateBooking)
+    {
+        if (duplicateBooking)
+            return (allocated, RefundReason.DuplicatePayment);
+        if (!charge.IsInEffect)
+            return (allocated, RefundReason.PaidUnallocated);
+        return (Math.Max(0m, allocated - charge.Outstanding), RefundReason.DuplicatePayment);
     }
 
     /// <summary>
