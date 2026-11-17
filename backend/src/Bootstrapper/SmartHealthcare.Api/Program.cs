@@ -83,6 +83,8 @@ builder.Services
     .AddMedicationCatalogApplication().AddMedicationCatalogApi()
     .AddBillingApplication().AddBillingApi()
     .AddNotificationsApplication().AddNotificationsApi()
+    // SignalR backplane giữa BE1, BE2 và Worker (W4-01); trống thì chạy một instance (máy dev).
+    .AddNotificationsRedisBackplane(builder.Configuration.GetConnectionString("Redis"))
     .AddDocumentsReportingApplication().AddDocumentsReportingApi();
 
 string[] moduleTags =
