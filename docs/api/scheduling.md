@@ -123,7 +123,7 @@ Payload:
 Ghi chú chung cho 4.1 và 4.2:
 
 - Lỗi là ProblemDetails có extension `code` = tên `DoctorDayResult`.
-- Từ v0.5 (17/11/2026) mọi route Scheduling được map ở mọi môi trường; danh bạ bác sĩ (`IDoctorDirectory`, `IDoctorSearchDirectory`) đọc thật qua `IIdentityPatientsModule`. Lịch khám demo trên Staging do cờ `Seed:DemoData` tạo, không phải dữ liệu giả trong cấu hình.
+- Từ v0.5 (17/11/2026) mọi route Scheduling được map ở mọi môi trường; danh bạ bác sĩ (`IDoctorDirectory`, `IDoctorSearchDirectory`) đọc thật qua `IIdentityPatientsModule`. Lịch khám demo do lệnh `seed` của Api tạo (`dotnet SmartHealthcare.Api.dll seed`), không phải dữ liệu giả trong cấu hình.
 - Test từ chối kênh sai (API-05): `AuthorizationMatrixTests` gọi HTTP endpoint mở ngày với mọi vai trò khác và với Admin mang `channel` = `Patient`, đều 403; `EndpointAuthorizationInventoryTests` bắt endpoint thiếu policy vai trò + kênh.
 
 ### 4.3 Tìm bác sĩ, suất trống và phí (W2-05 phần 1, đã merge)

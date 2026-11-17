@@ -12,11 +12,8 @@ services:
     environment:
       # Chỉ tin X-Forwarded-For từ mạng backend (nơi nginx đứng); xem TrustedProxyForwarding.cs.
       ForwardedHeaders__KnownNetworks__0: ${BACKEND_SUBNET:?Thiếu BACKEND_SUBNET}
-      # Staging cần tài khoản demo để test: seed Identity (idempotent) khi bật. Prod để false.
-      Seed__Enabled: ${SEED_ENABLED:-false}
+      # Mật khẩu tài khoản demo cho lệnh seed (SEED=1 scripts/deploy-staging.sh); Api không tự seed khi khởi động.
       Seed__DefaultPassword: ${SEED_DEFAULT_PASSWORD:-}
-      # Phiên khám 7 ngày tới cho bác sĩ demo + bảng phí khám GIẢ (idempotent, không mở lại ngày admin đã đóng). Prod để false.
-      Seed__DemoData: ${SEED_DEMO_DATA:-false}
 
   web:
     image: ${WEB_IMAGE:?Thiếu WEB_IMAGE}
@@ -81,18 +78,6 @@ services:
     depends_on:
       sqlserver:
         condition: service_healthy
-    restart: "no"
-    networks: [backend]
-
-  db-seed:
-    # Dịch vụ CLS và bảng giá GIẢ LẬP cho Staging; chờ Api seed xong cấp bậc và phòng (tối đa 5 phút). Không chạy ở Prod.
-    profiles: [seed]
-    image: mcr.microsoft.com/mssql/server:2022-CU27-ubuntu-22.04
-    entrypoint: ["/opt/mssql-tools18/bin/sqlcmd", "-C", "-b", "-f", "65001", "-S", "sqlserver", "-U", "sa", "-d", "SmartHealthcare", "-i", "/init/seed.sql"]
-    environment:
-      SQLCMDPASSWORD: ${MSSQL_SA_PASSWORD:?Thiếu MSSQL_SA_PASSWORD}
-    volumes:
-      - ./infrastructure/sqlserver/seed-dev.sql:/init/seed.sql:ro
     restart: "no"
     networks: [backend]
 

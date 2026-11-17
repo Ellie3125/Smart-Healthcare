@@ -9,7 +9,6 @@ using DocumentsReporting.Application;
 using DocumentsReporting.Infrastructure;
 using IdentityPatients.Api;
 using IdentityPatients.Infrastructure;
-using IdentityPatients.Infrastructure.Seed;
 using IdentityPatients.Application;
 using MedicationCatalog.Api;
 using MedicationCatalog.Application;
@@ -130,6 +129,13 @@ builder.Services.AddOpenApi(options => options.AddDocumentTransformer((document,
 
 var app = builder.Build();
 
+// Seed dữ liệu giả lập là lệnh riêng (`seed`), chạy xong thì thoát; Api không tự seed khi khởi động.
+if (SeedCommand.IsRequested(args))
+{
+    await SeedCommand.RunAsync(app);
+    return;
+}
+
 // Phải chạy trước mọi middleware đọc IP hoặc scheme (rate limit, auth, endpoint ghi AuditLog).
 app.UseTrustedProxyForwarding();
 app.UseCors();
@@ -138,19 +144,6 @@ app.UseAuthorization();
 app.UseRateLimiter();
 
 app.MapControllers();
-
-// Seed dữ liệu mẫu (idempotent) chỉ chạy trong môi trường Development hoặc khi bật cấu hình Seed:Enabled
-if (app.Environment.IsDevelopment() || app.Configuration.GetValue<bool>("Seed:Enabled"))
-{
-    using var scope = app.Services.CreateScope();
-    var seedService = scope.ServiceProvider.GetRequiredService<IdentityPatientsSeedService>();
-    await seedService.SeedAsync();
-}
-
-if (DemoData.IsEnabled(app.Configuration, app.Environment))
-{
-    await app.SeedDemoDataAsync();
-}
 
 app.UseExceptionHandler();
 app.UseStatusCodePages();
