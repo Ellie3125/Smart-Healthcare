@@ -1,6 +1,6 @@
 """Cuộc trò chuyện: chủ sở hữu và State giữa các lượt (contract §3.3 đề xuất Q-C2; Giải pháp §11.4.1).
 
-Lưu trong SQLite trên volume /data của dịch vụ chatbot (cùng tệp với checkpointer của agent ở bước 7): restart không mất, không
+Lưu trong SQLite trên volume /data của dịch vụ chatbot (tệp riêng cạnh tệp checkpointer của agent): restart không mất, không
 thêm bảng ở DB nghiệp vụ. Dịch vụ chạy một instance nên SQLite đủ dùng.
 
 - Lượt đầu với conversationId mới tạo bản ghi gắn userId, patientId; lượt sau khác userId/patientId → ConversationNotFound.
@@ -98,10 +98,15 @@ class ConversationStore:
             await self._conn.commit()
         self._locks.pop(conversation_id, None)
 
-    async def purge_expired(self, now: datetime) -> int:
-        cursor = await self._conn.execute("DELETE FROM conversation WHERE last_active_utc < ?", (_iso(now - self._ttl),))
-        await self._conn.commit()
-        return cursor.rowcount
+    async def purge_expired(self, now: datetime) -> list[str]:
+        """Xóa cuộc trò chuyện quá hạn; trả Id để xóa luôn Short-term Memory của agent."""
+        cutoff = _iso(now - self._ttl)
+        cursor = await self._conn.execute("SELECT conversation_id FROM conversation WHERE last_active_utc < ?", (cutoff,))
+        ids = [row[0] for row in await cursor.fetchall()]
+        if ids:
+            await self._conn.executemany("DELETE FROM conversation WHERE conversation_id = ?", [(i,) for i in ids])
+            await self._conn.commit()
+        return ids
 
     async def _fetch(self, conversation_id: str) -> tuple | None:
         cursor = await self._conn.execute(

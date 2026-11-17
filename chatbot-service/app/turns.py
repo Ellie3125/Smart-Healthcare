@@ -17,7 +17,7 @@ from app.intents import TOOL_INTENTS, ToolIntentHandler
 from app.model_health import ModelHealth
 from app.replies import shortcut_reply
 from app.router import route
-from app.schemas import ChatContext, ChatState, TurnRequest, TurnResponse
+from app.schemas import ChatContext, ChatState, TurnRequest, TurnResponse, TurnScratch
 from app.slots import today_vietnam
 
 log = logging.getLogger("chatbot.turns")
@@ -61,6 +61,7 @@ class TurnService:
             access_token=access_token,
             message_id=str(request.message_id),
             locale=request.locale,
+            turn=TurnScratch(today=today),
         )
         async with self._store.turn(context.conversation_id, context.user_id, context.patient_id, now) as conversation:
             routed = route(self._tables, conversation.state, request.text, request.suggestion, today)

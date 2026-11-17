@@ -33,6 +33,14 @@ class Settings(BaseSettings):
 
     config_dir: Path = Path(__file__).resolve().parent.parent / "config"
 
+    # Agent (§11.4.1, §11.7.3): số tin nhắn giữ trong cửa sổ và độ dài trả lời tối đa; chốt sau khi đo trên Colab.
+    agent_max_messages: int = Field(default=12, ge=4)
+    ollama_num_predict: int = Field(default=250, ge=50)
+
     @property
     def database_path(self) -> Path:
         return self.data_dir / "chatbot.sqlite3"
+
+    @property
+    def checkpoint_path(self) -> Path:
+        return self.data_dir / "checkpoints.sqlite3"

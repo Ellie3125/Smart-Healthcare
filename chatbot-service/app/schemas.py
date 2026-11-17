@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datetime import date
 from typing import Literal, NotRequired, TypedDict
 from uuid import UUID
@@ -66,11 +66,25 @@ class ChatState(TypedDict):
     proposal_id: NotRequired[str]
 
 
+@dataclass
+class TurnScratch:
+    """Kết quả phụ của một lượt do công cụ ghi lại, không đi qua model: lựa chọn bấm được (có Id), intent đã phục vụ,
+    token hết hạn. Model chỉ nhận bản rút gọn không có Id (contract §7)."""
+
+    today: date | None = None
+    options: list[TurnOption] = field(default_factory=list)
+    intents: list[str] = field(default_factory=list)
+    replies: list[str] = field(default_factory=list)  # câu trả lời theo mẫu của công cụ (return_direct)
+    state: dict | None = None  # State do công cụ cuối cùng trả (ví dụ đang hỏi ngày)
+    session_expired: bool = False
+
+
 @dataclass(frozen=True)
 class ChatContext:
     """Ngữ cảnh cố định của một lượt, do .NET truyền sang từ phiên đã xác thực (contract §3.2).
 
-    Công cụ đọc danh tính ở đây, không nhận UserId/PatientId do model điền. Không đưa vào prompt, checkpoint hay log.
+    Công cụ đọc danh tính ở đây, không nhận UserId/PatientId do model điền. Không đưa vào prompt, checkpoint hay log
+    (runtime context của LangChain không được lưu vào checkpoint).
     """
 
     user_id: str
@@ -79,6 +93,7 @@ class ChatContext:
     access_token: str
     message_id: str
     locale: str = "vi"
+    turn: TurnScratch = field(default_factory=TurnScratch)
 
     def __repr__(self) -> str:  # tránh lộ token/định danh nếu lỡ in ra log
         return "ChatContext(<redacted>)"
@@ -123,6 +138,8 @@ class TurnResponse(_Camel):
     suggestions: list[Suggestion] = []
     proposal: dict | None = None
     options: list[TurnOption] = []
+    # Dữ kiện có nhãn trường cho model (agent) đọc khi công cụ trả về; không có Id, không gửi ra API.
+    facts: list[str] = Field(default_factory=list, exclude=True)
 
 
 class DeleteConversationRequest(_Camel):

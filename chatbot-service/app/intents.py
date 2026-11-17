@@ -83,7 +83,15 @@ class ToolIntentHandler:
             )
             for d in doctors[:MAX_OPTIONS]
         ]
-        return TurnResponse(reply=self._t.template("slots_found", **values), intent="SEARCH_SLOTS", options=options), state
+        facts = [
+            f"{i}. Tên: {d.doctor_name} | Cấp bậc: {d.doctor_level or 'không rõ'} | Khoa: {d.specialty_name or 'không rõ'}"
+            f" | Còn: {d.remaining_hint} suất | Phí: {_money(d.exam_fee, d.currency)}"
+            for i, d in enumerate(doctors[:MAX_OPTIONS], start=1)
+        ]
+        return (
+            TurnResponse(reply=self._t.template("slots_found", **values), intent="SEARCH_SLOTS", options=options, facts=facts),
+            state,
+        )
 
     async def _appointments(self, ctx: ChatContext, today: date) -> tuple[TurnResponse, ChatState]:
         upcoming = _upcoming(await self._tools.list_my_appointments(ctx), today)
@@ -97,6 +105,7 @@ class ToolIntentHandler:
                 reply=self._t.template("appointments_list"),
                 intent="VIEW_APPOINTMENTS",
                 options=[self._appointment_option(a) for a in upcoming[:MAX_OPTIONS]],
+                facts=[self._appointment_fact(i, a) for i, a in enumerate(upcoming[:MAX_OPTIONS], start=1)],
                 suggestions=["VIEW_TICKET", "RESCHEDULE", "CANCEL"],
             ),
             _done("VIEW_APPOINTMENTS"),
@@ -145,6 +154,7 @@ class ToolIntentHandler:
                 reply=self._t.template("change_manual", action=action),
                 intent=intent,
                 options=[self._appointment_option(a) for a in changeable[:MAX_OPTIONS]],
+                facts=[self._appointment_fact(i, a) for i, a in enumerate(changeable[:MAX_OPTIONS], start=1)],
             ),
             _done(intent),
         )
@@ -154,6 +164,12 @@ class ToolIntentHandler:
             part for part in (a.appointment_number, format_date(a.service_date), a.doctor_name, self._status(a.status)) if part
         )
         return TurnOption(kind="Appointment", appointment_id=a.appointment_id, service_date=a.service_date, label=label)
+
+    def _appointment_fact(self, index: int, a: AppointmentOut) -> str:
+        return (
+            f"{index}. Mã lịch hẹn: {a.appointment_number} | Ngày: {format_date(a.service_date)}"
+            f" | Bác sĩ: {a.doctor_name or 'không rõ'} | Trạng thái: {self._status(a.status)} | Phí đã trả: {_money(a.fee, a.currency)}"
+        )
 
     def _status(self, status: str) -> str:
         return self._t.routing.status_labels.get(status, status)
