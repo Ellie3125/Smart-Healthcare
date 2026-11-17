@@ -83,6 +83,9 @@ internal sealed class SqlQueueStore(SchedulingDbContext db, IDbClock clock, Audi
         RequireTransaction();
         await LockAsync(PatientLock(c.PatientId), ct);
         await LockAsync(StationLock(c.StationId), ct);
+        if (!await db.Set<ServiceStation>().FromSql($"SELECT * FROM scheduling.ServiceStation WITH (UPDLOCK,HOLDLOCK) WHERE Id={c.StationId}")
+                .AsNoTracking().AnyAsync(s => s.RoomId == c.RoomId && s.IsActive, ct))
+            return new(QueueResult.StationNotFound);
         if (await db.Set<ActiveStationAllocation>().AnyAsync(a => a.StationId == c.StationId, ct))
             return new(QueueResult.StationBusy);
         if (await db.Set<ActivePatientEngagement>().AnyAsync(e => e.PatientId == c.PatientId, ct))
