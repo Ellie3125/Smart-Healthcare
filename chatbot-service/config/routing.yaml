@@ -1,0 +1,59 @@
+# Bảng định tuyến đường tắt (Giải pháp kỹ thuật §11.3.5, contract docs/api/chatbot.md §6): câu khớp ở đây đi thẳng tới intent,
+# không gọi model (dưới khoảng 1 giây, chạy được cả khi model tạm ngưng). Câu không khớp mới cần model.
+# Sửa hành vi chatbot bằng cách sửa bảng này rồi chạy lại bộ kịch bản; không viết cứng trong code, không huấn luyện model.
+# Quy ước so khớp như config/specialty_hints.yaml (có dấu so với có dấu; không dấu so với đã bỏ dấu; nguyên từ).
+version: "2026-11-17"
+
+# Hỏi tư vấn chuyên môn: chẩn đoán, thuốc, kê đơn, chỉ định xét nghiệm. Chatbot từ chối (Phạm vi §2.2). Kiểm sau dấu hiệu nguy hiểm.
+medical_advice:
+  - uống thuốc gì
+  - thuốc gì
+  - nên uống gì
+  - kê đơn
+  - kê thuốc
+  - liều thuốc
+  - liều dùng
+  - chẩn đoán
+  - tôi bị bệnh gì
+  - bị bệnh gì
+  - có phải bị
+  - có nguy hiểm không
+  - cần xét nghiệm gì
+  - nên làm xét nghiệm
+  - chữa thế nào
+  - điều trị thế nào
+
+help:
+  - xin chào
+  - chào bạn
+  - chào bot
+  - bạn làm được gì
+  - bạn giúp được gì
+  - hướng dẫn
+  - trợ giúp
+
+# Intent → cụm từ. Thứ tự là thứ tự ưu tiên khi một câu khớp nhiều intent.
+intents:
+  SUGGEST_SPECIALTY: [khám khoa nào, khoa nào, chuyên khoa nào, nên khám ở đâu, nên khám gì]
+  CANCEL: [hủy lịch, huỷ lịch, hủy hẹn, huỷ hẹn, không đi khám nữa]
+  RESCHEDULE: [đổi lịch, dời lịch, chuyển lịch, đổi ngày khám, đổi bác sĩ]
+  VIEW_TICKET: [xem vé, vé khám, số thứ tự, mã lịch hẹn, mã đặt lịch]
+  VIEW_EXAM_PAYMENT: [thanh toán chưa, đã thanh toán, trạng thái thanh toán, tiền khám, phí khám đã trả, hoàn tiền]
+  VIEW_APPOINTMENTS: [lịch của tôi, lịch khám của tôi, lịch hẹn của tôi, xem lịch, lịch đã đặt]
+  SEARCH_SLOTS: [đặt lịch, đặt khám, tìm bác sĩ, tìm lịch, lịch trống, còn suất, còn chỗ]
+
+templates:
+  emergency: >-
+    Các dấu hiệu bạn mô tả có thể nguy hiểm. Vui lòng đến cơ sở cấp cứu gần nhất hoặc gọi 115 ngay, không chờ đặt lịch khám.
+  medical_advice: >-
+    Mình không thể tư vấn chẩn đoán, thuốc hay chỉ định xét nghiệm; việc này cần bác sĩ đánh giá khi khám.
+    Mình có thể gợi ý chuyên khoa để bạn đặt lịch, hoặc giúp tìm lịch khám.
+  help: >-
+    Mình giúp được: tìm và đặt lịch khám, xem, đổi hoặc hủy lịch, xem vé, xem trạng thái thanh toán phí khám,
+    và gợi ý chuyên khoa tham khảo khi bạn chưa biết nên khám khoa nào.
+  specialty_ask: >-
+    Bạn mô tả giúp mình triệu chứng hoặc vị trí khó chịu (ví dụ: đau bụng trên mấy hôm nay), mình sẽ gợi ý chuyên khoa tham khảo.
+  specialty_match: "Theo mô tả của bạn, bạn có thể tham khảo: {names}."
+  specialty_fallback: "Mình chưa xác định được chuyên khoa phù hợp từ mô tả. Bạn có thể chọn một trong các chuyên khoa sau:"
+  tool_pending: >-
+    Chức năng này trên chatbot đang được hoàn thiện. Bạn có thể dùng mục tương ứng trên web bệnh nhân trong lúc chờ.
