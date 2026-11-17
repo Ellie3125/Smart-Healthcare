@@ -26,6 +26,12 @@ public static class DependencyInjection
         services.AddScoped<ClsDayEndService>();
         services.AddScoped<ICashierStore, EfCashierStore>();
         services.AddScoped<CashierService>();
+        services.AddScoped<ICounterExamFeeCollector>(sp => sp.GetRequiredService<CashierService>());
+        services.AddScoped<IRefundStore, EfRefundStore>();
+        services.AddScoped<RefundService>();
+        services.AddScoped<IPaymentRefunds>(sp => sp.GetRequiredService<RefundService>());
+        // Worker phát AppointmentCancelled qua Outbox tới handler này (AddOutboxEvent<AppointmentCancelled>).
+        services.AddScoped<IIntegrationEventHandler<AppointmentCancelled>, AppointmentCancelledHandler>();
         services.AddScoped<IReconciliationStore, EfReconciliationStore>();
         services.AddScoped<PaymentReconciliationService>();
         services.AddHttpClient<IPaymentStatusGateway, VnpayStatusGateway>(client =>

@@ -76,8 +76,10 @@ public sealed partial class SchedulingHoldTests
                 await scope.ServiceProvider.GetRequiredService<HoldService>().ExpireDueAsync(Ct);
             }
 
-            await HandleAsync(services, Paid(attempt));
+            var late = Paid(attempt);
+            await HandleAsync(services, late);
 
+            Assert.Contains(late.PaymentIntentId, RecordingRefunds.Requested); // Billing được yêu cầu tạo yêu cầu hoàn
             Assert.Equal(expiredByJob ? 0 : 1, (await ReadQuotaAsync(services, day)).HeldCount);
             await AssertPaidUnallocatedAsync(services, day, attempt, expiredByJob ? "ReservationExpired" : "ReservationExpiredBeforePayment");
 
@@ -245,5 +247,17 @@ public sealed partial class SchedulingHoldTests
         public Task<IReadOnlyList<ChargeDto>> CreateClsChargesAsync(CreateClsCharges command, CancellationToken ct) => throw new NotSupportedException();
         public Task<EncounterCostSummary> GetEncounterCostSummaryAsync(Guid encounterId, CancellationToken ct) => throw new NotSupportedException();
         public Task<PaymentDto> CreatePaymentAsync(CreatePayment command, CancellationToken ct) => throw new NotSupportedException();
+    }
+
+    // Ghi lại yêu cầu hoàn PaidUnallocated mà handler gửi sang Billing; test chạy song song nên chỉ kiểm Contains.
+    private sealed class RecordingRefunds : IPaymentRefunds
+    {
+        public static readonly System.Collections.Concurrent.ConcurrentBag<Guid> Requested = [];
+
+        public Task<int> RequestPaidUnallocatedRefundAsync(Guid paymentIntentId, CancellationToken ct)
+        {
+            Requested.Add(paymentIntentId);
+            return Task.FromResult(1);
+        }
     }
 }

@@ -34,6 +34,7 @@ public static class DependencyInjection
 
         group.MapPatientPaymentEndpoints();
         group.MapStaffCashierEndpoints();
+        group.MapRefundEndpoints();
         return group;
     }
 
