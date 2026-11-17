@@ -49,6 +49,6 @@ public static class DependencyInjection
             // Dispatcher Outbox (W3-00) gọi handler; host cần IBillingModule khi resolve.
             .AddScoped<IIntegrationEventHandler<PaymentVerified>, PaymentVerifiedHandler>()
             .AddScoped<IConfirmationStore, SqlConfirmationStore>()
-            // AppointmentChangeService (cần IBillingModule) đăng ký cùng endpoint đổi/hủy khi contract được duyệt.
+            // AppointmentChangeService (cần IBillingModule) đăng ký ở Scheduling.Api cùng route đổi/hủy.
             .AddScoped<IAppointmentChangeStore, SqlAppointmentChangeStore>();
 }

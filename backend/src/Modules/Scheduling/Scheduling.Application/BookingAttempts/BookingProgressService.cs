@@ -34,6 +34,23 @@ public sealed class BookingProgressService(IBookingAttemptStore attempts, IOpera
         return new BookingProgress(attemptId, status.ToString(), attempt.CurrentStep.ToString(), expiresAtUtc, actions);
     }
 
+    /// <summary>Tiến trình dang dở để web bệnh nhân mời tiếp tục (W2-04); bỏ hồ sơ người gọi đã mất quyền Booking.</summary>
+    public async Task<IReadOnlyList<RecoverableProgress>> ListRecoverableAsync(Guid userId, CancellationToken ct)
+    {
+        var today = DateOnly.FromDateTime((await dbClock.GetUtcNowAsync(ct)).AddHours(7));
+        var result = new List<RecoverableProgress>();
+        foreach (var a in await attempts.ListUnfinishedAsync(userId, today, MaxRecoverable, ct))
+        {
+            if (await GetAttemptAsync(a.BookingAttemptId, userId, ct) is { } p)
+                result.Add(new RecoverableProgress(p.BookingAttemptId, a.PatientId, a.ServiceDate, a.DoctorId, p.Status,
+                    p.CurrentStep, p.ExpiresAtUtc, p.AllowedActions));
+        }
+
+        return result;
+    }
+
+    public const int MaxRecoverable = 20;
+
     public async Task<BookingOperationProgress?> GetOperationAsync(Guid operationId, Guid userId, CancellationToken ct)
     {
         var operation = await operations.GetAsync(operationId, ct);
@@ -58,6 +75,11 @@ public sealed class BookingProgressService(IBookingAttemptStore attempts, IOpera
 
 public sealed record BookingProgressSnapshot(Guid PatientId, BookingAttemptStatus Status, CurrentStep CurrentStep,
     ReservationProgress? Reservation);
+
+public sealed record RecoverableAttempt(Guid BookingAttemptId, Guid PatientId, DateOnly ServiceDate, Guid? DoctorId);
+
+public sealed record RecoverableProgress(Guid BookingAttemptId, Guid PatientId, DateOnly ServiceDate, Guid? DoctorId,
+    string Status, string CurrentStep, DateTime? ExpiresAtUtc, IReadOnlyList<string> AllowedActions);
 
 public sealed record ReservationProgress(ReservationStatus Status, DateTime ExpiresAtUtc);
 

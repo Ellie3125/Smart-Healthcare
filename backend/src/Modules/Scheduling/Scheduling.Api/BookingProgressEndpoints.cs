@@ -29,6 +29,13 @@ internal static class BookingProgressEndpoints
             .Produces<PaymentStarted>()
             .ProducesProblem(StatusCodes.Status404NotFound)
             .ProducesProblem(StatusCodes.Status409Conflict);
+        patient.MapGet("/booking-attempts/recoverable", async (ClaimsPrincipal user,
+                [FromServices] BookingProgressService progress, CancellationToken ct) =>
+                TryGetUserId(user, out var userId)
+                    ? Results.Ok(await progress.ListRecoverableAsync(userId, ct))
+                    : Results.Unauthorized())
+            .WithSummary("Tiến trình đặt lịch dang dở của người gọi, tối đa 20 (Patient)")
+            .Produces<IReadOnlyList<RecoverableProgress>>();
         patient.MapGet("/booking-attempts/{bookingAttemptId:guid}", GetAttemptAsync)
             .WithSummary("Khôi phục tiến trình đặt lịch (Patient)")
             .Produces<BookingProgress>()

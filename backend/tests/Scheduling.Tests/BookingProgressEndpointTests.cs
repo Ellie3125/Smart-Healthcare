@@ -8,6 +8,7 @@ using Microsoft.AspNetCore.Builder;
 using Microsoft.Extensions.DependencyInjection;
 using Notifications.Contracts;
 using Scheduling.Api;
+using Scheduling.Contracts;
 using Scheduling.Application.Appointments;
 using Scheduling.Application.BookingAttempts;
 using Scheduling.Application.Holds;
@@ -283,6 +284,105 @@ public sealed class BookingProgressEndpointTests
         Assert.Equal(HttpStatusCode.NotFound, revokedDetail.StatusCode);
     }
 
+    [Fact]
+    public async Task Patient_cancels_own_appointment_once_with_refund_and_replays_by_key()
+    {
+        var state = new State();
+        var appointment = state.AddAppointment();
+        await using var app = await StartAsync(state);
+        using var client = OwnerClient(app, state);
+        var route = $"/api/scheduling/patient/appointments/{appointment.AppointmentId:D}/cancel";
+
+        using var noKey = await PostAsync(client, route, new { reason = "bận" }, null);
+        Assert.Equal(HttpStatusCode.BadRequest, noKey.StatusCode);
+        using var notJson = await client.SendAsync(new HttpRequestMessage(HttpMethod.Post, route)
+        {
+            Content = new StringContent("x", Encoding.UTF8, "text/plain"), Headers = { { "Idempotency-Key", "k-text" } },
+        }, Ct);
+        Assert.Equal(HttpStatusCode.UnsupportedMediaType, notJson.StatusCode);
+
+        SchedulingEndpointTestSetup.Authorize(client, app.Configuration, Roles.Patient, Guid.NewGuid());
+        using var other = await PostAsync(client, route, new { }, "k1");
+        Assert.Equal(HttpStatusCode.NotFound, other.StatusCode);
+
+        SchedulingEndpointTestSetup.Authorize(client, app.Configuration, Roles.Patient, state.Owner);
+        using var cancelled = await PostAsync(client, route, new { reason = "bận" }, "k1");
+        Assert.Equal(HttpStatusCode.OK, cancelled.StatusCode);
+        using var body = JsonDocument.Parse(await cancelled.Content.ReadAsStringAsync(Ct));
+        Assert.Equal("Full", body.RootElement.GetProperty("refund").GetString());
+        Assert.Equal(150000m, body.RootElement.GetProperty("refundAmount").GetDecimal());
+        Assert.Equal((CancellationInitiator.Patient, (Guid?)state.PatientId), (state.LastCancel!.CancelledBy, state.LastCancel.PatientId));
+
+        using var replay = await PostAsync(client, route, new { reason = "bận" }, "k1");
+        Assert.Equal(HttpStatusCode.OK, replay.StatusCode);
+        Assert.Equal(1, state.CancelCalls);
+        using var conflict = await PostAsync(client, route, new { reason = "khác" }, "k1");
+        Assert.Equal(HttpStatusCode.Conflict, conflict.StatusCode);
+
+        state.HasBookingAccess = false;
+        using var revoked = await PostAsync(client, route, new { }, "k2");
+        Assert.Equal(HttpStatusCode.NotFound, revoked.StatusCode);
+    }
+
+    [Fact]
+    public async Task Patient_reschedule_uses_server_side_rank_and_returns_the_new_appointment()
+    {
+        var state = new State();
+        var appointment = state.AddAppointment();
+        await using var app = await StartAsync(state);
+        using var client = OwnerClient(app, state);
+        var route = $"/api/scheduling/patient/appointments/{appointment.AppointmentId:D}/reschedule";
+
+        using var missing = await PostAsync(client, route, new { targetServiceDate = "2026-11-14" }, "r1");
+        Assert.Equal(HttpStatusCode.BadRequest, missing.StatusCode);
+        state.Doctor = state.Doctor with { IsActive = false };
+        using var inactive = await PostAsync(client, route, new { targetDoctorId = state.Doctor.DoctorId, targetServiceDate = "2026-11-14" }, "r2");
+        Assert.Equal(HttpStatusCode.NotFound, inactive.StatusCode);
+        state.Doctor = state.Doctor with { IsActive = true };
+
+        using var moved = await PostAsync(client, route, new { targetDoctorId = state.Doctor.DoctorId, targetServiceDate = "2026-11-14" }, "r3");
+        Assert.Equal(HttpStatusCode.OK, moved.StatusCode);
+        using var body = JsonDocument.Parse(await moved.Content.ReadAsStringAsync(Ct));
+        Assert.NotEqual(appointment.AppointmentId, body.RootElement.GetProperty("appointmentId").GetGuid());
+        Assert.Equal("2026-11-14", body.RootElement.GetProperty("serviceDate").GetString());
+        Assert.Equal((state.Doctor.RankId, 150000m), (state.LastReschedule!.Value.Request.TargetDoctorRankId, state.LastReschedule.Value.Fee));
+    }
+
+    [Fact]
+    public async Task Patient_reschedule_after_cutoff_returns_problem_code()
+    {
+        // Fake idempotency giữ một kết quả, nên ca lỗi chạy trên state riêng.
+        var state = new State { NextChange = ChangeResult.RescheduleCutoffPassed };
+        var appointment = state.AddAppointment();
+        await using var app = await StartAsync(state);
+        using var client = OwnerClient(app, state);
+        var route = $"/api/scheduling/patient/appointments/{appointment.AppointmentId:D}/reschedule";
+        using var late = await PostAsync(client, route, new { targetDoctorId = state.Doctor.DoctorId, targetServiceDate = "2026-11-15" }, "r4");
+        Assert.Equal(HttpStatusCode.Conflict, late.StatusCode);
+        using var problem = JsonDocument.Parse(await late.Content.ReadAsStringAsync(Ct));
+        Assert.Equal("RescheduleCutoffPassed", problem.RootElement.GetProperty("code").GetString());
+    }
+
+    [Fact]
+    public async Task Recoverable_lists_only_unfinished_attempts_of_the_caller()
+    {
+        var state = new State();
+        await using var app = await StartAsync(state);
+        using var client = OwnerClient(app, state);
+        const string route = "/api/scheduling/patient/booking-attempts/recoverable";
+
+        using var list = JsonDocument.Parse(await client.GetStringAsync(route, Ct));
+        var item = Assert.Single(list.RootElement.EnumerateArray());
+        Assert.Equal(state.AttemptId, item.GetProperty("bookingAttemptId").GetGuid());
+        Assert.Equal("Hold", Assert.Single(item.GetProperty("allowedActions").EnumerateArray()).GetString());
+
+        state.HasBookingAccess = false;
+        Assert.Equal("[]", await client.GetStringAsync(route, Ct));
+        SchedulingEndpointTestSetup.Authorize(client, app.Configuration, Roles.Receptionist, state.Owner);
+        using var staff = await client.GetAsync(route, Ct);
+        Assert.Equal(HttpStatusCode.Forbidden, staff.StatusCode);
+    }
+
     private static async Task<HttpResponseMessage> PostAsync(HttpClient client, string route, object body, string? key)
     {
         using var request = new HttpRequestMessage(HttpMethod.Post, route) { Content = JsonContent.Create(body) };
@@ -304,6 +404,7 @@ public sealed class BookingProgressEndpointTests
         builder.Services.AddSingleton<IBookingPaymentStore>(state);
         builder.Services.AddSingleton<IPatientAppointmentReader>(state);
         builder.Services.AddSingleton<IBillingModule>(state);
+        builder.Services.AddSingleton<IAppointmentChangeStore>(state);
         builder.Services.AddScoped<BookingProgressService>().AddScoped<HoldService>();
         builder.Services.AddScoped<BookingAttemptService>().AddScoped<BookingPaymentService>();
         var app = builder.Build();
@@ -330,8 +431,48 @@ public sealed class BookingProgressEndpointTests
     }
 
     private sealed class State : IBookingAttemptStore, IOperationTracker, IIdempotencyStore, IHoldStore,
-        IUnitOfWork, IDbClock, IIdentityPatientsModule, IBookingPaymentStore, IPatientAppointmentReader, IBillingModule
+        IUnitOfWork, IDbClock, IIdentityPatientsModule, IBookingPaymentStore, IPatientAppointmentReader, IBillingModule,
+        IAppointmentChangeStore
     {
+        public int CancelCalls { get; private set; }
+        public CancelRequest? LastCancel { get; private set; }
+        public (RescheduleRequest Request, decimal Fee)? LastReschedule { get; private set; }
+        public ChangeResult? NextChange { get; set; }
+
+        public PatientAppointment AddAppointment()
+        {
+            var a = new PatientAppointment(Guid.NewGuid(), "A-1", AppointmentStatus.Scheduled, PatientId, Doctor.DoctorId,
+                new DateOnly(2026, 11, 13), Guid.NewGuid(), 150000m, NowUtc, null, null);
+            Appointments.Add(a);
+            return a;
+        }
+
+        public Task<ChangeOutcome> CancelAsync(CancelRequest request, Guid operationId, CancellationToken ct)
+        {
+            CancelCalls++;
+            LastCancel = request;
+            return Task.FromResult(new ChangeOutcome(ChangeResult.Cancelled, new CancelledInfo(AttemptId, PatientId, Doctor.DoctorId,
+                new DateOnly(2026, 11, 13), true, NowUtc, NowUtc.AddHours(1))));
+        }
+
+        public Task<ChangeOutcome> RescheduleAsync(RescheduleRequest request, decimal targetFee, CancellationToken ct)
+        {
+            LastReschedule = (request, targetFee);
+            if (NextChange is { } fail)
+                return Task.FromResult(new ChangeOutcome(fail));
+            var moved = Appointments.Single(x => x.AppointmentId == request.AppointmentId) with
+            {
+                AppointmentId = Guid.NewGuid(), ServiceDate = request.TargetServiceDate,
+            };
+            Appointments.Add(moved);
+            return Task.FromResult(new ChangeOutcome(ChangeResult.Rescheduled,
+                Rescheduled: new RescheduledInfo(moved.AppointmentId, "A-2", AttemptId, NowUtc)));
+        }
+
+        public Task<IReadOnlyList<RecoverableAttempt>> ListUnfinishedAsync(Guid appUserId, DateOnly fromDate, int take,
+            CancellationToken ct) => Task.FromResult<IReadOnlyList<RecoverableAttempt>>(appUserId == Owner
+                ? [new RecoverableAttempt(AttemptId, PatientId, new DateOnly(2026, 11, 13), null)] : []);
+
         private string? _hash;
         private IdempotencyBeginResult.Replay? _replay;
 
@@ -460,7 +601,8 @@ public sealed class BookingProgressEndpointTests
         public Task<PatientAppointment?> GetAsync(Guid appointmentId, Guid appUserId, CancellationToken ct) =>
             Task.FromResult(appUserId == Owner ? Appointments.SingleOrDefault(x => x.AppointmentId == appointmentId) : null);
 
-        public Task<FeeQuote> QuoteExamFeeAsync(QuoteExamFee query, CancellationToken ct) => throw new NotSupportedException();
+        public Task<FeeQuote> QuoteExamFeeAsync(QuoteExamFee query, CancellationToken ct) => Task.FromResult(
+            new FeeQuote(Guid.NewGuid(), "TEST", ChargeType.ConsultationFee, PriceBasis.DoctorRank, null, 150000m, "VND"));
         public Task<IReadOnlyList<FeeQuote>> QuoteClsFeesAsync(QuoteClsFees query, CancellationToken ct) => throw new NotSupportedException();
         public Task<IReadOnlyList<ChargeDto>> CreateClsChargesAsync(CreateClsCharges command, CancellationToken ct) => throw new NotSupportedException();
         public Task<EncounterCostSummary> GetEncounterCostSummaryAsync(Guid encounterId, CancellationToken ct) => throw new NotSupportedException();

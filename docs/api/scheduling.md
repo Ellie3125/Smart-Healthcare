@@ -1,6 +1,6 @@
 # Contract module Scheduling
 
-- contract_version: **v0.5** (Draft, chờ trưởng nhóm duyệt; v0.4 Approved 12/11/2026)
+- contract_version: **v0.6** (Draft, chờ trưởng nhóm duyệt; v0.4 Approved 12/11/2026)
 - Trạng thái: **Approved** (H-02, trưởng nhóm duyệt 10/11/2026). Q1 đã chốt 17/11/2026; Q2–Q5 ở §6 vẫn là đề xuất cho tới khi trưởng nhóm chốt từng câu.
 - Người giữ: theo ownership.md mục 1. Task: W1-04.
 - Mã nguồn: `backend/src/Modules/Scheduling/Scheduling.Contracts/` (in-process), `Scheduling.Api/` (HTTP).
@@ -220,6 +220,29 @@ Bốn route chỉ map ở Development; policy `PatientOnly`. Thứ tự gọi c�
 
 - 200 `{ tickets: [{ ticketNumber, sequenceNumber }] }`: vé đang `Called`/`InProgress` của phòng, mới nhất trước. Chỉ số vé, không PII. `roomId` thiếu hoặc sai → 400 `InvalidInput`.
 
+### 4.7 Hủy, đổi lịch và tiến trình dang dở phía bệnh nhân (W2-07, W2-04; v0.6, 17/11/2026)
+
+Chung: policy `PatientOnly`. Lịch không có, không do người gọi đặt, hoặc người gọi mất quyền Booking trên hồ sơ đều trả cùng 404 `AppointmentNotFound`. Header `Idempotency-Key` bắt buộc (một giá trị); gửi lại cùng khóa và nội dung trả kết quả đã lưu, khác nội dung trả 409 `IdempotencyConflict`; lệnh cùng khóa đang chạy trả 202 `{ operationId }`. Body phải là JSON (415 `UnsupportedMediaType`). Mốc 05:00 ngày D so bằng giờ DB sau khi nhận khóa. Lỗi nghiệp vụ là ProblemDetails có `code` = tên `ChangeResult`.
+
+`POST /api/scheduling/patient/appointments/{appointmentId:guid}/cancel`
+
+- Body tùy chọn `{ "reason": "<≤ 500 ký tự>" }` (có thể bỏ trống body). Chỉ lịch `Scheduled`.
+- 200 `{ appointmentId, status: "Cancelled", refund: "Full" | "None", refundAmount, currency, cancelledAtUtc, operationId }`. `Full` khi hủy trước 05:00 ngày D: trả suất và Billing tạo yêu cầu hoàn qua `AppointmentCancelled`; từ 05:00: `None`, khóa suất.
+- Lỗi: 400 `InvalidInput` · 404 `AppointmentNotFound` · 409 `InvalidAppointmentState`, `IdempotencyConflict`, `RequestInProgress`.
+
+`POST /api/scheduling/patient/appointments/{appointmentId:guid}/reschedule`
+
+- Body `{ "targetDoctorId": "<uuid>", "targetServiceDate": "yyyy-MM-dd" }`. Hạng bác sĩ đích lấy phía server; mức phí so theo bảng giá đang hiệu lực.
+- 200: lịch hẹn mới, cùng dạng phần tử của `GET /patient/appointments` (§4.5); lịch cũ chuyển `Rescheduled`.
+- Lỗi: 400 `InvalidInput` · 404 `AppointmentNotFound`, `DoctorNotFound` (bác sĩ đích không có hoặc ngừng), `DayNotFound` · 409 `RescheduleCutoffPassed`, `DifferentFee`, `SameDay`, `DayClosed`, `CutoffPassed`, `Full`, `AlreadyClaimed`, `InvalidAppointmentState`, `VersionConflict`, `IdempotencyConflict`, `RequestInProgress`.
+
+`GET /api/scheduling/patient/booking-attempts/recoverable`
+
+- Tiến trình đặt lịch của người gọi ở trạng thái `Draft`, `Held`, `WaitingPayment`, `Confirming`, `NeedsReselection`, ngày khám từ hôm nay (giờ Việt Nam theo DB), mới cập nhật trước, tối đa 20; bỏ hồ sơ người gọi đã mất quyền Booking.
+- 200 mảng `{ bookingAttemptId, patientId, serviceDate, doctorId?, status, currentStep, expiresAtUtc?, allowedActions }`; `status`/`allowedActions` tính như `GET /patient/booking-attempts/{id}` (§4.4).
+
+Chưa có (ngoài v0.6): `GET .../cancellation-preview`, `GET .../reschedule-options`, `GET .../ticket`.
+
 ## 5. HTTP dự kiến của W2 — chưa chốt
 
 Chỉ route và mục đích, để UI (W2-09) mock trước. Body, mã lỗi và quyền chốt trong bản contract sau. Route có tiền tố kênh `/patient/`, `/staff/`, `/admin/` (Q7, đã chốt 09/11/2026); Backend kiểm vai trò theo kênh. Mọi lệnh thay đổi nhận `Idempotency-Key`. Danh sách trả `items, page, pageSize, hasMore` (Q6, đã chốt).
@@ -233,9 +256,9 @@ Chỉ route và mục đích, để UI (W2-09) mock trước. Body, mã lỗi v�
 | `GET /api/scheduling/patient/operations/{operationId}` | Tra lệnh dài (202 + `operationId`); chi tiết §4.4 | W2-03, W2-04 |
 | `GET /api/scheduling/patient/appointments` | Đã có, chi tiết §4.5 | W2-07 |
 | `GET /api/scheduling/patient/appointments/{appointmentId}` | Đã có, chi tiết §4.5; số thứ tự bổ sung ở W3-02 | W2-07 |
-| `POST /api/scheduling/patient/appointments/{appointmentId}/reschedule` | Đổi lịch trước 05:00 sang bác sĩ cùng mức phí | W2-07 |
+| ~~`POST /api/scheduling/patient/appointments/{appointmentId}/reschedule`~~ (đã có, §4.7) | Đổi lịch trước 05:00 sang bác sĩ cùng mức phí | W2-07 |
 | `GET /api/scheduling/patient/appointments/{appointmentId}/cancellation-preview` | Số tiền được hoàn / không hoàn trước khi xác nhận hủy | W2-07 |
-| `POST /api/scheduling/patient/appointments/{appointmentId}/cancel` | Bệnh nhân hủy lịch (chỉ Scheduled) | W2-07 |
+| ~~`POST /api/scheduling/patient/appointments/{appointmentId}/cancel`~~ (đã có, §4.7) | Bệnh nhân hủy lịch (chỉ Scheduled) | W2-07 |
 | `GET /api/scheduling/staff/doctors` | Tiếp tân tìm bác sĩ, suất trống, phí; cùng `DoctorSearchService` và DTO với route patient, policy nhân viên quầy (vai trò `Receptionist`) (Q2, đề xuất, chờ trưởng nhóm duyệt) | W3-01 |
 | ~~`POST /api/scheduling/staff/appointments/{appointmentId}/check-in`~~ | Đã có, xem §4.6 | W3-02 |
 | `POST /api/scheduling/staff/appointments/{appointmentId}/cancel` | Tiếp tân hủy (Scheduled; CheckedIn bắt buộc lý do) | W2-07 |
@@ -267,3 +290,4 @@ Chỉ route và mục đích, để UI (W2-09) mock trước. Body, mã lỗi v�
 | v0.4 Approved | 12/11/2026 | Trưởng nhóm duyệt phần thêm của v0.4 |
 | v0.5 | 17/11/2026 | Q1 đã chốt (Encounter mở đồng bộ cùng UoW); `CheckInResult` và `TicketCheckedIn` có `EncounterId`, trường vé không nullable; thêm §4.6 (check-in, lịch hôm nay, hàng chờ phòng, màn hình chờ) |
 | v0.5 (sửa) | 17/11/2026 | §4.1: mở ngày trực nhận body `roomId` (admin chọn phòng), thêm 404 `RoomNotFound`, thêm `GET /admin/doctor-days?serviceDate=`; bỏ cổng Development của Scheduling, danh bạ bác sĩ thật qua Identity |
+| v0.6 | 17/11/2026 | Thêm §4.7: bệnh nhân hủy, đổi lịch (Idempotency-Key) và `GET /patient/booking-attempts/recoverable` |
