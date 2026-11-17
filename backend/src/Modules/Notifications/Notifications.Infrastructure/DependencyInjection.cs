@@ -11,5 +11,7 @@ public static class DependencyInjection
     public static IServiceCollection AddNotificationsInfrastructure(this IServiceCollection services, string connectionString) =>
         services.AddDbContext<WorkflowDbContext>(options => options.UseSqlServer(connectionString,
             sql => sql.MigrationsHistoryTable("__EFMigrationsHistory", WorkflowDbContext.Schema)))
-            .AddScoped<IOperationTracker, EfOperationTracker>();
+            .AddScoped<IOperationTracker, EfOperationTracker>()
+            .AddScoped<Shared.Abstractions.IIntegrationEventHandler<Scheduling.Contracts.QueueCalled>>(provider =>
+                ActivatorUtilities.CreateInstance<QueueCalledRealtimeHandler>(provider));
 }
