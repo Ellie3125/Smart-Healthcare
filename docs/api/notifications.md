@@ -1,6 +1,6 @@
 # Contract module Notifications (workflow)
 
-- contract_version: **v0.1**
+- contract_version: **v0.3**
 - Trạng thái: **Draft**, chờ trưởng nhóm duyệt (H-02).
 - Người giữ: Claude Code (ownership.md mục 1). Task: W2-03.
 - Mã nguồn: `backend/src/Modules/Notifications/Notifications.Contracts/IOperationTracker.cs`.
@@ -38,9 +38,26 @@ Nginx chặn `/hubs/staff` ở host công khai và `/hubs/patient`, `/hubs/publi
 
 Backplane: `ConnectionStrings:Redis` có giá trị thì Api (BE1, BE2) và Worker dùng Redis (`ChannelPrefix = SmartHealthcare`, `AbortOnConnectFail = false`: Redis chết Api vẫn khởi động, đặt lịch vẫn chạy); trống thì một instance không backplane (máy dev). Package `Microsoft.AspNetCore.SignalR.StackExchangeRedis` 10.0.15 (bản vá GHSA-wr8v-9x5q-ggcm).
 
+## 3a. Thông báo trên web bệnh nhân (W4-03, v0.3, 17/11/2026)
+
+Lưu bền trong `workflow.PatientNotification` (một dòng mỗi sự kiện × hồ sơ × loại; unique `(SourceEventId, PatientId, Kind)` nên xử lý lặp không tạo trùng) và `workflow.PatientNotificationRead` (đã đọc riêng từng tài khoản, PK `(NotificationId, AppUserId)`). Không lưu bệnh án, tên, điện thoại hay nội dung tự do: tiêu đề và nội dung sinh từ mẫu cố định theo `Kind`. Không push trong MVP.
+
+`GET /api/notifications/patient/notifications?patientId=&unreadOnly=false&page=1&pageSize=50` — `PatientOnly`
+
+- `patientId` bắt buộc (hồ sơ đang chọn); `pageSize` 1..100. Kiểm `CanAccessPatientAsync(user, patientId, Booking)` trước khi đọc. Thông báo `ResultsAvailable` chỉ hiện khi người gọi có quyền `ClinicalRecords` và bác sĩ đã phát hành kết luận sau CLS.
+- 200 `{ items, unreadCount, hasMore }`; item `{ id, title, body, category: Appointment|Clinical|Queue, status: Sent|Read, createdAt, targetPath: null }`. `unreadCount` theo tài khoản đang đăng nhập.
+- 400 `InvalidInput`; 404 khi không có quyền hồ sơ (không phân biệt với hồ sơ không tồn tại); 401/403.
+
+`POST /api/notifications/patient/notifications/{id}/read` — `PatientOnly`
+
+- Không body. 204; gọi lặp vẫn 204. 404 khi không có hoặc không còn quyền xem hồ sơ của thông báo.
+
+`Kind`: AppointmentConfirmed, AppointmentCancelled, DoctorChanged, ClsOrdered, ResultsAvailable, TicketCalled, ReturnTicketActivated. Đã nối handler cho AppointmentConfirmed, AppointmentCancelled; các loại khác có mẫu, nối khi luồng phát sự kiện tương ứng xong.
+
 ## 4. Lịch sử
 
 | Version | Ngày | Thay đổi |
 |---|---|---|
 | v0.1 | 09/11/2026 | Bản đầu (W2-03) |
 | v0.2 | 17/11/2026 | §3 hub SignalR, `IRealtimeNotifier`, Redis backplane (W4-01) |
+| v0.3 | 17/11/2026 | §3a thông báo bệnh nhân lưu bền + đã đọc theo tài khoản (W4-03), migration Workflow `PatientNotifications` |
