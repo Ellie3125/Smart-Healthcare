@@ -16,6 +16,8 @@ public static class DependencyInjection
         services.AddDbContext<WorkflowDbContext>(options => options.UseSqlServer(connectionString,
             sql => sql.MigrationsHistoryTable("__EFMigrationsHistory", WorkflowDbContext.Schema)))
             .AddScoped<IOperationTracker, EfOperationTracker>()
+            .AddScoped<Notifications.Application.Exceptions.IWorkflowExceptionMonitor>(provider =>
+                ActivatorUtilities.CreateInstance<Notifications.Infrastructure.Exceptions.WorkflowExceptionMonitor>(provider))
             .AddScoped<IPatientNotificationWriter, EfPatientNotificationWriter>()
             // Reader only runs in Api with Identity/Clinical; Worker only needs the writer and handlers.
             .AddScoped<IPatientNotificationReader>(provider => ActivatorUtilities.CreateInstance<EfPatientNotificationReader>(provider))

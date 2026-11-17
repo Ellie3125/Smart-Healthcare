@@ -165,7 +165,7 @@ public sealed class EndpointAuthorizationInventoryTests
         var all = string.Join(", ", routes);
         foreach (var prefix in new[] { "api/staff/admin", "api/staff/verifications", "api/patient/profiles", "api/scheduling/admin/doctor-days",
             "api/scheduling/admin/medical-services", "api/scheduling/admin/service-stations", "api/scheduling/staff/medical-services",
-            "api/scheduling/patient/doctors", "api/scheduling/staff/appointments", "me" })
+            "api/scheduling/patient/doctors", "api/scheduling/staff/appointments", "api/workflow/admin/exceptions", "me" })
         {
             Assert.True(routes.Any(r => r.StartsWith(prefix, StringComparison.Ordinal)), $"Thiếu {prefix} trong: {all}");
         }
