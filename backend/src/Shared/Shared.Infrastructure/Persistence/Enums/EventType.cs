@@ -8,6 +8,5 @@ public enum EventType
     ResultPublished,
     AppointmentConfirmed,
     AppointmentCancelled,
-    ClsResultsPublishedIntegrationEvent,
     ReturnTicketActivated
 }

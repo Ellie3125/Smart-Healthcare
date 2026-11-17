@@ -25,13 +25,15 @@ internal sealed class IntegrationEventPublisher(SharedDbContext shared, OutboxWr
         [EventType.ResultPublished] = AggregateType.CLSResult,
         [EventType.AppointmentConfirmed] = AggregateType.Appointment,
         [EventType.AppointmentCancelled] = AggregateType.Appointment,
-        [EventType.ClsResultsPublishedIntegrationEvent] = AggregateType.Encounter,
         [EventType.ReturnTicketActivated] = AggregateType.QueueTicket,
     };
 
     public Task PublishAsync<TEvent>(TEvent e, Guid aggregateId, CancellationToken ct) where TEvent : IIntegrationEvent
     {
         ArgumentNullException.ThrowIfNull(e);
+        // Clinical's CLR name exceeds EventType's 32 characters; preserve the existing ResultPublished wire name.
+        if (e.GetType().FullName == "Clinical.Contracts.ClsResultsPublishedIntegrationEvent")
+            return outbox.EnqueueAsync(shared, e, EventType.ResultPublished, AggregateType.Encounter, aggregateId, ct);
         var name = e.GetType().Name;
         if (!Enum.TryParse<EventType>(name, out var type) || !Aggregates.TryGetValue(type, out var aggregate))
             throw new ArgumentException($"Sự kiện {name} không có trong danh sách EventType của Outbox.", nameof(e));

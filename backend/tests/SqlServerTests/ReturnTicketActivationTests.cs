@@ -11,6 +11,7 @@ using Scheduling.Infrastructure.Persistence;
 using Scheduling.Infrastructure.Queues;
 using Shared.Abstractions;
 using Shared.Infrastructure;
+using Shared.Infrastructure.Outbox;
 using Shared.Infrastructure.Persistence;
 using Shared.Infrastructure.Persistence.Entities;
 using Xunit;
@@ -21,6 +22,21 @@ namespace SqlServerTests;
 public sealed class ReturnTicketActivationTests
 {
     private static CancellationToken Ct => TestContext.Current.CancellationToken;
+
+    [Fact]
+    public async Task Clinical_event_publishes_and_dispatches_under_the_existing_short_wire_name()
+    {
+        await using var f = await Fixture.Create();
+        await using var scope = f.Services.CreateAsyncScope();
+        await scope.ServiceProvider.GetRequiredService<IUnitOfWork>().ExecuteAsync(t => scope.ServiceProvider.GetRequiredService<IIntegrationEventPublisher>()
+            .PublishAsync(f.Event, f.Encounter, t), Ct);
+        var row = await scope.ServiceProvider.GetRequiredService<SharedDbContext>().Set<OutboxMessage>().AsNoTracking().SingleAsync(x => x.Id == f.Event.EventId, Ct);
+        Assert.Equal("ResultPublished", row.EventType.ToString()); Assert.Equal(f.Encounter, row.AggregateId);
+        Assert.Equal("Encounter", row.AggregateType.ToString());
+        var registration = Assert.Single(scope.ServiceProvider.GetServices<OutboxEventRegistration>());
+        await registration.DispatchAsync(scope.ServiceProvider, row.PayloadJson, Ct);
+        Assert.Equal(QueueStatus.Waiting, (await f.Ticket()).QueueStatus);
+    }
 
     [Fact]
     public async Task Parallel_events_and_replay_activate_the_existing_ticket_once_and_keep_issue_time()
@@ -132,7 +148,8 @@ public sealed class ReturnTicketActivationTests
                 [new(Guid.NewGuid(), f.Order, Guid.NewGuid(), "Test", 100, "ServiceFinished", true, DateTime.UtcNow, null)]);
             var identity = DispatchProxy.Create<IIdentityPatientsModule, IdentityData>(); f.Identity = (IdentityData)identity;
             var cs = TestDatabase.RequiredConnectionString(); f.Services = new ServiceCollection().AddSharedInfrastructure(cs).AddSchedulingInfrastructure(cs)
-                .AddUnitOfWorkParticipant<SchedulingDbContext>().AddSingleton(clinical).AddSingleton(identity).BuildServiceProvider();
+                .AddUnitOfWorkParticipant<SchedulingDbContext>().AddSingleton(clinical).AddSingleton(identity)
+                .AddOutboxEvent<ClsResultsPublishedIntegrationEvent>(Shared.Infrastructure.Persistence.Enums.EventType.ResultPublished).BuildServiceProvider();
             f.Event = new(Guid.NewGuid(), f.Encounter, f.Order, DateTime.UtcNow, null); f.Events.Add(f.Event.EventId);
             await using var scope = f.Services.CreateAsyncScope(); var db = scope.ServiceProvider.GetRequiredService<SchedulingDbContext>();
             db.Add(new QueueTicket { Id = f.Id, EncounterId = f.Encounter, ServiceOrderId = f.Order, TargetRoomId = f.Room, TicketNumber = $"TEST-{f.Id:N}",
@@ -151,7 +168,7 @@ public sealed class ReturnTicketActivationTests
         {
             await using var s = Services.CreateAsyncScope(); var shared = s.ServiceProvider.GetRequiredService<SharedDbContext>(); var db = s.ServiceProvider.GetRequiredService<SchedulingDbContext>();
             await shared.Set<ProcessedEvent>().Where(x => Events.Contains(x.EventId)).ExecuteDeleteAsync(Ct);
-            await shared.Set<OutboxMessage>().Where(x => x.AggregateId == Id).ExecuteDeleteAsync(Ct);
+            await shared.Set<OutboxMessage>().Where(x => x.AggregateId == Id || Events.Contains(x.Id)).ExecuteDeleteAsync(Ct);
             await shared.Set<AuditLog>().Where(x => x.RecordId == Id).ExecuteDeleteAsync(Ct);
             await db.Set<ActivePatientEngagement>().Where(x => x.PatientId == Patient).ExecuteDeleteAsync(Ct);
             await db.Set<QueueTicket>().Where(x => x.EncounterId == Encounter).ExecuteDeleteAsync(Ct);
