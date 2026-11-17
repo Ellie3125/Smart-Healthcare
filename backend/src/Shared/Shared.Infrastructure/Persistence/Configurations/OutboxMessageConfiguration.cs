@@ -16,6 +16,8 @@ internal sealed class OutboxMessageConfiguration : IEntityTypeConfiguration<Outb
         builder.Property(x => x.PayloadJson).HasColumnType("nvarchar(max)");
         builder.Property(x => x.Status).HasConversion<string>().HasMaxLength(32);
 
+        // ProcessedAtUtc = lần xử lý gần nhất (nhận, lỗi hoặc Published): dispatcher tính backoff/lease, job dọn tính tuổi bản ghi.
+        // Trưởng nhóm chốt 17/11/2026 giữ một cột, không tách NextAttemptAtUtc.
         builder.HasIndex(x => x.OperationId);
         // Chỉ bản ghi chưa xong (Published bị loại khỏi index nên index nhỏ dù bảng lớn): Worker claim và giám sát ngoại lệ
         // đọc theo trạng thái + thời điểm tạo mà không quét bảng (CLA-PERF-001).

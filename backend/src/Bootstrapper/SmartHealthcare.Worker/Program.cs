@@ -4,6 +4,7 @@ using Scheduling.Application.CheckIn;
 using Scheduling.Application.Holds;
 using Shared.Infrastructure;
 using Shared.Infrastructure.Outbox;
+using Shared.Infrastructure.Persistence;
 using SmartHealthcare.Worker;
 
 var builder = Host.CreateApplicationBuilder(args);
@@ -42,5 +43,9 @@ host.Services.GetRequiredService<IRecurringJobManager>().AddOrUpdate<PaymentReco
 host.Services.GetRequiredService<IRecurringJobManager>().AddOrUpdate<OutboxDispatcher>(
     "shared-outbox-dispatch", dispatcher => dispatcher.DispatchPendingAsync(CancellationToken.None),
     builder.Configuration[$"{OutboxOptions.Section}:Cron"] ?? Cron.Minutely());
+
+// Dọn dữ liệu kỹ thuật quá 30 ngày (Outbox Published, ProcessedEvent, idempotency hết hạn). 19:00 UTC = 02:00 giờ Việt Nam.
+host.Services.GetRequiredService<IRecurringJobManager>().AddOrUpdate<TechnicalDataCleanupJob>(
+    "shared-technical-data-cleanup", job => job.RunAsync(CancellationToken.None), "0 19 * * *");
 
 host.Run();
