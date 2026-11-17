@@ -21,11 +21,8 @@ public sealed class DoctorSearchEndpointTests
         var rankId = Guid.NewGuid();
         var specialtyId = Guid.NewGuid();
         var builder = SchedulingEndpointTestSetup.CreateBuilder();
-        const string doctorConfig = "Scheduling:DoctorSearch:DevelopmentDoctors:0:";
-        builder.Configuration[doctorConfig + "DoctorId"] = doctorId.ToString("D");
-        builder.Configuration[doctorConfig + "FullName"] = "BS giả lập";
-        builder.Configuration[doctorConfig + "DoctorRankId"] = rankId.ToString("D");
-        builder.Configuration[doctorConfig + "SpecialtyId"] = specialtyId.ToString("D");
+        builder.Services.AddSingleton<IDoctorSearchDirectory>(
+            new DoctorSearchTests.Directory(new DoctorSearchProfile(doctorId, "BS giả lập", rankId, specialtyId)));
         builder.Services.AddSingleton<IDoctorSearchQuotaReader>(
             new DoctorSearchTests.Quotas([(date, new DoctorSearchQuota(doctorId, 30, 10, 14, 1))]));
 

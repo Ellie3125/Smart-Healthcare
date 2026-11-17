@@ -85,11 +85,6 @@ builder.Services
     .AddNotificationsApplication().AddNotificationsApi()
     .AddDocumentsReportingApplication().AddDocumentsReportingApi();
 
-if (DemoData.IsEnabled(builder.Configuration, builder.Environment))
-{
-    builder.AddDemoData();
-}
-
 string[] moduleTags =
 [
     IdentityPatients.Api.DependencyInjection.Tag,

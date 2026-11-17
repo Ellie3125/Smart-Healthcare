@@ -66,7 +66,9 @@ public sealed class DemoDataTests
 
     private sealed class Rooms : IDoctorDirectory
     {
-        public Task<Guid?> GetAssignedRoomIdAsync(Guid doctorId, CancellationToken ct) =>
-            Task.FromResult<Guid?>(DemoData.DoctorRooms.Single(x => x.DoctorId == doctorId).RoomId);
+        public Task<bool> IsActiveDoctorAsync(Guid doctorId, CancellationToken ct) =>
+            Task.FromResult(DemoData.DoctorRooms.Any(x => x.DoctorId == doctorId));
+        public Task<bool> IsActiveClinicalRoomAsync(Guid roomId, CancellationToken ct) =>
+            Task.FromResult(DemoData.DoctorRooms.Any(x => x.RoomId == roomId));
     }
 }

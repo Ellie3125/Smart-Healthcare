@@ -91,7 +91,8 @@ public sealed class EndpointAuthorizationInventoryTests
         Directory.GetFiles(AppContext.BaseDirectory, "*.Api.dll")
             .Select(file => Assembly.Load(AssemblyName.GetAssemblyName(file)))
             .SelectMany(a => a.GetTypes())
-            .Where(t => t is { Name: "DependencyInjection", IsAbstract: true, IsSealed: true })
+            // Map*Endpoints có thể nằm ở class riêng (CheckInEndpoints, WalkInEndpoints): quét mọi static class public.
+            .Where(t => t is { IsAbstract: true, IsSealed: true, IsPublic: true } && (prefix == "Map" || t.Name == "DependencyInjection"))
             .SelectMany(t => t.GetMethods(BindingFlags.Public | BindingFlags.Static))
             .Where(m => m.Name.StartsWith(prefix, StringComparison.Ordinal)
                 && m.Name.EndsWith(prefix == "Map" ? "Endpoints" : "Api", StringComparison.Ordinal)
@@ -148,14 +149,17 @@ public sealed class EndpointAuthorizationInventoryTests
         Assert.DoesNotContain(PublicRoutes, r => !routes.Contains(r));
     }
 
-    [Fact]
-    public async Task Inventory_CoversIdentityAndSchedulingEndpoints()
+    // Scheduling không còn cổng Development (17/11/2026): Production cũng phải có route đặt lịch.
+    [Theory]
+    [InlineData("Production")]
+    [InlineData("Development")]
+    public async Task Inventory_CoversIdentityAndSchedulingEndpoints(string environment)
     {
-        await using var app = BuildApp("Development");
+        await using var app = BuildApp(environment);
         var routes = Endpoints(app).Select(e => PathOf(e)).ToList();
 
         var all = string.Join(", ", routes);
-        foreach (var prefix in new[] { "api/staff/admin", "api/staff/verifications", "api/patient/profiles", "api/scheduling/admin/doctor-days", "me" })
+        foreach (var prefix in new[] { "api/staff/admin", "api/staff/verifications", "api/patient/profiles", "api/scheduling/admin/doctor-days", "api/scheduling/patient/doctors", "api/scheduling/staff/appointments", "me" })
         {
             Assert.True(routes.Any(r => r.StartsWith(prefix, StringComparison.Ordinal)), $"Thiếu {prefix} trong: {all}");
         }

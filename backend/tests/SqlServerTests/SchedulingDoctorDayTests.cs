@@ -21,10 +21,10 @@ public sealed class SchedulingDoctorDayTests
         await using var writer = database.CreateContext<SchedulingDbContext>(options => new(options));
         await using var reader = database.CreateContext<SchedulingDbContext>(options => new(options));
         var doctorId = Guid.NewGuid();
-        var roomId = Guid.NewGuid();
+        var roomId = RoomId;
         var service = new DoctorDayService(new DoctorDirectory(roomId), new SqlDoctorDayStore(writer), new(new TimeOnly(deadlineIctHour, 0)));
 
-        var (status, quota) = await service.OpenAsync(doctorId, ServiceDate, Ct);
+        var (status, quota) = await service.OpenAsync(doctorId, ServiceDate, RoomId, Ct);
 
         Assert.Equal(DoctorDayResult.Opened, status);
         Assert.NotNull(quota);
@@ -43,7 +43,7 @@ public sealed class SchedulingDoctorDayTests
         await using var first = database.CreateContext<SchedulingDbContext>(options => new(options));
         await using var second = database.CreateContext<SchedulingDbContext>(options => new(options));
         var doctorId = Guid.NewGuid();
-        var roomId = Guid.NewGuid();
+        var roomId = RoomId;
         var day = ServiceDate.ToDateTime(TimeOnly.MinValue);
         var initial = await database.InsertAsync("scheduling.DoctorDayQuota", new
         {
@@ -52,13 +52,13 @@ public sealed class SchedulingDoctorDayTests
         await database.RejectsAsync(TestDatabase.UniqueIndexViolation, "scheduling.DoctorDayQuota",
             new { DoctorId = doctorId, ServiceDate = day, Capacity = 30 });
 
-        var (status, quota) = await Service(first, roomId).OpenAsync(doctorId, ServiceDate, Ct);
+        var (status, quota) = await Service(first, roomId).OpenAsync(doctorId, ServiceDate, RoomId, Ct);
 
         Assert.Equal(DoctorDayResult.AlreadyExists, status);
         Assert.Null(quota);
         Assert.Equal(initial, await second.Set<DoctorDayQuota>()
             .Where(x => x.DoctorId == doctorId && x.ServiceDate == ServiceDate).Select(x => x.Id).SingleAsync(Ct));
-        Assert.Equal(DoctorDayResult.Opened, (await Service(first, roomId).OpenAsync(doctorId, ServiceDate.AddDays(1), Ct)).Status);
+        Assert.Equal(DoctorDayResult.Opened, (await Service(first, roomId).OpenAsync(doctorId, ServiceDate.AddDays(1), RoomId, Ct)).Status);
     }
 
     [Fact]
@@ -67,10 +67,10 @@ public sealed class SchedulingDoctorDayTests
         await using var database = await TestDatabase.OpenAsync();
         await using var db = database.CreateContext<SchedulingDbContext>(options => new(options));
         var doctorId = Guid.NewGuid();
-        var service = Service(db, Guid.NewGuid());
+        var service = Service(db, RoomId);
 
         Assert.Equal(DoctorDayResult.DayNotFound, await service.CloseAsync(doctorId, ServiceDate, Ct));
-        var (_, opened) = await service.OpenAsync(doctorId, ServiceDate, Ct);
+        var (_, opened) = await service.OpenAsync(doctorId, ServiceDate, RoomId, Ct);
         Assert.NotNull(opened);
         Assert.Equal(DoctorDayResult.Closed, await service.CloseAsync(doctorId, ServiceDate, Ct));
         Assert.Equal(DoctorDayResult.Closed, await service.CloseAsync(doctorId, ServiceDate, Ct));
@@ -84,14 +84,14 @@ public sealed class SchedulingDoctorDayTests
         await using var database = await TestDatabase.OpenAsync();
         await using var db = database.CreateContext<SchedulingDbContext>(options => new(options));
         var doctorId = Guid.NewGuid();
-        var roomId = Guid.NewGuid();
+        var roomId = RoomId;
         var service = Service(db, roomId);
-        var (_, opened) = await service.OpenAsync(doctorId, ServiceDate, Ct);
+        var (_, opened) = await service.OpenAsync(doctorId, ServiceDate, RoomId, Ct);
         Assert.NotNull(opened);
         Assert.Equal(DoctorDayResult.Closed, await service.CloseAsync(doctorId, ServiceDate, Ct));
 
-        var newPolicy = new DoctorDayService(new DoctorDirectory(Guid.NewGuid()), new SqlDoctorDayStore(db), new(new TimeOnly(12, 0)));
-        var (status, reopened) = await newPolicy.OpenAsync(doctorId, ServiceDate, Ct);
+        var newPolicy = new DoctorDayService(new DoctorDirectory(RoomId), new SqlDoctorDayStore(db), new(new TimeOnly(12, 0)));
+        var (status, reopened) = await newPolicy.OpenAsync(doctorId, ServiceDate, RoomId, Ct);
 
         Assert.Equal(DoctorDayResult.Opened, status);
         Assert.NotNull(reopened);
@@ -104,7 +104,7 @@ public sealed class SchedulingDoctorDayTests
         Assert.Equal(reopened.Id, saved.Id);
         Assert.True(saved.IsOpen);
         Assert.Equal(saved.RowVersion, reopened.RowVersion);
-        Assert.Equal(DoctorDayResult.AlreadyExists, (await newPolicy.OpenAsync(doctorId, ServiceDate, Ct)).Status);
+        Assert.Equal(DoctorDayResult.AlreadyExists, (await newPolicy.OpenAsync(doctorId, ServiceDate, RoomId, Ct)).Status);
     }
 
     [Theory]
@@ -121,8 +121,8 @@ public sealed class SchedulingDoctorDayTests
         await using var database = await TestDatabase.OpenAsync();
         await using var db = database.CreateContext<SchedulingDbContext>(options => new(options));
         var doctorId = Guid.NewGuid();
-        var service = Service(db, Guid.NewGuid());
-        var (_, opened) = await service.OpenAsync(doctorId, ServiceDate, Ct);
+        var service = Service(db, RoomId);
+        var (_, opened) = await service.OpenAsync(doctorId, ServiceDate, RoomId, Ct);
         Assert.NotNull(opened);
 
         var reservationQuotaId = appointmentStatus is not null
@@ -165,15 +165,18 @@ public sealed class SchedulingDoctorDayTests
             AdmittedCount = admittedCount, LockedCancelledCount = lockedCancelledCount
         });
 
-        Assert.Equal(DoctorDayResult.HasBookings, await Service(db, Guid.NewGuid()).CloseAsync(doctorId, ServiceDate, Ct));
+        Assert.Equal(DoctorDayResult.HasBookings, await Service(db, RoomId).CloseAsync(doctorId, ServiceDate, Ct));
         Assert.True(await db.Set<DoctorDayQuota>().Where(x => x.Id == quotaId).Select(x => x.IsOpen).SingleAsync(Ct));
     }
 
     private static DoctorDayService Service(SchedulingDbContext db, Guid roomId) =>
         new(new DoctorDirectory(roomId), new SqlDoctorDayStore(db), new(new TimeOnly(11, 0)));
 
+    private static readonly Guid RoomId = Guid.NewGuid();
+
     private sealed class DoctorDirectory(Guid roomId) : IDoctorDirectory
     {
-        public Task<Guid?> GetAssignedRoomIdAsync(Guid doctorId, CancellationToken ct) => Task.FromResult<Guid?>(roomId);
+        public Task<bool> IsActiveDoctorAsync(Guid doctorId, CancellationToken ct) => Task.FromResult(true);
+        public Task<bool> IsActiveClinicalRoomAsync(Guid id, CancellationToken ct) => Task.FromResult(id == roomId);
     }
 }

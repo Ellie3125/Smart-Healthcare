@@ -81,7 +81,8 @@ Payload:
 
 `POST /api/scheduling/admin/doctor-days/{doctorId:guid}/{serviceDate}`
 
-- Kênh: **Staff**. Policy `AdminOnly` (vai trò `Admin` và claim `channel` = `Staff`, FIX-013). Không có body. Không nhận `Idempotency-Key` (gọi lại trả 409 `AlreadyExists` khi ngày đang mở).
+- Kênh: **Staff**. Policy `AdminOnly` (vai trò `Admin` và claim `channel` = `Staff`, FIX-013). Body `{ "roomId": "<guid>" }` bắt buộc (v0.5, chốt 17/11/2026: admin chọn phòng khám cho phiên; Identity chưa có phòng theo ca trực của bác sĩ). Không nhận `Idempotency-Key` (gọi lại trả 409 `AlreadyExists` khi ngày đang mở).
+- Kiểm qua `IIdentityPatientsModule`: bác sĩ tồn tại và đang hoạt động; phòng tồn tại, đang hoạt động và `RoomType = Clinical`.
 - Mở ngày mới với Capacity 30, `SessionStartTimeUtc` 06:30, `BookingCutoffTimeUtc` 09:30, `RescheduleCutoffTimeUtc` 05:00, `CheckInDeadlineUtc` theo cấu hình `Scheduling:DoctorDays:CheckInDeadline` (mặc định 11:00), quy đổi từ giờ Việt Nam sang UTC. Ngày đã đóng (`isOpen = false`) thì mở lại dưới khóa `UPDLOCK, HOLDLOCK` và trả quota cũ, giữ cấu hình cũ.
 - 201 + body (không có header Location):
 
@@ -93,7 +94,21 @@ Payload:
     "sessionStatus": "Scheduled", "isOpen": true }
   ```
 
-- Lỗi: 400 `InvalidInput` · 404 `DoctorNotFound` (bác sĩ không có phòng được phân công) · 409 `AlreadyExists` · 401/403.
+- Lỗi: 400 `InvalidInput` (thiếu/rỗng `roomId`, ngày sai) · 404 `DoctorNotFound` (bác sĩ không có hoặc ngừng hoạt động) · 404 `RoomNotFound` (phòng không có, ngừng, hoặc không phải phòng khám) · 409 `AlreadyExists` · 401/403.
+
+`GET /api/scheduling/admin/doctor-days?serviceDate=yyyy-MM-dd` (v0.5)
+
+- Kênh **Staff**, `AdminOnly`. `serviceDate` bắt buộc, định dạng `yyyy-MM-dd`; sai → 400 `InvalidInput`.
+- 200: mảng (không phân trang, tối đa số bác sĩ của một ngày), mỗi phần tử:
+
+  ```json
+  { "id": "…", "doctorId": "…", "doctorName": "…", "doctorRankName": "…", "specialtyName": "…",
+    "roomId": "…", "roomCode": "PK01", "roomName": "…", "serviceDate": "2026-11-18", "totalSlots": 30,
+    "heldCount": 0, "onlineBookedCount": 3, "walkInBookedCount": 1, "lockedCancelledCount": 0,
+    "remainingSlots": 26, "status": "Open", "sessionStatus": "Scheduled" }
+  ```
+
+- `onlineBookedCount`/`walkInBookedCount`: lịch hẹn còn hiệu lực (claim đang giữ) theo nguồn web/chatbot hoặc quầy. `remainingSlots = max(0, totalSlots − held − admitted − lockedCancelled)`. Tên bác sĩ/phòng đọc từ Identity; không còn trong Identity thì để `null`. `status` = `Open` | `Closed` theo `isOpen`.
 
 ### 4.2 Đóng ngày trực (W2-01)
 
@@ -106,8 +121,7 @@ Payload:
 Ghi chú chung cho 4.1 và 4.2:
 
 - Lỗi là ProblemDetails có extension `code` = tên `DoctorDayResult`.
-- **Hai endpoint chỉ được map khi môi trường là Development** (`MapSchedulingEndpoints`), chưa lộ ở Staging/Prod.
-- `IDoctorDirectory` hiện là `DevelopmentDoctorDirectory`, đọc dữ liệu giả `Scheduling:DoctorDays:DevelopmentDoctorRooms:{doctorId}` cho tới khi IdentityPatients có contract tra bác sĩ và phòng.
+- Từ v0.5 (17/11/2026) mọi route Scheduling được map ở mọi môi trường; danh bạ bác sĩ (`IDoctorDirectory`, `IDoctorSearchDirectory`) đọc thật qua `IIdentityPatientsModule`. Lịch khám demo trên Staging do cờ `Seed:DemoData` tạo, không phải dữ liệu giả trong cấu hình.
 - Test từ chối kênh sai (API-05): `AuthorizationMatrixTests` gọi HTTP endpoint mở ngày với mọi vai trò khác và với Admin mang `channel` = `Patient`, đều 403; `EndpointAuthorizationInventoryTests` bắt endpoint thiếu policy vai trò + kênh.
 
 ### 4.3 Tìm bác sĩ, suất trống và phí (W2-05 phần 1, đã merge)
@@ -252,3 +266,4 @@ Chỉ route và mục đích, để UI (W2-09) mock trước. Body, mã lỗi v�
 | v0.4 | 12/11/2026 | `DoctorSearchItem` thêm `TotalSlots`, `DoctorRankName`, `SpecialtyName` (chỉ thêm trường, không đổi trường cũ) để web bệnh nhân hiện "còn x/y suất" và tên chuyên khoa, cấp bậc |
 | v0.4 Approved | 12/11/2026 | Trưởng nhóm duyệt phần thêm của v0.4 |
 | v0.5 | 17/11/2026 | Q1 đã chốt (Encounter mở đồng bộ cùng UoW); `CheckInResult` và `TicketCheckedIn` có `EncounterId`, trường vé không nullable; thêm §4.6 (check-in, lịch hôm nay, hàng chờ phòng, màn hình chờ) |
+| v0.5 (sửa) | 17/11/2026 | §4.1: mở ngày trực nhận body `roomId` (admin chọn phòng), thêm 404 `RoomNotFound`, thêm `GET /admin/doctor-days?serviceDate=`; bỏ cổng Development của Scheduling, danh bạ bác sĩ thật qua Identity |
