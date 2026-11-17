@@ -143,17 +143,14 @@ internal static class PatientAppointmentEndpoints
         }
 
         var rows = await reader.ListAsync(userId, (pageNumber - 1) * size, size + 1, ct);
-        var items = new List<AppointmentItem>(Math.Min(rows.Count, size));
-        var access = new Dictionary<Guid, bool>();
-        var doctors = new Dictionary<Guid, string?>();
-        foreach (var row in rows.Take(size))
-        {
-            // Quyền Booking có thể đã bị thu hồi sau khi đặt: không trả lịch của hồ sơ đó.
-            if (!access.TryGetValue(row.PatientId, out var allowed))
-                access[row.PatientId] = allowed = await identity.CanAccessPatientAsync(userId, row.PatientId, AccessLevel.Booking, ct);
-            if (allowed)
-                items.Add(await ToItemAsync(row, identity, doctors, ct));
-        }
+        var pageRows = rows.Take(size).ToList();
+        // Quyền Booking có thể đã bị thu hồi sau khi đặt: không trả lịch của hồ sơ đó. Một truy vấn cho cả trang.
+        var allowed = await identity.GetAccessiblePatientsAsync(userId, pageRows.Select(x => x.PatientId).ToList(), AccessLevel.Booking, ct);
+        var doctors = pageRows.Count == 0 ? new Dictionary<Guid, string?>() : (await identity.SearchDoctorsAsync(new DoctorSearch(), ct))
+            .ToDictionary(x => x.DoctorId, x => (string?)x.FullName);
+        var items = new List<AppointmentItem>(pageRows.Count);
+        foreach (var row in pageRows.Where(x => allowed.Contains(x.PatientId)))
+            items.Add(await ToItemAsync(row, identity, doctors, ct));
 
         return TypedResults.Ok(new AppointmentPage(pageNumber, size, rows.Count > size, items));
     }

@@ -51,8 +51,7 @@ internal sealed class SqlCheckInStore(SchedulingDbContext db, IDbClock clock, Au
 
         // Prefix quota giữ phạm vi số theo bác sĩ/phiên, không phụ thuộc phòng hoặc trạng thái vé.
         var prefix = $"{quota.Id:N}-";
-        var sequence = (await db.Set<QueueTicket>().Where(x => x.TicketType == TicketType.InitialConsultation
-            && x.TicketNumber.StartsWith(prefix)).MaxAsync(x => (int?)x.SequenceNumber, ct) ?? 0) + 1;
+        var sequence = await db.NextAsync(prefix, 1, ct);
         var created = new QueueTicket
         {
             Id = Guid.CreateVersion7(), EncounterId = openedId, TargetRoomId = quota.AssignedRoomId,

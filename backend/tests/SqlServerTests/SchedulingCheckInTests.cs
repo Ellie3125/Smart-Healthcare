@@ -388,17 +388,18 @@ public sealed partial class SchedulingHoldTests
         return await scope.ServiceProvider.GetRequiredService<CheckInService>().CheckInAsync(new(appointmentId, Guid.NewGuid(), null), Ct);
     }
 
-    private static async Task CleanupAttendanceAsync(DoctorDayQuota day)
+    private static async Task CleanupAttendanceAsync(params DoctorDayQuota[] days)
     {
+        var ids = string.Join(", ", days.Select(d => $"'{d.Id}'"));
         await ExecAsync($"""
             DECLARE @encounters TABLE (Id uniqueidentifier);
             INSERT INTO @encounters SELECT Id FROM clinical.Encounter WHERE AppointmentId IN
-                (SELECT Id FROM scheduling.Appointment WHERE SessionQuotaId = '{day.Id}');
+                (SELECT Id FROM scheduling.Appointment WHERE SessionQuotaId IN ({ids}));
             DELETE FROM shared.OutboxMessage WHERE AggregateId IN (SELECT Id FROM scheduling.QueueTicket WHERE EncounterId IN (SELECT Id FROM @encounters));
             DELETE FROM scheduling.QueueTicket WHERE EncounterId IN (SELECT Id FROM @encounters);
             DELETE FROM clinical.EncounterClinicalRecord WHERE EncounterId IN (SELECT Id FROM @encounters);
             DELETE FROM clinical.Encounter WHERE Id IN (SELECT Id FROM @encounters);
             """);
-        await CleanupAsync(day);
+        await CleanupAsync(days);
     }
 }

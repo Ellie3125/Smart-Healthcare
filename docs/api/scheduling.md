@@ -1,6 +1,6 @@
 # Contract module Scheduling
 
-- contract_version: **v0.7** (Draft, chờ trưởng nhóm duyệt; v0.4 Approved 12/11/2026)
+- contract_version: **v0.8** (Draft, chờ trưởng nhóm duyệt; v0.4 Approved 12/11/2026)
 - Trạng thái: **Approved** (H-02, trưởng nhóm duyệt 10/11/2026). Q1 đã chốt 17/11/2026; Q2–Q5 ở §6 vẫn là đề xuất cho tới khi trưởng nhóm chốt từng câu.
 - Người giữ: theo ownership.md mục 1. Task: W1-04.
 - Mã nguồn: `backend/src/Modules/Scheduling/Scheduling.Contracts/` (in-process), `Scheduling.Api/` (HTTP).
@@ -50,8 +50,8 @@ DTO trùng tên trường và kiểu với DTO tạm của W2-05 (PR #44, `Sched
 - Vào: `CreateClsTickets(Guid EncounterId, Guid ServiceOrderId, IReadOnlyList<ClsTicketLine> Lines, Guid? OperationId)`, `ClsTicketLine(Guid ServiceOrderItemId, Guid MedicalServiceId)`; Lines không rỗng, `ServiceOrderItemId` không trùng.
 - Tác dụng: mỗi dòng một `QueueTicket` loại `CLS` ở phòng thực hiện còn hoạt động do Scheduling chọn; thêm một vé `ReturnConsultation` ở phòng ban đầu cho đợt chỉ định. Số vé cấp ngay lúc chỉ định (Phạm vi §5.1).
 - Vé CLS chỉ được gọi khi khoản phí tương ứng đã trả (`PaymentVerified` với `Purpose = CLSOrderBatch`). Vé quay lại chỉ được kích hoạt khi đủ kết quả bắt buộc: Scheduling nhận `ResultPublished`, gọi contract Clinical kiểm đủ kết quả (W3-06), **không** qua method này.
-- Hiện thực (W3-04, v0.7): chạy trong `IUnitOfWork` của bên gọi (Clinical lỗi thì vé rollback cùng). Phòng thực hiện: `MedicalServiceRoom` đang bật của dịch vụ đang hoạt động, phòng mặc định trước, phòng phải đang hoạt động ở Identity. Số vé CLS `<roomId:N>-<yyyyMMdd>-<seq:D3>` theo phòng và ngày Việt Nam; vé quay lại `<quotaId:N>-R<seq:D3>` trong phiên của vé khám đầu. Gửi lại cùng `ServiceOrderId` và cùng các dòng trả đúng vé đã có; khác nội dung → `InvalidInput`.
-- Vé quay lại tạo ở `Deferred` (chưa gọi được). Kích hoạt (W3-06, chốt 17/11/2026): `Deferred` → `Waiting` và đặt `IssuedAtUtc` = thời điểm kích hoạt; nhóm quay lại xếp theo `IssuedAtUtc`. Không thêm cột (ERD v2.4).
+- Hiện thực (W3-04, v0.7): chạy trong `IUnitOfWork` của bên gọi (Clinical lỗi thì vé rollback cùng). Số vé cấp từ bảng đếm `scheduling.TicketSequence` theo phạm vi (tiền tố số vé), khóa dòng đếm tới commit. Phòng thực hiện: `MedicalServiceRoom` đang bật của dịch vụ đang hoạt động, phòng mặc định trước, phòng phải đang hoạt động ở Identity. Số vé CLS `<roomId:N>-<yyyyMMdd>-<seq:D3>` theo phòng và ngày Việt Nam; vé quay lại `<quotaId:N>-R<seq:D3>` trong phiên của vé khám đầu. Gửi lại cùng `ServiceOrderId` và cùng các dòng trả đúng vé đã có; khác nội dung → `InvalidInput`.
+- Vé quay lại tạo ở `Deferred` (tạm hoãn tới khi đủ kết quả). Kích hoạt (W3-06; sửa 17/11/2026, CLA-PERF-001): `Deferred` → `Waiting` và ghi `ActivatedAtUtc` = thời điểm kích hoạt; `IssuedAtUtc` giữ giờ phát. `QueuedAtUtc` (cột tính ở DB) = `ActivatedAtUtc` nếu có, ngược lại `IssuedAtUtc`; nhóm quay lại xếp theo `QueuedAtUtc`.
 - Ra: `ClsTicketsCreated(IReadOnlyList<QueueTicketDto> ClsTickets, QueueTicketDto ReturnTicket)`; `QueueTicketDto(QueueTicketId, Kind, EncounterId, ServiceOrderItemId?, TargetRoomId, TicketNumber, SequenceNumber, IssuedAtUtc)`.
 - Lỗi: `InvalidInput`, `InitialTicketNotFound`, `MedicalServiceUnavailable` (dịch vụ không tồn tại, ngừng, hoặc mọi phòng đã tắt — Phạm vi §6.3).
 
@@ -254,7 +254,7 @@ Phản hồi vé: `{ queueTicketId, ticketNumber, sequenceNumber, ticketType, qu
 `POST /api/scheduling/staff/rooms/{roomId:guid}/call-next`
 
 - Body tùy chọn `{ "stationId": "<uuid>" }`. Không gửi: dùng station đang hoạt động duy nhất của phòng; phòng chưa có station nào thì Scheduling tạo station mặc định `DEFAULT-<roomId:N>` (chốt 17/11/2026); phòng có nhiều station → 409 `StationRequired`.
-- Chọn vé `Waiting` của phòng phát từ đầu ngày (giờ Việt Nam). Hai nhóm: mới (khám đầu, CLS; theo `SequenceNumber`) và quay lại (theo `IssuedAtUtc`). Cả hai có người: 2 mới rồi 1 quay lại; đầu nhóm nào chờ ≥ 20 phút thì nhóm chờ lâu hơn được trước (chống bỏ đói).
+- Chọn vé `Waiting` của phòng vào hàng từ đầu ngày (`QueuedAtUtc`, giờ Việt Nam): vé quay lại phát hôm trước, kích hoạt hôm nay vẫn có. Hai nhóm: mới (khám đầu, CLS; theo `SequenceNumber`) và quay lại (theo `QueuedAtUtc`). Cả hai có người: 2 mới rồi 1 quay lại; đầu nhóm nào chờ ≥ 20 phút thì nhóm chờ lâu hơn được trước (chống bỏ đói).
 - Với từng ứng viên: transaction ngắn, khóa bệnh nhân rồi station (`sp_getapplock`, cùng thứ tự ở mọi lệnh), kiểm lại station trống, bệnh nhân chưa ở điểm khác, vé còn `Waiting`; cấp `ActivePatientEngagement` + `ActiveStationAllocation`, vé → `Called`. Bệnh nhân đang ở điểm khác: bỏ qua, vé giữ `Waiting` và số gốc.
 - 200 vé được gọi. Station đã có người (bấm hai lần, hai người cùng bấm): 200 vé đang gọi đó với `alreadyCalled = true`, không cấp vé thứ hai. 204 không còn ai. Lỗi: 400 `InvalidInput` · 404 `StationNotFound` (phòng không hoạt động, station không thuộc phòng hoặc đã tắt) · 409 `StationRequired`.
 
@@ -264,7 +264,7 @@ Phản hồi vé: `{ queueTicketId, ticketNumber, sequenceNumber, ticketType, qu
 - Gửi lại khi vé đã ở trạng thái đích: 200 với `alreadyCalled = true`. Lỗi: 403 (sai phòng) · 404 `TicketNotFound` · 409 `InvalidTicketState`.
 - `InProgress` mất kết nối chỉ cảnh báo ở UI; không có job tự giải phóng (Giải pháp §6.2). Phòng CLS chỉ bắt đầu khi khoản phí đã xác minh: kiểm ở W3-05, chưa có trong v0.7.
 
-DB (migration `AddQueueTicketUniqueIndexes`): unique `TicketNumber`; unique `ServiceOrderItemId` khi khác null; một vé khám đầu mỗi `EncounterId`; một vé quay lại mỗi `ServiceOrderId`.
+DB (migration `QueueTicketActivationAndSequence`, 17/11/2026): cột `ActivatedAtUtc`, cột tính `QueuedAtUtc`, index phủ `(TargetRoomId, QueuedAtUtc)`, bảng đếm `TicketSequence`. DB (migration `AddQueueTicketUniqueIndexes`): unique `TicketNumber`; unique `ServiceOrderItemId` khi khác null; một vé khám đầu mỗi `EncounterId`; một vé quay lại mỗi `ServiceOrderId`.
 
 ## 5. HTTP dự kiến của W2 — chưa chốt
 
@@ -315,3 +315,4 @@ Chỉ route và mục đích, để UI (W2-09) mock trước. Body, mã lỗi v�
 | v0.5 (sửa) | 17/11/2026 | §4.1: mở ngày trực nhận body `roomId` (admin chọn phòng), thêm 404 `RoomNotFound`, thêm `GET /admin/doctor-days?serviceDate=`; bỏ cổng Development của Scheduling, danh bạ bác sĩ thật qua Identity |
 | v0.6 | 17/11/2026 | Thêm §4.7: bệnh nhân hủy, đổi lịch (Idempotency-Key) và `GET /patient/booking-attempts/recoverable` |
 | v0.7 | 17/11/2026 | §2.3 hiện thực vé CLS + vé quay lại (Deferred đến khi kích hoạt); thêm §4.8 hàng đợi phòng (call-next, start, finish, requeue) và policy tài khoản phòng |
+| v0.8 | 17/11/2026 | Vé quay lại kích hoạt ghi `ActivatedAtUtc` (giữ `IssuedAtUtc`), hàng chờ theo `QueuedAtUtc`; số vé từ bảng đếm `TicketSequence` (CLA-PERF-001, không đổi route hay body) |

@@ -608,7 +608,8 @@ public sealed class BookingProgressEndpointTests
         public Task<EncounterCostSummary> GetEncounterCostSummaryAsync(Guid encounterId, CancellationToken ct) => throw new NotSupportedException();
         public Task<IReadOnlyList<Guid>> FindDueAsync(int limit, CancellationToken ct) => throw new NotSupportedException();
         public Task<bool> ExpireAsync(Guid reservationId, CancellationToken ct) => throw new NotSupportedException();
-        public Task<IReadOnlyList<DoctorDto>> SearchDoctorsAsync(DoctorSearch query, CancellationToken ct) => throw new NotSupportedException();
+        public Task<IReadOnlyList<DoctorDto>> SearchDoctorsAsync(DoctorSearch query, CancellationToken ct) =>
+            Task.FromResult<IReadOnlyList<DoctorDto>>([Doctor]);
         public Task<IReadOnlyList<SpecialtyDto>> GetSpecialtiesAsync(CancellationToken ct) => throw new NotSupportedException();
         public Task<IReadOnlyList<DoctorRankDto>> GetDoctorRanksAsync(CancellationToken ct) => throw new NotSupportedException();
         public Task<RoomDto?> GetRoomAsync(Guid roomId, CancellationToken ct) => throw new NotSupportedException();
