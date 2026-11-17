@@ -21,6 +21,7 @@ public static class DependencyInjection
         services.AddScoped<IIdempotencyStore, IdempotencyStore>();
         services.AddScoped<IDbClock, DbClock>();
         services.AddScoped<AuditLogWriter>();
+        services.AddScoped<TechnicalDataCleanupJob>();
         return services;
     }
 
