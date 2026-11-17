@@ -22,6 +22,7 @@ REQUIRED_TEMPLATES = (
     "specialty_match",
     "specialty_fallback",
     "tool_pending",
+    "not_understood",
     "backend_unavailable",
     "ask_date",
     "past_date",

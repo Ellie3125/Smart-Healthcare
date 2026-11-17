@@ -10,6 +10,7 @@ from fastapi.testclient import TestClient
 from app.main import create_app
 from app.schemas import ChatContext, ChatState, TurnResponse
 from app.settings import Settings
+from app.turns import NotConnectedAgent
 from tests.conftest import CONFIG_DIR
 
 KEY = "test-internal-key-0123456789"
@@ -131,7 +132,7 @@ def test_free_text_reaches_agent_with_context_from_dotnet(tmp_path, ids):
 
 
 def test_free_text_without_agent_is_unavailable_even_if_model_is_up(tmp_path, ids):
-    with TestClient(create_app(settings(tmp_path), transport=ollama())) as client:
+    with TestClient(create_app(settings(tmp_path), agent=NotConnectedAgent(), transport=ollama())) as client:
         response = client.post("/v1/turns", json=turn_body(*ids, text="bác sĩ Nam chiều nay khám không"), headers=HEADERS)
     assert response.status_code == 503
 
@@ -162,7 +163,7 @@ def test_expired_conversation_is_not_found(tmp_path, ids):
 
 def test_delete_only_by_owner(tmp_path, ids):
     conversation, user, patient = ids
-    with TestClient(create_app(settings(tmp_path), transport=ollama())) as client:
+    with TestClient(create_app(settings(tmp_path), agent=NotConnectedAgent(), transport=ollama())) as client:
         client.post("/v1/turns", json=turn_body(*ids, suggestion="SUGGEST_SPECIALTY"), headers=HEADERS)
         stranger = client.request("DELETE", f"/v1/conversations/{conversation}", json={"userId": str(uuid.uuid4())}, headers=HEADERS)
         owner = client.request("DELETE", f"/v1/conversations/{conversation}", json={"userId": user}, headers=HEADERS)
