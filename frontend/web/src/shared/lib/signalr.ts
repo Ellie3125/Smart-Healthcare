@@ -16,7 +16,6 @@ export function createStaffRealtimeConnection(
   events: string[],
   handlers: StaffRealtimeHandlers,
 ): { start: () => Promise<void>; stop: () => Promise<void> } {
-
   let connection: HubConnection | null = null;
   let stopped = false;
 

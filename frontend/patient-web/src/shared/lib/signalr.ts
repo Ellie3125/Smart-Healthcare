@@ -11,7 +11,6 @@ export function createPatientRealtimeConnection(
     onEvent: (eventName: string, payload: unknown) => void;
   },
 ): { start: () => Promise<void>; stop: () => Promise<void> } {
-
   let conn: HubConnection | null = null;
   let stopped = false;
   return {

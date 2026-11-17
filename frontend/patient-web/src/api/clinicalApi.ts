@@ -5,8 +5,6 @@ import type {
   PatientEncounterDetail,
   PatientEncounterSummary,
   PatientPrescriptionDetail,
-  RefundPayoutChannel,
-  RefundRequestItem,
   TodayJourneyDto,
 } from '../types/clinical';
 import type { VnpayCheckoutResult } from '../types/booking';
@@ -35,25 +33,6 @@ export const clinicalApi = {
   // TODO: nối contract thật P18 Tổng quan chi phí đợt khám (5 chỉ số)
   getEncounterCostSummary: (encounterId: string) =>
     patientGet<EncounterCostSummary>(`/api/billing/patient/encounters/${encounterId}/cost-summary`),
-
-  // TODO: nối contract thật P19 Yêu cầu hoàn tiền & chọn kênh nhận tiền (không upload chứng từ)
-  listRefundRequests: () => patientGet<RefundRequestItem[]>('/api/billing/patient/refunds'),
-
-  selectRefundChannel: (
-    refundId: string,
-    body: {
-      payoutChannel: RefundPayoutChannel;
-      bankName?: string;
-      accountNumber?: string;
-      accountHolder?: string;
-    },
-    idempotencyKey: string,
-  ) =>
-    patientPost<RefundRequestItem, typeof body>(
-      `/api/billing/patient/refunds/${refundId}/payout-channel`,
-      body,
-      { idempotencyKey },
-    ),
 
   // TODO: nối contract thật P20-P23 Hồ sơ bệnh án Verified-only, chi tiết, kết quả CLS & đơn thuốc
   listEncounters: (params?: { patientProfileId?: string; page?: number; pageSize?: number }) =>

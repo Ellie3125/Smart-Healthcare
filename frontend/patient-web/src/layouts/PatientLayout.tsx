@@ -12,7 +12,6 @@ import {
   LogOut,
   Menu,
   PhoneCall,
-  Receipt,
   UserRound,
   X,
 } from 'lucide-react';
@@ -26,7 +25,6 @@ const PATIENT_NAV_ITEMS = [
   { to: '/today-journey', label: 'Hôm nay', shortLabel: 'Hôm nay', icon: Activity },
   { to: '/cls-payments', label: 'Thanh toán CLS', shortLabel: 'Thanh toán', icon: CreditCard },
   { to: '/records', label: 'Kết quả khám', shortLabel: 'Kết quả', icon: FileHeart },
-  { to: '/refunds', label: 'Hoàn tiền', shortLabel: 'Hoàn tiền', icon: Receipt },
   { to: '/chatbot', label: 'Trợ lý', shortLabel: 'Trợ lý', icon: Bot },
 ];
 
@@ -35,7 +33,7 @@ const MOBILE_BOTTOM_TABS = [
   PATIENT_NAV_ITEMS[1],
   PATIENT_NAV_ITEMS[2],
   PATIENT_NAV_ITEMS[3],
-  PATIENT_NAV_ITEMS[7],
+  PATIENT_NAV_ITEMS[6],
 ];
 
 export const PatientLayout: React.FC = () => {
