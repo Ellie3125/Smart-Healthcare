@@ -19,5 +19,9 @@ internal sealed class OperationConfiguration : IEntityTypeConfiguration<Operatio
 
         builder.HasIndex(x => x.InitiatedByUserId);
         builder.HasIndex(x => x.BookingAttemptId);
+        // Giám sát Operation lỗi/treo (W4-04) đọc theo trạng thái + thời điểm tạo; Succeeded (gần như toàn bảng) không vào index.
+        builder.HasIndex(x => new { x.Status, x.CreatedAtUtc }, "IX_Operation_Unfinished")
+            .IncludeProperties(x => new { x.OperationType, x.TargetEntityId })
+            .HasFilter("[Status] IN (N'Pending', N'Running', N'WaitingExternal', N'Failed', N'NeedsAction', N'ManualReview')");
     }
 }
