@@ -24,19 +24,23 @@ using Scheduling.Application;
 using Scheduling.Infrastructure;
 using Scheduling.Infrastructure.Persistence;
 using Shared.Infrastructure;
+using SmartHealthcare.Api;
 
 var builder = WebApplication.CreateBuilder(args);
 
-var connectionString = builder.Configuration.GetConnectionString("SmartHealthcare");
+// Máy dev: `dotnet run` dùng DB trên máy, `dotnet run -lp docker` dùng DB trong Docker Compose (xem DatabaseSource).
+var connectionName = DatabaseSource.ConnectionName(builder.Configuration[DatabaseSource.ConfigurationKey]);
+var connectionString = builder.Configuration.GetConnectionString(connectionName);
 if (string.IsNullOrWhiteSpace(connectionString))
 {
-    throw new InvalidOperationException("ConnectionStrings:SmartHealthcare chưa được cấu hình (dotnet user-secrets hoặc biến môi trường ConnectionStrings__SmartHealthcare).");
+    throw new InvalidOperationException($"ConnectionStrings:{connectionName} chưa được cấu hình (dotnet user-secrets hoặc biến môi trường ConnectionStrings__{connectionName}).");
 }
 
 builder.Services.AddControllers()
     .AddIdentityPatientsApi();
 
 builder.Services.AddProblemDetails();
+builder.Services.AddPatientRegisterRateLimiter();
 
 builder.Services.AddCors(options =>
 {
@@ -57,12 +61,15 @@ builder.Services
     .AddMedicationCatalogInfrastructure(connectionString)
     .AddBillingInfrastructure(connectionString)
     .AddNotificationsInfrastructure(connectionString)
-    .AddDocumentsReportingInfrastructure(connectionString)
+    .AddDocumentsReportingInfrastructure(connectionString, builder.Configuration)
     .AddSharedInfrastructure(connectionString)
     // DbContext tham gia IUnitOfWork (W1-06). Module khác tự thêm khi cần ghi cùng transaction.
     .AddUnitOfWorkParticipant<SchedulingDbContext>()
     .AddUnitOfWorkParticipant<WorkflowDbContext>()
-    .AddUnitOfWorkParticipant<IdentityPatients.Infrastructure.Persistence.IdentityPatientsDbContext>();
+    .AddUnitOfWorkParticipant<IdentityPatients.Infrastructure.Persistence.IdentityPatientsDbContext>()
+    .AddUnitOfWorkParticipant<DocumentsReporting.Infrastructure.Persistence.DocumentsDbContext>()
+    // Tạo khoản thu + yêu cầu thanh toán cùng transaction với BookingAttempt (BookingPaymentService).
+    .AddUnitOfWorkParticipant<Billing.Infrastructure.Persistence.BillingDbContext>();
 
 builder.Services
     .AddIdentityPatientsApplication().AddIdentityPatientsApi()
@@ -75,6 +82,11 @@ builder.Services
     .AddNotificationsApplication().AddNotificationsApi()
     .AddDocumentsReportingApplication().AddDocumentsReportingApi();
 
+if (DemoData.IsEnabled(builder.Configuration, builder.Environment))
+{
+    builder.AddDemoData();
+}
+
 string[] moduleTags =
 [
     IdentityPatients.Api.DependencyInjection.Tag,
@@ -86,7 +98,6 @@ string[] moduleTags =
     DocumentsReporting.Api.DependencyInjection.Tag,
 ];
 
-builder.Services.AddProblemDetails();
 builder.Services.AddOpenApi(options => options.AddDocumentTransformer((document, _, _) =>
 {
     // Route group chưa có endpoint thì OpenAPI không sinh tag; khai sẵn tag của 7 module.
@@ -122,6 +133,7 @@ var app = builder.Build();
 app.UseCors();
 app.UseAuthentication();
 app.UseAuthorization();
+app.UseRateLimiter();
 
 app.MapControllers();
 
@@ -131,6 +143,11 @@ if (app.Environment.IsDevelopment() || app.Configuration.GetValue<bool>("Seed:En
     using var scope = app.Services.CreateScope();
     var seedService = scope.ServiceProvider.GetRequiredService<IdentityPatientsSeedService>();
     await seedService.SeedAsync();
+}
+
+if (DemoData.IsEnabled(app.Configuration, app.Environment))
+{
+    await app.SeedDemoDataAsync();
 }
 
 app.UseExceptionHandler();

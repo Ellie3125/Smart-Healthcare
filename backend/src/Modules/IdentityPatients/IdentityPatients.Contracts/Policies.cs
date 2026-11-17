@@ -12,6 +12,7 @@ public static class Policies
     public const string DoctorOnly = "DoctorOnly";
     public const string RoomAccountOnly = "RoomAccountOnly";
     public const string PatientOnly = "PatientOnly";
+    public const string ReceptionistOrAdmin = "ReceptionistOrAdmin";
 
     /// <summary>Mọi vai trò, nhưng kênh phải khớp loại vai trò (dùng cho /me).</summary>
     public const string AnyChannel = "AnyChannel";

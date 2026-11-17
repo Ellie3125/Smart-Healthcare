@@ -16,7 +16,7 @@ public sealed class SchedulingModuleTests
     [Fact]
     public async Task SearchDoctorsReturnsServicePageThroughContract()
     {
-        var doctor = new DoctorSearchProfile(Guid.NewGuid(), "BS A", Guid.NewGuid(), Guid.NewGuid());
+        var doctor = new DoctorSearchProfile(Guid.NewGuid(), "BS A", Guid.NewGuid(), Guid.NewGuid(), "Thạc sĩ", "Tim mạch");
         var billing = new DoctorSearchTests.SingleQuoteBilling();
         await using var provider = Provider(doctor, billing);
         var module = provider.GetRequiredService<ISchedulingModule>();
@@ -25,7 +25,7 @@ public sealed class SchedulingModuleTests
 
         var item = Assert.Single(page.Items);
         Assert.Equal(new DoctorSearchItem(doctor.DoctorId, "BS A", doctor.DoctorRankId, doctor.SpecialtyId, 15, 150000m,
-            BillingCurrency.Vnd), item);
+            BillingCurrency.Vnd, 30, "Thạc sĩ", "Tim mạch"), item);
         Assert.Equal((ServiceDate, 1, 20, false), (page.ServiceDate, page.Page, page.PageSize, page.HasMore));
         Assert.Equal(doctor.DoctorId, Assert.Single(billing.Quotes).DoctorId);
     }

@@ -105,6 +105,10 @@ public static class DependencyInjection
                     Encoding.UTF8.GetBytes(signingKey)),
                 ClockSkew = TimeSpan.FromMinutes(1)
             };
+            options.Events = new JwtBearerEvents
+            {
+                OnTokenValidated = Security.RoomSessionTokenValidator.ValidateAsync
+            };
         });
 
         services.AddAuthorization(options =>
@@ -117,6 +121,10 @@ public static class DependencyInjection
             options.AddPolicy(Policies.AnyChannel, p => p.RequireAssertion(context =>
                 Policies.RoleOf.Values.Any(role => context.User.IsInRole(role)
                     && context.User.HasClaim(AppClaims.Channel, Policies.ChannelOf(role)))));
+
+            options.AddPolicy(Policies.ReceptionistOrAdmin, p => p.RequireAssertion(context =>
+                (context.User.IsInRole(Roles.Receptionist) || context.User.IsInRole(Roles.Admin))
+                && context.User.HasClaim(AppClaims.Channel, Channels.Staff)));
         });
 
         return services;

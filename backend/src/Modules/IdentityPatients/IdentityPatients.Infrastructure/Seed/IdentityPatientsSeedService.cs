@@ -27,8 +27,6 @@ public sealed class IdentityPatientsSeedService(
             throw new InvalidOperationException("Cấu hình Seed:DefaultPassword chưa được đặt trong User Secrets hoặc biến môi trường.");
         }
 
-        _logger.LogInformation("Bắt đầu thực hiện Seed dữ liệu cho module IdentityPatients. Lưu ý: Đây là dữ liệu giả định demo, không phải số liệu bệnh viện thật. ServiceStation không thuộc module này.");
-
         // 1. Vai trò không lưu cột: suy từ RoomAccount, Staff.StaffType, còn lại là Patient (ERD v2.4).
 
         // 2. Chuyên khoa (Specialties)
@@ -40,7 +38,11 @@ public sealed class IdentityPatientsSeedService(
             (SeedConstants.SpecialtyDaLieuId, SeedConstants.SpecialtyDaLieuCode, SeedConstants.SpecialtyDaLieuName, "Chẩn đoán, điều trị bệnh lý da liễu và thẩm mỹ y khoa."),
             (SeedConstants.SpecialtyXetNghiemId, SeedConstants.SpecialtyXetNghiemCode, SeedConstants.SpecialtyXetNghiemName, "Xét nghiệm huyết học, sinh hóa, miễn dịch và vi sinh lâm sàng."),
             (SeedConstants.SpecialtyNoiSoiId, SeedConstants.SpecialtyNoiSoiCode, SeedConstants.SpecialtyNoiSoiName, "Nội soi dạ dày, đại tràng không đau và can thiệp thủ thuật."),
-            (SeedConstants.SpecialtySieuAmId, SeedConstants.SpecialtySieuAmCode, SeedConstants.SpecialtySieuAmName, "Siêu âm màu Doppler tim mạch, ổ bụng, tuyến giáp và sản phụ khoa.")
+            (SeedConstants.SpecialtySieuAmId, SeedConstants.SpecialtySieuAmCode, SeedConstants.SpecialtySieuAmName, "Siêu âm màu Doppler tim mạch, ổ bụng, tuyến giáp và sản phụ khoa."),
+            (SeedConstants.SpecialtyNoiTongQuatId, SeedConstants.SpecialtyNoiTongQuatCode, SeedConstants.SpecialtyNoiTongQuatName, "Khám và điều trị các bệnh lý nội khoa thường gặp."),
+            (SeedConstants.SpecialtyTimMachId, SeedConstants.SpecialtyTimMachCode, SeedConstants.SpecialtyTimMachName, "Khám và điều trị bệnh lý tim mạch, tăng huyết áp."),
+            (SeedConstants.SpecialtyHoHapId, SeedConstants.SpecialtyHoHapCode, SeedConstants.SpecialtyHoHapName, "Khám và điều trị bệnh lý hô hấp, phổi."),
+            (SeedConstants.SpecialtyNhiId, SeedConstants.SpecialtyNhiCode, SeedConstants.SpecialtyNhiName, "Khám và điều trị bệnh lý trẻ em.")
         };
 
         foreach (var item in specialtiesToSeed)
@@ -186,7 +188,11 @@ public sealed class IdentityPatientsSeedService(
             (SeedConstants.StaffDoctor03Id, SeedConstants.Doctor03Id, SeedConstants.UserDoctor03Id, SeedConstants.UserDoctor03UserName, "bacsi03@smarthealthcare.local", "0904000003", "BS03", "PGS. BS Trần Thị Phó Giáo Sư", SeedConstants.SpecialtyTaiMuiHongId, SeedConstants.RankAssociateProfId, SeedConstants.RoomPK02Id, "Bác sĩ chuyên khoa Tai Mũi Họng giàu kinh nghiệm."),
             (SeedConstants.StaffDoctor04Id, SeedConstants.Doctor04Id, SeedConstants.UserDoctor04Id, SeedConstants.UserDoctor04UserName, "bacsi04@smarthealthcare.local", "0904000004", "BS04", "BS. CKII Lê Văn Da Liễu", SeedConstants.SpecialtyDaLieuId, SeedConstants.RankSpecialistIIId, SeedConstants.RoomPK03Id, "Bác sĩ CKII chuyên khoa Da Liễu."),
             (SeedConstants.StaffDoctor05Id, SeedConstants.Doctor05Id, SeedConstants.UserDoctor05Id, SeedConstants.UserDoctor05UserName, "bacsi05@smarthealthcare.local", "0904000005", "BS05", "ThS. BS Hoàng Văn Xét Nghiệm", SeedConstants.SpecialtyXetNghiemId, SeedConstants.RankMasterId, SeedConstants.RoomXN01Id, "Thạc sĩ Bác sĩ chuyên khoa Xét nghiệm y học."),
-            (SeedConstants.StaffDoctor06Id, SeedConstants.Doctor06Id, SeedConstants.UserDoctor06Id, SeedConstants.UserDoctor06UserName, "bacsi06@smarthealthcare.local", "0904000006", "BS06", "BS. Vũ Văn Nội Soi", SeedConstants.SpecialtyNoiSoiId, SeedConstants.RankDoctorId, SeedConstants.RoomNS01Id, "Bác sĩ điều trị chuyên khoa Nội soi can thiệp.")
+            (SeedConstants.StaffDoctor06Id, SeedConstants.Doctor06Id, SeedConstants.UserDoctor06Id, SeedConstants.UserDoctor06UserName, "bacsi06@smarthealthcare.local", "0904000006", "BS06", "BS. Vũ Văn Nội Soi", SeedConstants.SpecialtyNoiSoiId, SeedConstants.RankDoctorId, SeedConstants.RoomNS01Id, "Bác sĩ điều trị chuyên khoa Nội soi can thiệp."),
+            (SeedConstants.StaffDoctor07Id, SeedConstants.Doctor07Id, SeedConstants.UserDoctor07Id, SeedConstants.UserDoctor07UserName, "bacsi07@smarthealthcare.local", "0904000007", "BS07", "BS. Đỗ Minh Nội Khoa", SeedConstants.SpecialtyNoiTongQuatId, SeedConstants.RankDoctorId, SeedConstants.RoomPK04Id, "Bác sĩ điều trị Nội tổng quát."),
+            (SeedConstants.StaffDoctor08Id, SeedConstants.Doctor08Id, SeedConstants.UserDoctor08Id, SeedConstants.UserDoctor08UserName, "bacsi08@smarthealthcare.local", "0904000008", "BS08", "BS. CKII Bùi Thị Tim Mạch", SeedConstants.SpecialtyTimMachId, SeedConstants.RankSpecialistIIId, SeedConstants.RoomPK05Id, "Bác sĩ CKII chuyên khoa Tim mạch."),
+            (SeedConstants.StaffDoctor09Id, SeedConstants.Doctor09Id, SeedConstants.UserDoctor09Id, SeedConstants.UserDoctor09UserName, "bacsi09@smarthealthcare.local", "0904000009", "BS09", "BS. CKI Ngô Văn Hô Hấp", SeedConstants.SpecialtyHoHapId, SeedConstants.RankSpecialistIId, SeedConstants.RoomPK06Id, "Bác sĩ CKI chuyên khoa Hô hấp."),
+            (SeedConstants.StaffDoctor10Id, SeedConstants.Doctor10Id, SeedConstants.UserDoctor10Id, SeedConstants.UserDoctor10UserName, "bacsi10@smarthealthcare.local", "0904000010", "BS10", "ThS. BS Đặng Thị Nhi Khoa", SeedConstants.SpecialtyNhiId, SeedConstants.RankMasterId, SeedConstants.RoomPK10Id, "Thạc sĩ, bác sĩ chuyên khoa Nhi.")
         };
 
         foreach (var doc in doctorsToSeed)
@@ -407,6 +413,111 @@ public sealed class IdentityPatientsSeedService(
                 IsActive = true,
                 CreatedAtUtc = DateTime.UtcNow
             });
+        }
+
+        // Hồ sơ 5 & 6: Bệnh nhân patient03 (Rejected và Revoked để kiểm thử đủ 4 trạng thái)
+        var userPatient03 = await EnsureUserAsync(SeedConstants.UserPatient03Id, SeedConstants.UserPatient03UserName, "patient03@example.com", "0901000005", defaultPassword);
+        
+        var patient05 = await _dbContext.Patients.FirstOrDefaultAsync(p => p.Id == SeedConstants.Patient05Id, ct);
+        if (patient05 is null)
+        {
+            patient05 = new Patient
+            {
+                Id = SeedConstants.Patient05Id,
+                FullName = "Lê Văn Bị Từ Chối",
+                DateOfBirth = new DateOnly(1988, 3, 10),
+                Gender = Gender.Male,
+                NationalId = "001088000005",
+                PhoneNumber = "0901000005",
+                Address = "789 Đường Thất Bại, Quận 5, TP.HCM",
+                CreatedAtUtc = DateTime.UtcNow
+            };
+            _dbContext.Patients.Add(patient05);
+        }
+
+        var rep05 = await _dbContext.PatientRepresentatives.FirstOrDefaultAsync(r => r.AppUserId == userPatient03.Id && r.PatientId == SeedConstants.Patient05Id, ct);
+        if (rep05 is null)
+        {
+            _dbContext.PatientRepresentatives.Add(new PatientRepresentative
+            {
+                Id = Guid.NewGuid(),
+                AppUserId = userPatient03.Id,
+                PatientId = SeedConstants.Patient05Id,
+                Relationship = Relationship.Self,
+                VerificationStatus = VerificationStatus.Rejected,
+                IsActive = false,
+                CreatedAtUtc = DateTime.UtcNow.AddDays(-5),
+                RevokedAtUtc = DateTime.UtcNow.AddDays(-2)
+            });
+        }
+
+        var patient06 = await _dbContext.Patients.FirstOrDefaultAsync(p => p.Id == SeedConstants.Patient06Id, ct);
+        if (patient06 is null)
+        {
+            patient06 = new Patient
+            {
+                Id = SeedConstants.Patient06Id,
+                FullName = "Hoàng Thị Bị Thu Hồi",
+                DateOfBirth = new DateOnly(1992, 11, 25),
+                Gender = Gender.Female,
+                NationalId = "001092000006",
+                PhoneNumber = "0901000006",
+                Address = "101 Đường Thu Hồi, Quận 7, TP.HCM",
+                CreatedAtUtc = DateTime.UtcNow
+            };
+            _dbContext.Patients.Add(patient06);
+        }
+
+        var rep06 = await _dbContext.PatientRepresentatives.FirstOrDefaultAsync(r => r.AppUserId == userPatient03.Id && r.PatientId == SeedConstants.Patient06Id, ct);
+        if (rep06 is null)
+        {
+            _dbContext.PatientRepresentatives.Add(new PatientRepresentative
+            {
+                Id = Guid.NewGuid(),
+                AppUserId = userPatient03.Id,
+                PatientId = SeedConstants.Patient06Id,
+                Relationship = Relationship.Other,
+                VerificationStatus = VerificationStatus.Revoked,
+                IsActive = false,
+                CreatedAtUtc = DateTime.UtcNow.AddDays(-10),
+                RevokedAtUtc = DateTime.UtcNow.AddDays(-1)
+            });
+        }
+
+        // 9. Phân công ca trực mẫu (StaffShiftAssignment) cho tuần hiện tại
+        await _dbContext.SaveChangesAsync(ct);
+
+        var today = DateOnly.FromDateTime(DateTime.UtcNow.AddHours(7));
+        var sampleShifts = new (Guid StaffId, Guid RoomId, DateOnly Date, ShiftName Shift, TimeOnly StartLocal, TimeOnly EndLocal, bool IsLeader)[]
+        {
+            (SeedConstants.StaffDoctor01Id, SeedConstants.RoomXQ01Id, today, ShiftName.Morning, new TimeOnly(7, 0), new TimeOnly(12, 0), true),
+            (SeedConstants.StaffDoctor02Id, SeedConstants.RoomPK01Id, today, ShiftName.Morning, new TimeOnly(7, 0), new TimeOnly(12, 0), true),
+            (SeedConstants.StaffNurse01Id, SeedConstants.RoomPK01Id, today, ShiftName.Afternoon, new TimeOnly(13, 0), new TimeOnly(17, 30), true),
+            (SeedConstants.StaffDoctor03Id, SeedConstants.RoomPK02Id, today.AddDays(1), ShiftName.FullDay, new TimeOnly(7, 0), new TimeOnly(17, 30), true),
+            (SeedConstants.StaffDoctor05Id, SeedConstants.RoomXN01Id, today, ShiftName.FullDay, new TimeOnly(7, 0), new TimeOnly(17, 30), true),
+            (SeedConstants.StaffDoctor06Id, SeedConstants.RoomNS01Id, today, ShiftName.Morning, new TimeOnly(7, 0), new TimeOnly(12, 0), true)
+        };
+
+        foreach (var sh in sampleShifts)
+        {
+            var exists = await _dbContext.StaffShiftAssignments.AnyAsync(
+                a => a.StaffId == sh.StaffId && a.ShiftDate == sh.Date, ct);
+            if (!exists)
+            {
+                var startsUtc = sh.Date.ToDateTime(sh.StartLocal, DateTimeKind.Unspecified).AddHours(-7);
+                var endsUtc = sh.Date.ToDateTime(sh.EndLocal, DateTimeKind.Unspecified).AddHours(-7);
+                _dbContext.StaffShiftAssignments.Add(new StaffShiftAssignment
+                {
+                    Id = Guid.NewGuid(),
+                    StaffId = sh.StaffId,
+                    RoomId = sh.RoomId,
+                    ShiftDate = sh.Date,
+                    ShiftName = sh.Shift,
+                    StartsAtUtc = DateTime.SpecifyKind(startsUtc, DateTimeKind.Utc),
+                    EndsAtUtc = DateTime.SpecifyKind(endsUtc, DateTimeKind.Utc),
+                    IsShiftLeader = sh.IsLeader
+                });
+            }
         }
 
         await _dbContext.SaveChangesAsync(ct);

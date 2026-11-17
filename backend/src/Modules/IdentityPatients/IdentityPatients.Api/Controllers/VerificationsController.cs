@@ -6,7 +6,7 @@ using Microsoft.AspNetCore.Mvc;
 
 namespace IdentityPatients.Api.Controllers;
 
-[Authorize(Policy = Policies.ReceptionistOnly)]
+[Authorize(Policy = Policies.ReceptionistOrAdmin)]
 [Route("api/staff/verifications")]
 public sealed class VerificationsController(IVerificationService verificationService) : ApiControllerBase
 {
@@ -23,6 +23,15 @@ public sealed class VerificationsController(IVerificationService verificationSer
     {
         var query = new VerificationSearchQuery(searchTerm, status, page, pageSize);
         var result = await _verificationService.SearchVerificationsAsync(query, ct);
+        return HandleResult(result);
+    }
+
+    [HttpGet("{representativeId:guid}")]
+    [ProducesResponseType(typeof(VerificationDetailDto), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status404NotFound)]
+    public async Task<IActionResult> GetVerificationById(Guid representativeId, CancellationToken ct)
+    {
+        var result = await _verificationService.GetVerificationByIdAsync(representativeId, ct);
         return HandleResult(result);
     }
 

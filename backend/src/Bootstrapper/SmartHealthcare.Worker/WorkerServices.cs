@@ -5,6 +5,7 @@ using Hangfire.SqlServer;
 using Microsoft.Data.SqlClient;
 using Notifications.Infrastructure;
 using Notifications.Infrastructure.Persistence;
+using Scheduling.Contracts;
 using Scheduling.Infrastructure;
 using Scheduling.Infrastructure.Persistence;
 using Shared.Infrastructure;
@@ -36,10 +37,17 @@ public static class WorkerServices
             .AddNotificationsInfrastructure(connectionString)
             .AddUnitOfWorkParticipant<SchedulingDbContext>()
             .AddUnitOfWorkParticipant<WorkflowDbContext>()
+            // Handler PaymentVerified của Scheduling gọi IPaymentRefunds (PaidUnallocated) trong cùng transaction.
+            .AddUnitOfWorkParticipant<Billing.Infrastructure.Persistence.BillingDbContext>()
             // Không gọi AddSchedulingApplication: các service đó phục vụ HTTP, cần danh bạ bác sĩ và Identity mà Worker không có.
             // PaymentVerifiedHandler báo giá lại phí khám qua IBillingModule (W2-06).
             .AddBillingInfrastructure(connectionString)
             .AddOutboxDispatcher(configuration.GetSection(OutboxOptions.Section).Get<OutboxOptions>() ?? new OutboxOptions())
-            .AddOutboxEvent<PaymentVerified>();
+            .AddOutboxEvent<PaymentVerified>()
+            // Billing gắn phí khám đã thu với lịch hẹn (ExamChargeLinker). Module khác nhận sự kiện này thì chỉ đăng ký handler,
+            // không gọi AddOutboxEvent lần nữa.
+            .AddOutboxEvent<AppointmentConfirmed>()
+            // Billing tạo yêu cầu hoàn phí khám khi hủy lịch được hoàn (RefundService); module khác chỉ đăng ký handler.
+            .AddOutboxEvent<AppointmentCancelled>();
     }
 }

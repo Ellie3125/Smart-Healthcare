@@ -13,7 +13,16 @@ public sealed class TokenService(IOptions<JwtOptions> jwtOptions) : ITokenServic
 {
     private readonly JwtOptions _options = jwtOptions.Value;
 
-    public string GenerateAccessToken(AppUser user, string role, string channel, Guid? doctorId = null, Guid? roomId = null)
+    public string GenerateAccessToken(AppUser user, string role, string channel, Guid? doctorId = null, Guid? roomId = null) =>
+        GenerateAccessToken(user, role, channel, doctorId, roomId, roomSessionToken: null);
+
+    public string GenerateAccessToken(
+        AppUser user,
+        string role,
+        string channel,
+        Guid? doctorId,
+        Guid? roomId,
+        string? roomSessionToken)
     {
         if (Encoding.UTF8.GetByteCount(_options.SigningKey) < JwtOptions.MinSigningKeyBytes)
         {
@@ -43,6 +52,11 @@ public sealed class TokenService(IOptions<JwtOptions> jwtOptions) : ITokenServic
             claims.Add(new Claim(AppClaims.RoomId, roomId.Value.ToString()));
         }
 
+        if (!string.IsNullOrWhiteSpace(roomSessionToken))
+        {
+            claims.Add(new Claim(ITokenService.RoomSessionClaim, roomSessionToken));
+        }
+
         var now = DateTime.UtcNow;
         var token = new JwtSecurityToken(
             issuer: _options.Issuer,
@@ -55,4 +69,3 @@ public sealed class TokenService(IOptions<JwtOptions> jwtOptions) : ITokenServic
         return new JwtSecurityTokenHandler().WriteToken(token);
     }
 }
-

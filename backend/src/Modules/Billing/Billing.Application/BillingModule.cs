@@ -47,8 +47,8 @@ public sealed class BillingModule(IPriceCatalog catalog, IChargeStore charges, P
     public async Task<IReadOnlyList<ChargeDto>> CreateClsChargesAsync(CreateClsCharges command, CancellationToken ct)
     {
         ArgumentNullException.ThrowIfNull(command);
-        if (command.EncounterId == Guid.Empty)
-            throw Invalid("Thiếu EncounterId.");
+        if (command.EncounterId == Guid.Empty || command.PatientId == Guid.Empty || command.ServiceOrderId == Guid.Empty)
+            throw Invalid("Thiếu EncounterId, PatientId hoặc ServiceOrderId.");
         if (command.Lines is not { Count: > 0 })
             throw Invalid("Cần ít nhất một dòng chỉ định CLS.");
         if (command.Lines.Select(l => l.ServiceOrderItemId).Distinct().Count() != command.Lines.Count)
@@ -75,8 +75,11 @@ public sealed class BillingModule(IPriceCatalog catalog, IChargeStore charges, P
 
         foreach (var line in command.Lines.Where(l => existing.TryGetValue(l.ServiceOrderItemId, out _)))
         {
-            if (existing[line.ServiceOrderItemId].EncounterId != command.EncounterId)
+            var charge = existing[line.ServiceOrderItemId];
+            if (charge.EncounterId != command.EncounterId)
                 throw Invalid($"ServiceOrderItem {line.ServiceOrderItemId} đã có khoản thu thuộc lượt khám khác.");
+            if (charge.ServiceOrderId != command.ServiceOrderId || charge.PatientId != command.PatientId)
+                throw Invalid($"ServiceOrderItem {line.ServiceOrderItemId} đã có khoản thu thuộc đợt chỉ định hoặc bệnh nhân khác.");
         }
 
         var newLines = command.Lines.Where(l => !existing.ContainsKey(l.ServiceOrderItemId)).ToList();
@@ -91,7 +94,8 @@ public sealed class BillingModule(IPriceCatalog catalog, IChargeStore charges, P
             var quote = quotes[line.MedicalServiceId];
             var item = BillingItem.CreatePending(
                 quote.PriceListItemId, ItemType.CLSService, line.ServiceNameSnapshot, quote.UnitPrice, line.Quantity, now,
-                encounterId: command.EncounterId, serviceOrderItemId: line.ServiceOrderItemId);
+                encounterId: command.EncounterId, serviceOrderItemId: line.ServiceOrderItemId,
+                serviceOrderId: command.ServiceOrderId, patientId: command.PatientId);
             charges.Add(item);
             existing[line.ServiceOrderItemId] = item;
         }

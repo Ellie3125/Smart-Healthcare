@@ -22,3 +22,11 @@ docs/evidence/
 .env
 .env.*
 !.env.example
+!.env.*.example
+
+# ===== Node =====
+node_modules/
+
+# ===== Frontend build =====
+dist/
+*.tsbuildinfo

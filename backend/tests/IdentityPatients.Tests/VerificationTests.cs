@@ -1,6 +1,8 @@
+using IdentityPatients.Application.Patients;
 using IdentityPatients.Application.Verifications;
 using IdentityPatients.Domain.Entities;
 using IdentityPatients.Domain.Enums;
+using IdentityPatients.Domain.StateMachines;
 using IdentityPatients.Infrastructure.Persistence;
 using IdentityPatients.Infrastructure.Services;
 using IdentityPatients.Contracts;
@@ -142,11 +144,10 @@ public sealed class VerificationTests
     }
 
     [Fact]
-    public async Task InvalidTransition_FromVerifiedToVerify_Returns409ConflictWithAllowedTransitions()
+    public async Task InvalidTransitions_Return409ConflictWithAllowedTransitions()
     {
         await using var host = await IdentityTestHost.OpenAsync();
         var dbContext = host.Context;
-        var sharedDbContext = host.Get<SharedDbContext>();
         var staffUserId = Guid.NewGuid();
         var rep = new PatientRepresentative
         {
@@ -162,13 +163,31 @@ public sealed class VerificationTests
         await dbContext.SaveChangesAsync(TestContext.Current.CancellationToken);
 
         var service = host.Get<IVerificationService>();
-        var result = await service.VerifyAsync(staffUserId, rep.Id, TestContext.Current.CancellationToken);
 
-        Assert.False(result.IsSuccess);
-        Assert.Equal(409, result.StatusCode);
-        Assert.Equal("Chuyển trạng thái không hợp lệ", result.ErrorTitle);
-        Assert.NotNull(result.Extensions);
-        Assert.True(result.Extensions.ContainsKey("allowedTransitions"));
+        // Verified -> Rejected bị cấm
+        var rejectVerified = await service.RejectAsync(
+            staffUserId,
+            rep.Id,
+            new RejectVerificationRequest("Sai hồ sơ"),
+            TestContext.Current.CancellationToken);
+        Assert.False(rejectVerified.IsSuccess);
+        Assert.Equal(409, rejectVerified.StatusCode);
+        Assert.Equal(VerificationStateMachine.InvalidTransitionCode, rejectVerified.ErrorCode);
+        Assert.NotNull(rejectVerified.Extensions);
+        Assert.True(rejectVerified.Extensions.ContainsKey("allowedTransitions"));
+
+        // Thu hồi -> Verified bị cấm (trạng thái cuối)
+        var revoke = await service.RevokeAsync(
+            staffUserId,
+            rep.Id,
+            new RevokeVerificationRequest("Thu hồi test"),
+            TestContext.Current.CancellationToken);
+        Assert.True(revoke.IsSuccess);
+
+        var verifyRevoked = await service.VerifyAsync(staffUserId, rep.Id, TestContext.Current.CancellationToken);
+        Assert.False(verifyRevoked.IsSuccess);
+        Assert.Equal(409, verifyRevoked.StatusCode);
+        Assert.Equal(VerificationStateMachine.InvalidTransitionCode, verifyRevoked.ErrorCode);
     }
 
     [Fact]
@@ -201,5 +220,150 @@ public sealed class VerificationTests
         var resultRevoke = await service.RevokeAsync(staffUserId, rep.Id, new RevokeVerificationRequest(""), TestContext.Current.CancellationToken);
         Assert.False(resultRevoke.IsSuccess);
         Assert.Equal(400, resultRevoke.StatusCode);
+    }
+
+    [Fact]
+    public async Task RepeatedTransitions_AreIdempotent_AndDoNotCreateExtraAuditLogs()
+    {
+        await using var host = await IdentityTestHost.OpenAsync();
+        var dbContext = host.Context;
+        var sharedDbContext = host.Get<SharedDbContext>();
+        var staffUserId = Guid.NewGuid();
+        var ct = TestContext.Current.CancellationToken;
+
+        var repVerify = new PatientRepresentative
+        {
+            Id = Guid.NewGuid(),
+            AppUserId = dbContext.AddUser(Roles.Patient).Id,
+            PatientId = dbContext.AddPatient().Id,
+            Relationship = Relationship.Self,
+            VerificationStatus = VerificationStatus.Pending,
+            IsActive = true,
+            CreatedAtUtc = DateTime.UtcNow
+        };
+        var repReject = new PatientRepresentative
+        {
+            Id = Guid.NewGuid(),
+            AppUserId = dbContext.AddUser(Roles.Patient).Id,
+            PatientId = dbContext.AddPatient().Id,
+            Relationship = Relationship.Child,
+            VerificationStatus = VerificationStatus.Pending,
+            IsActive = true,
+            CreatedAtUtc = DateTime.UtcNow
+        };
+        dbContext.PatientRepresentatives.AddRange(repVerify, repReject);
+        await dbContext.SaveChangesAsync(ct);
+
+        var service = host.Get<IVerificationService>();
+
+        var firstVerify = await service.VerifyAsync(staffUserId, repVerify.Id, ct);
+        var secondVerify = await service.VerifyAsync(staffUserId, repVerify.Id, ct);
+        Assert.True(firstVerify.IsSuccess);
+        Assert.True(secondVerify.IsSuccess);
+        Assert.Equal("Verified", secondVerify.Value!.VerificationStatus);
+
+        var firstReject = await service.RejectAsync(staffUserId, repReject.Id, new RejectVerificationRequest("Ảnh mờ"), ct);
+        var secondReject = await service.RejectAsync(staffUserId, repReject.Id, new RejectVerificationRequest("Gọi lại lần 2"), ct);
+        Assert.True(firstReject.IsSuccess);
+        Assert.True(secondReject.IsSuccess);
+        Assert.Equal("Rejected", secondReject.Value!.VerificationStatus);
+
+        var firstRevoke = await service.RevokeAsync(staffUserId, repVerify.Id, new RevokeVerificationRequest("Thu hồi"), ct);
+        var secondRevoke = await service.RevokeAsync(staffUserId, repVerify.Id, new RevokeVerificationRequest("Thu hồi lặp"), ct);
+        Assert.True(firstRevoke.IsSuccess);
+        Assert.True(secondRevoke.IsSuccess);
+        Assert.Equal("Revoked", secondRevoke.Value!.VerificationStatus);
+
+        Assert.Equal(2, await sharedDbContext.Set<AuditLog>().CountAsync(a => a.RecordId == repVerify.Id, ct));
+        Assert.Equal(1, await sharedDbContext.Set<AuditLog>().CountAsync(a => a.RecordId == repReject.Id, ct));
+    }
+
+    [Fact]
+    public async Task Resubmit_FromRejected_TransitionsBackToPending_UpdatesSameRowAndAudits()
+    {
+        await using var host = await IdentityTestHost.OpenAsync();
+        var dbContext = host.Context;
+        var sharedDbContext = host.Get<SharedDbContext>();
+        var ct = TestContext.Current.CancellationToken;
+
+        var userId = dbContext.AddUser(Roles.Patient).Id;
+        var patientId = dbContext.AddPatient().Id;
+        var rep = new PatientRepresentative
+        {
+            Id = Guid.NewGuid(),
+            AppUserId = userId,
+            PatientId = patientId,
+            Relationship = Relationship.Self,
+            VerificationStatus = VerificationStatus.Rejected,
+            IsActive = false,
+            RevokedAtUtc = DateTime.UtcNow.AddMinutes(-10),
+            CreatedAtUtc = DateTime.UtcNow.AddMinutes(-20)
+        };
+        dbContext.PatientRepresentatives.Add(rep);
+        await dbContext.SaveChangesAsync(ct);
+
+        var profiles = host.Get<IPatientProfileService>();
+        var resubmit1 = await profiles.ResubmitProfileAsync(userId, patientId, ct);
+        Assert.True(resubmit1.IsSuccess);
+        Assert.Equal("Pending", resubmit1.Value!.VerificationStatus);
+        Assert.True(resubmit1.Value.IsActive);
+        Assert.Equal(rep.Id, resubmit1.Value.RepresentativeId);
+
+        // Idempotent lần 2 khi đã Pending
+        var resubmit2 = await profiles.ResubmitProfileAsync(userId, patientId, ct);
+        Assert.True(resubmit2.IsSuccess);
+        Assert.Equal("Pending", resubmit2.Value!.VerificationStatus);
+
+        dbContext.ChangeTracker.Clear();
+        var updatedRep = await dbContext.PatientRepresentatives.SingleAsync(r => r.Id == rep.Id, ct);
+        Assert.Equal(VerificationStatus.Pending, updatedRep.VerificationStatus);
+        Assert.True(updatedRep.IsActive);
+        Assert.Null(updatedRep.RevokedAtUtc);
+
+        var logs = await sharedDbContext.Set<AuditLog>().Where(a => a.RecordId == rep.Id).ToListAsync(ct);
+        Assert.Single(logs);
+    }
+
+    [Theory]
+    [InlineData(VerificationStatus.Pending, VerificationStatus.Verified, true, false, true)]
+    [InlineData(VerificationStatus.Pending, VerificationStatus.Rejected, true, false, false)]
+    [InlineData(VerificationStatus.Verified, VerificationStatus.Revoked, true, false, false)]
+    [InlineData(VerificationStatus.Rejected, VerificationStatus.Pending, true, false, true)]
+    [InlineData(VerificationStatus.Pending, VerificationStatus.Pending, true, true, true)]
+    [InlineData(VerificationStatus.Verified, VerificationStatus.Verified, true, true, true)]
+    [InlineData(VerificationStatus.Rejected, VerificationStatus.Rejected, true, true, false)]
+    [InlineData(VerificationStatus.Revoked, VerificationStatus.Revoked, true, true, false)]
+    [InlineData(VerificationStatus.Pending, VerificationStatus.Revoked, false, false, true)]
+    [InlineData(VerificationStatus.Verified, VerificationStatus.Rejected, false, false, true)]
+    [InlineData(VerificationStatus.Rejected, VerificationStatus.Verified, false, false, false)]
+    [InlineData(VerificationStatus.Revoked, VerificationStatus.Pending, false, false, false)]
+    [InlineData(VerificationStatus.Revoked, VerificationStatus.Verified, false, false, false)]
+    public void VerificationStateMachine_UnitMatrix_EnforcesRulesAndIdempotency(
+        VerificationStatus fromStatus,
+        VerificationStatus toStatus,
+        bool expectedSuccess,
+        bool expectedIdempotent,
+        bool initialActive)
+    {
+        var rep = new PatientRepresentative
+        {
+            Id = Guid.NewGuid(),
+            AppUserId = Guid.NewGuid(),
+            PatientId = Guid.NewGuid(),
+            Relationship = Relationship.Self,
+            VerificationStatus = fromStatus,
+            IsActive = initialActive,
+            RevokedAtUtc = initialActive ? null : DateTime.UtcNow.AddHours(-1),
+            CreatedAtUtc = DateTime.UtcNow.AddDays(-1)
+        };
+
+        var outcome = VerificationStateMachine.ApplyTransition(rep, toStatus, DateTime.UtcNow);
+        Assert.Equal(expectedSuccess, outcome.Succeeded);
+        Assert.Equal(expectedIdempotent, outcome.IsIdempotent);
+        if (!expectedSuccess)
+        {
+            Assert.Equal(VerificationStateMachine.InvalidTransitionCode, outcome.ErrorCode);
+            Assert.NotNull(outcome.AllowedTransitions);
+        }
     }
 }

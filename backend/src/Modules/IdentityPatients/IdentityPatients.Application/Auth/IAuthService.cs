@@ -33,9 +33,27 @@ public sealed class AuthResult
         new() { IsSuccess = false, StatusCode = statusCode, ErrorTitle = title, ErrorDetail = detail, ErrorCode = code };
 }
 
+public sealed record RegisterPatientProfileRequest(
+    string FullName,
+    DateOnly DateOfBirth,
+    string Gender,
+    string? NationalId,
+    string PhoneNumber,
+    string Address);
+
+public sealed record RegisterPatientRequest(
+    string UserName,
+    string? Email,
+    string? PhoneNumber,
+    string Password,
+    bool CreateSelfProfile = false,
+    RegisterPatientProfileRequest? SelfProfile = null);
+
 public interface IAuthService
 {
     Task<AuthResult> LoginStaffAsync(LoginRequest request, CancellationToken ct = default);
     Task<AuthResult> LoginPatientAsync(LoginRequest request, CancellationToken ct = default);
+    Task<AuthResult> RegisterPatientAsync(RegisterPatientRequest request, CancellationToken ct = default);
+    Task<IdentityPatients.Application.Common.ServiceResult> LogoutRoomAsync(Guid userId, string? rawSessionToken, CancellationToken ct = default);
 }
 

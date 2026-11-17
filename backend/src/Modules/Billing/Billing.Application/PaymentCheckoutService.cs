@@ -53,6 +53,13 @@ public sealed class PaymentCheckoutService(IPaymentStore store, IPaymentGateway 
             transaction.TransactionAmount, transaction.Currency, intent.ExpiresAtUtc);
     }
 
+    /// <summary>Đúng các điều kiện <see cref="StartAsync"/> kiểm; web dùng để biết có hiện nút thanh toán không.</summary>
+    internal static bool CanStart(PaymentIntent intent, PaymentTransaction transaction, DateTime nowUtc) =>
+        intent.Provider == PaymentIntentProvider.VNPAY
+        && intent.Status is PaymentIntentStatus.Pending or PaymentIntentStatus.Processing
+        && transaction.PaymentStatus == PaymentStatus.Pending
+        && intent.ExpiresAtUtc > nowUtc;
+
     private static void EnsureOpen(PaymentIntent intent, PaymentTransaction transaction, DateTime nowUtc)
     {
         if (intent.Provider != PaymentIntentProvider.VNPAY)

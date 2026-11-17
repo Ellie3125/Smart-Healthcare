@@ -71,7 +71,7 @@ public class BillingQueryTests
         await FeeAsync(db, list, service: ultrasound, price: 200_000m);
         await FeeAsync(db, list, service: xray, price: 120_000m);
         var encounter = Guid.NewGuid();
-        var command = new CreateClsCharges(encounter, At,
+        var command = new CreateClsCharges(encounter, Guid.NewGuid(), Guid.NewGuid(), At,
         [
             new ClsChargeLine(Guid.NewGuid(), ultrasound, "Siêu âm ổ bụng", 1),
             new ClsChargeLine(Guid.NewGuid(), xray, "X-quang ngực", 2),
@@ -113,7 +113,7 @@ public class BillingQueryTests
         }
 
         var error = await Assert.ThrowsAsync<BillingException>(() => Module(db).CreateClsChargesAsync(
-            new CreateClsCharges(encounter, At, [new ClsChargeLine(serviceOrderItem, service, "Siêu âm", 1)]), Ct));
+            new CreateClsCharges(encounter, Guid.NewGuid(), Guid.NewGuid(), At, [new ClsChargeLine(serviceOrderItem, service, "Siêu âm", 1)]), Ct));
 
         Assert.Equal(BillingErrorCode.DuplicateCharge, error.Code);
         Assert.Equal(["2"], await db.QueryAsync($"SELECT COUNT(*) FROM billing.BillingItem WHERE ServiceOrderItemId = '{serviceOrderItem}'"));

@@ -3,6 +3,7 @@ using IdentityPatients.Application.Common;
 using IdentityPatients.Application.Verifications;
 using IdentityPatients.Domain.Entities;
 using IdentityPatients.Domain.Enums;
+using IdentityPatients.Domain.StateMachines;
 using IdentityPatients.Infrastructure.Persistence;
 using Microsoft.EntityFrameworkCore;
 using Shared.Abstractions;
@@ -67,7 +68,7 @@ public sealed class VerificationService(
                 x.Patient.FullName,
                 x.Patient.DateOfBirth,
                 x.Patient.Gender.ToString(),
-                MaskNationalId(x.Patient.NationalId),
+                PatientInputValidator.MaskNationalId(x.Patient.NationalId),
                 x.Patient.PhoneNumber,
                 x.Patient.Address,
                 x.Rep.Relationship.ToString(),
@@ -81,75 +82,53 @@ public sealed class VerificationService(
             new PagedResult<VerificationItemDto>(items, totalCount, page, pageSize));
     }
 
-    public async Task<ServiceResult<VerificationItemDto>> VerifyAsync(
-        Guid staffUserId,
+    public async Task<ServiceResult<VerificationDetailDto>> GetVerificationByIdAsync(
         Guid representativeId,
         CancellationToken ct = default)
     {
-        return await unitOfWork.ExecuteAsync(async _ =>
+        var detail = await (from r in _dbContext.PatientRepresentatives.AsNoTracking()
+                            join p in _dbContext.Patients.AsNoTracking() on r.PatientId equals p.Id
+                            join u in _dbContext.AppUsers.AsNoTracking() on r.AppUserId equals u.Id
+                            where r.Id == representativeId
+                            select new VerificationDetailDto(
+                                r.Id,
+                                p.Id,
+                                r.AppUserId,
+                                p.FullName,
+                                p.DateOfBirth,
+                                p.Gender.ToString(),
+                                PatientInputValidator.MaskNationalId(p.NationalId),
+                                p.PhoneNumber,
+                                p.Address,
+                                r.Relationship.ToString(),
+                                r.VerificationStatus.ToString(),
+                                r.IsActive,
+                                r.CreatedAtUtc,
+                                r.RevokedAtUtc,
+                                p.CreatedAtUtc,
+                                u.UserName,
+                                u.Email,
+                                u.PhoneNumber
+                            )).FirstOrDefaultAsync(ct);
+
+        if (detail is null)
         {
-            var rep = await LockRepresentativeAsync(representativeId, ct);
-            if (rep is null)
-            {
-                return ServiceResult<VerificationItemDto>.Failure(404, "Không tìm thấy", "Không tìm thấy yêu cầu xác minh hồ sơ.");
-            }
+            return ServiceResult<VerificationDetailDto>.Failure(404, "Không tìm thấy", "Không tìm thấy yêu cầu xác minh hồ sơ.");
+        }
 
-            if (rep.VerificationStatus != VerificationStatus.Pending)
-            {
-                var extensions = new Dictionary<string, object?>
-                {
-                    ["currentStatus"] = rep.VerificationStatus.ToString(),
-                    ["allowedTransitions"] = new[] { "Pending -> Verified", "Pending -> Rejected" }
-                };
-
-                return ServiceResult<VerificationItemDto>.Failure(
-                    409,
-                    "Chuyển trạng thái không hợp lệ",
-                    $"Không thể duyệt xác minh hồ sơ đang ở trạng thái '{rep.VerificationStatus}'. Hồ sơ phải ở trạng thái 'Pending'.",
-                    extensions);
-            }
-
-            var oldStatus = rep.VerificationStatus;
-            rep.VerificationStatus = VerificationStatus.Verified;
-            var now = DateTime.UtcNow;
-
-            var patient = await _dbContext.Patients.FirstOrDefaultAsync(p => p.Id == rep.PatientId, ct);
-
-            await _dbContext.SaveChangesAsync(ct);
-
-            await auditLog.WriteAsync(new AuditLog
-            {
-                Id = Guid.NewGuid(),
-                PerformedByUserId = staffUserId,
-                TableName = "identity.PatientRepresentative",
-                RecordId = rep.Id,
-                ActionType = ActionType.UPDATE,
-                ChangedColumns = "VerificationStatus",
-                OldValuesJson = JsonSerializer.Serialize(new { VerificationStatus = oldStatus.ToString() }),
-                NewValuesJson = JsonSerializer.Serialize(new { VerificationStatus = rep.VerificationStatus.ToString() }),
-                ChangeReason = "Đối chiếu bản gốc và xác minh hợp lệ tại quầy tiếp tân",
-                TimestampUtc = now
-            }, ct);
-
-
-            var dto = new VerificationItemDto(
-                rep.Id,
-                rep.PatientId,
-                rep.AppUserId,
-                patient?.FullName ?? string.Empty,
-                patient?.DateOfBirth ?? default,
-                patient?.Gender.ToString() ?? string.Empty,
-                MaskNationalId(patient?.NationalId),
-                patient?.PhoneNumber ?? string.Empty,
-                patient?.Address ?? string.Empty,
-                rep.Relationship.ToString(),
-                rep.VerificationStatus.ToString(),
-                rep.CreatedAtUtc,
-                rep.RevokedAtUtc);
-
-            return ServiceResult<VerificationItemDto>.Success(dto);
-        }, ct);
+        return ServiceResult<VerificationDetailDto>.Success(detail);
     }
+
+    public Task<ServiceResult<VerificationItemDto>> VerifyAsync(
+        Guid staffUserId,
+        Guid representativeId,
+        CancellationToken ct = default) =>
+        TransitionAsync(
+            staffUserId,
+            representativeId,
+            VerificationStatus.Verified,
+            reason: "Đối chiếu bản gốc và xác minh hợp lệ tại quầy tiếp tân",
+            ct);
 
     public async Task<ServiceResult<VerificationItemDto>> RejectAsync(
         Guid staffUserId,
@@ -162,71 +141,12 @@ public sealed class VerificationService(
             return ServiceResult<VerificationItemDto>.Failure(400, "Thiếu lý do từ chối", "Vui lòng nhập lý do từ chối xác minh.");
         }
 
-        return await unitOfWork.ExecuteAsync(async _ =>
-        {
-            var rep = await LockRepresentativeAsync(representativeId, ct);
-            if (rep is null)
-            {
-                return ServiceResult<VerificationItemDto>.Failure(404, "Không tìm thấy", "Không tìm thấy yêu cầu xác minh hồ sơ.");
-            }
-
-            if (rep.VerificationStatus != VerificationStatus.Pending)
-            {
-                var extensions = new Dictionary<string, object?>
-                {
-                    ["currentStatus"] = rep.VerificationStatus.ToString(),
-                    ["allowedTransitions"] = new[] { "Pending -> Verified", "Pending -> Rejected" }
-                };
-
-                return ServiceResult<VerificationItemDto>.Failure(
-                    409,
-                    "Chuyển trạng thái không hợp lệ",
-                    $"Không thể từ chối hồ sơ đang ở trạng thái '{rep.VerificationStatus}'. Hồ sơ phải ở trạng thái 'Pending'.",
-                    extensions);
-            }
-
-            var oldStatus = rep.VerificationStatus;
-            rep.VerificationStatus = VerificationStatus.Rejected;
-            rep.IsActive = false;
-            var now = DateTime.UtcNow;
-            rep.RevokedAtUtc = now;
-
-            var patient = await _dbContext.Patients.FirstOrDefaultAsync(p => p.Id == rep.PatientId, ct);
-
-            await _dbContext.SaveChangesAsync(ct);
-
-            await auditLog.WriteAsync(new AuditLog
-            {
-                Id = Guid.NewGuid(),
-                PerformedByUserId = staffUserId,
-                TableName = "identity.PatientRepresentative",
-                RecordId = rep.Id,
-                ActionType = ActionType.UPDATE,
-                ChangedColumns = "VerificationStatus,IsActive,RevokedAtUtc",
-                OldValuesJson = JsonSerializer.Serialize(new { VerificationStatus = oldStatus.ToString(), IsActive = true }),
-                NewValuesJson = JsonSerializer.Serialize(new { VerificationStatus = rep.VerificationStatus.ToString(), IsActive = false }),
-                ChangeReason = request.Reason.Trim(),
-                TimestampUtc = now
-            }, ct);
-
-
-            var dto = new VerificationItemDto(
-                rep.Id,
-                rep.PatientId,
-                rep.AppUserId,
-                patient?.FullName ?? string.Empty,
-                patient?.DateOfBirth ?? default,
-                patient?.Gender.ToString() ?? string.Empty,
-                MaskNationalId(patient?.NationalId),
-                patient?.PhoneNumber ?? string.Empty,
-                patient?.Address ?? string.Empty,
-                rep.Relationship.ToString(),
-                rep.VerificationStatus.ToString(),
-                rep.CreatedAtUtc,
-                rep.RevokedAtUtc);
-
-            return ServiceResult<VerificationItemDto>.Success(dto);
-        }, ct);
+        return await TransitionAsync(
+            staffUserId,
+            representativeId,
+            VerificationStatus.Rejected,
+            reason: request.Reason.Trim(),
+            ct);
     }
 
     public async Task<ServiceResult<VerificationItemDto>> RevokeAsync(
@@ -240,6 +160,21 @@ public sealed class VerificationService(
             return ServiceResult<VerificationItemDto>.Failure(400, "Thiếu lý do thu hồi", "Vui lòng nhập lý do thu hồi xác minh.");
         }
 
+        return await TransitionAsync(
+            staffUserId,
+            representativeId,
+            VerificationStatus.Revoked,
+            reason: request.Reason.Trim(),
+            ct);
+    }
+
+    private async Task<ServiceResult<VerificationItemDto>> TransitionAsync(
+        Guid staffUserId,
+        Guid representativeId,
+        VerificationStatus targetStatus,
+        string reason,
+        CancellationToken ct)
+    {
         return await unitOfWork.ExecuteAsync(async _ =>
         {
             var rep = await LockRepresentativeAsync(representativeId, ct);
@@ -248,78 +183,65 @@ public sealed class VerificationService(
                 return ServiceResult<VerificationItemDto>.Failure(404, "Không tìm thấy", "Không tìm thấy yêu cầu xác minh hồ sơ.");
             }
 
-            if (rep.VerificationStatus != VerificationStatus.Verified)
+            var now = DateTime.UtcNow;
+            var outcome = VerificationStateMachine.ApplyTransition(rep, targetStatus, now);
+            if (!outcome.Succeeded)
             {
                 var extensions = new Dictionary<string, object?>
                 {
-                    ["currentStatus"] = rep.VerificationStatus.ToString(),
-                    ["allowedTransitions"] = new[] { "Verified -> Revoked" }
+                    ["currentStatus"] = outcome.OldStatus.ToString(),
+                    ["allowedTransitions"] = outcome.AllowedTransitions ?? []
                 };
 
                 return ServiceResult<VerificationItemDto>.Failure(
                     409,
                     "Chuyển trạng thái không hợp lệ",
-                    $"Không thể thu hồi hồ sơ đang ở trạng thái '{rep.VerificationStatus}'. Hồ sơ phải ở trạng thái 'Verified'.",
-                    extensions);
+                    outcome.ErrorDetail!,
+                    extensions,
+                    outcome.ErrorCode);
             }
 
-            var oldStatus = rep.VerificationStatus;
-            rep.VerificationStatus = VerificationStatus.Revoked;
-            rep.IsActive = false;
-            var now = DateTime.UtcNow;
-            rep.RevokedAtUtc = now;
+            var patient = await _dbContext.Patients.AsNoTracking().FirstOrDefaultAsync(p => p.Id == rep.PatientId, ct);
 
-            var patient = await _dbContext.Patients.FirstOrDefaultAsync(p => p.Id == rep.PatientId, ct);
-
-            await _dbContext.SaveChangesAsync(ct);
-
-            await auditLog.WriteAsync(new AuditLog
+            if (!outcome.IsIdempotent)
             {
-                Id = Guid.NewGuid(),
-                PerformedByUserId = staffUserId,
-                TableName = "identity.PatientRepresentative",
-                RecordId = rep.Id,
-                ActionType = ActionType.UPDATE,
-                ChangedColumns = "VerificationStatus,IsActive,RevokedAtUtc",
-                OldValuesJson = JsonSerializer.Serialize(new { VerificationStatus = oldStatus.ToString(), IsActive = true }),
-                NewValuesJson = JsonSerializer.Serialize(new { VerificationStatus = rep.VerificationStatus.ToString(), IsActive = false }),
-                ChangeReason = request.Reason.Trim(),
-                TimestampUtc = now
-            }, ct);
+                await _dbContext.SaveChangesAsync(ct);
 
+                var changedColumns = outcome.OldIsActive != outcome.NewIsActive || rep.RevokedAtUtc is not null
+                    ? "VerificationStatus,IsActive,RevokedAtUtc"
+                    : "VerificationStatus";
 
-            var dto = new VerificationItemDto(
-                rep.Id,
-                rep.PatientId,
-                rep.AppUserId,
-                patient?.FullName ?? string.Empty,
-                patient?.DateOfBirth ?? default,
-                patient?.Gender.ToString() ?? string.Empty,
-                MaskNationalId(patient?.NationalId),
-                patient?.PhoneNumber ?? string.Empty,
-                patient?.Address ?? string.Empty,
-                rep.Relationship.ToString(),
-                rep.VerificationStatus.ToString(),
-                rep.CreatedAtUtc,
-                rep.RevokedAtUtc);
+                await auditLog.WriteAsync(new AuditLog
+                {
+                    Id = Guid.NewGuid(),
+                    PerformedByUserId = staffUserId,
+                    TableName = "identity.PatientRepresentative",
+                    RecordId = rep.Id,
+                    ActionType = ActionType.UPDATE,
+                    ChangedColumns = changedColumns,
+                    OldValuesJson = JsonSerializer.Serialize(new { VerificationStatus = outcome.OldStatus.ToString(), IsActive = outcome.OldIsActive }),
+                    NewValuesJson = JsonSerializer.Serialize(new { VerificationStatus = outcome.NewStatus.ToString(), IsActive = outcome.NewIsActive }),
+                    ChangeReason = reason,
+                    TimestampUtc = now
+                }, ct);
+            }
 
-            return ServiceResult<VerificationItemDto>.Success(dto);
+            return ServiceResult<VerificationItemDto>.Success(MapItemDto(rep, patient));
         }, ct);
     }
 
-    private static string? MaskNationalId(string? nationalId)
-    {
-        if (string.IsNullOrWhiteSpace(nationalId))
-        {
-            return null;
-        }
-
-        var trimmed = nationalId.Trim();
-        if (trimmed.Length <= 4)
-        {
-            return new string('*', trimmed.Length);
-        }
-
-        return new string('*', trimmed.Length - 4) + trimmed[^4..];
-    }
+    private static VerificationItemDto MapItemDto(PatientRepresentative rep, Patient? patient) => new(
+        rep.Id,
+        rep.PatientId,
+        rep.AppUserId,
+        patient?.FullName ?? string.Empty,
+        patient?.DateOfBirth ?? default,
+        patient?.Gender.ToString() ?? string.Empty,
+        PatientInputValidator.MaskNationalId(patient?.NationalId),
+        patient?.PhoneNumber ?? string.Empty,
+        patient?.Address ?? string.Empty,
+        rep.Relationship.ToString(),
+        rep.VerificationStatus.ToString(),
+        rep.CreatedAtUtc,
+        rep.RevokedAtUtc);
 }
