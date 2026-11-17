@@ -1,6 +1,8 @@
 using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
+using Billing.Contracts;
+using Scheduling.Contracts;
 using Microsoft.EntityFrameworkCore;
 using Notifications.Application.Exceptions;
 using Notifications.Domain.Entities;
@@ -12,7 +14,8 @@ using Shared.Infrastructure.Persistence;
 namespace Notifications.Infrastructure.Exceptions;
 
 public sealed class WorkflowExceptionMonitor(WorkflowDbContext workflow, OutboxAdministration outbox, IDbClock clock,
-    IUnitOfWork uow, IIdempotencyStore idempotency) : IWorkflowExceptionMonitor
+    IUnitOfWork uow, IIdempotencyStore idempotency, IBillingStatusReader? billing = null,
+    ICoordinationExceptionReader? coordination = null) : IWorkflowExceptionMonitor
 {
     private const string RetryOperation = "Workflow.RetryOutbox";
 
@@ -36,10 +39,21 @@ public sealed class WorkflowExceptionMonitor(WorkflowDbContext workflow, OutboxA
                     ? "OperationStalled" : "OperationNeedsReview", x.Status.ToString(), x.TargetEntityId, x.Id, x.CreatedAtUtc, null, false))
             .ToListAsync(ct);
         var messages = await outbox.ListExceptionsAsync(cutoff, take, ct);
+        var unavailable = new List<string>();
+        IReadOnlyList<PaidUnallocatedItem> refunds = [];
+        IReadOnlyList<CoordinationExceptionView> tickets = [];
+        if (billing is null) unavailable.Add("Billing.PaidUnallocated");
+        else refunds = (await billing.GetPaidUnallocatedAsync(Guid.Empty, take, ct)).Items;
+        if (coordination is null) unavailable.Add("Scheduling.Coordination");
+        else tickets = await coordination.ListAsync(take, ct);
         return new(operations.Concat(messages.Select(x => new WorkflowExceptionItem(x.Id, "Outbox", "OutboxDelivery",
                 x.Status, x.AggregateId, x.OperationId, x.CreatedAtUtc, x.RetryCount, x.CanRetry, x.NextRetryAtUtc)))
+            .Concat(refunds.Select(x => new WorkflowExceptionItem(x.RefundRequestId, "Billing", "PaidUnallocated", x.Status,
+                x.PaymentIntentId, null, x.RequestedAtUtc, null, false)))
+            .Concat(tickets.Select(x => new WorkflowExceptionItem(x.QueueTicketId, "Scheduling", x.Reason, x.QueueStatus,
+                x.EncounterId, null, x.QueuedAtUtc, null, false)))
             .OrderBy(x => x.CreatedAtUtc).ThenBy(x => x.Source, StringComparer.Ordinal).ThenBy(x => x.Id).Take(take).ToArray(),
-            ["Billing.PaidUnallocated", "Scheduling.Coordination"]);
+            unavailable);
     }
 
     public Task<RetryExceptionResult> RetryOutboxAsync(Guid messageId, Guid userId, string note, string idempotencyKey, CancellationToken ct)
