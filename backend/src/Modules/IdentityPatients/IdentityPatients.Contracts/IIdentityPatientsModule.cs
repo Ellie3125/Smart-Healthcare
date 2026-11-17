@@ -8,6 +8,10 @@ public enum AccessLevel
 
 public interface IIdentityPatientsModule
 {
+    /// <summary>Active patient-channel accounts with Booking access to this patient; missing patient returns empty.</summary>
+    Task<IReadOnlyList<Guid>> GetPatientAppUserIdsAsync(Guid patientId, CancellationToken ct = default) =>
+        throw new NotSupportedException();
+
     Task<bool> CanAccessPatientAsync(Guid userId, Guid patientId, AccessLevel level = AccessLevel.Booking, CancellationToken ct = default);
 
     /// <summary>
