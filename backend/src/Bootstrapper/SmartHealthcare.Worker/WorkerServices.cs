@@ -3,6 +3,7 @@ using Billing.Infrastructure;
 using Hangfire;
 using Hangfire.SqlServer;
 using Microsoft.Data.SqlClient;
+using Notifications.Api;
 using Notifications.Infrastructure;
 using Notifications.Infrastructure.Persistence;
 using Scheduling.Contracts;
@@ -50,6 +51,9 @@ public static class WorkerServices
             // Billing tạo yêu cầu hoàn phí khám khi hủy lịch được hoàn (RefundService); module khác chỉ đăng ký handler.
             .AddOutboxEvent<AppointmentCancelled>()
             // Check-in phát TicketCheckedIn; Clinical không có handler (Q1), dispatcher vẫn phải nhận để bản ghi không kẹt Pending.
-            .AddOutboxEvent<TicketCheckedIn>();
+            .AddOutboxEvent<TicketCheckedIn>()
+            // Handler trong Worker đẩy sự kiện SignalR qua Redis tới kết nối đang mở ở BE1/BE2 (W4-01).
+            .AddNotificationsApi()
+            .AddNotificationsRedisBackplane(configuration.GetConnectionString("Redis"));
     }
 }
