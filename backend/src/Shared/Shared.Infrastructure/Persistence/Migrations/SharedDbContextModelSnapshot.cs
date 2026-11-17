@@ -191,6 +191,11 @@ namespace Shared.Infrastructure.Persistence.Migrations
 
                     b.HasIndex("OperationId");
 
+                    b.HasIndex(new[] { "Status", "CreatedAtUtc" }, "IX_OutboxMessage_Unfinished")
+                        .HasFilter("[Status] IN (N'Pending', N'Processing', N'DeadLetter')");
+
+                    SqlServerIndexBuilderExtensions.IncludeProperties(b.HasIndex(new[] { "Status", "CreatedAtUtc" }, "IX_OutboxMessage_Unfinished"), new[] { "EventType", "RetryCount", "ProcessedAtUtc", "AggregateId", "OperationId" });
+
                     b.ToTable("OutboxMessage", "shared");
                 });
 

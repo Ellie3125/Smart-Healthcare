@@ -81,7 +81,7 @@ public sealed class OutboxDispatcher(IServiceScopeFactory scopes, IEnumerable<Ou
         // Chèn thẳng tên EventType vào SQL: lấy từ enum đã đăng ký, không từ dữ liệu ngoài.
         var types = string.Join(", ", _registrations.Keys.Select(x => $"N'{x}'"));
 
-        // shortcut: chưa có index theo Status nên quét bảng; thêm index có lọc (Status Pending/Processing) khi Outbox lớn.
+        // Index có lọc IX_OutboxMessage_Unfinished chỉ chứa bản ghi chưa xong nên claim không quét cả bảng.
         var sql = $"""
             WITH due AS (
                 SELECT TOP (@batch) Id, EventType, PayloadJson, RetryCount, Status, ProcessedAtUtc

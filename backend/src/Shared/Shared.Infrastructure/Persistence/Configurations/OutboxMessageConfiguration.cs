@@ -17,5 +17,10 @@ internal sealed class OutboxMessageConfiguration : IEntityTypeConfiguration<Outb
         builder.Property(x => x.Status).HasConversion<string>().HasMaxLength(32);
 
         builder.HasIndex(x => x.OperationId);
+        // Chỉ bản ghi chưa xong (Published bị loại khỏi index nên index nhỏ dù bảng lớn): Worker claim và giám sát ngoại lệ
+        // đọc theo trạng thái + thời điểm tạo mà không quét bảng (CLA-PERF-001).
+        builder.HasIndex(x => new { x.Status, x.CreatedAtUtc }, "IX_OutboxMessage_Unfinished")
+            .IncludeProperties(x => new { x.EventType, x.RetryCount, x.ProcessedAtUtc, x.AggregateId, x.OperationId })
+            .HasFilter("[Status] IN (N'Pending', N'Processing', N'DeadLetter')");
     }
 }
