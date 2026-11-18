@@ -116,6 +116,7 @@ describe('Patient Web', () => {
   it('P25: shows 115 red-flag without booking CTA', async () => {
     renderWithProviders(<ChatbotPage />, ['/chatbot'], '/chatbot');
     const input = await screen.findByPlaceholderText(/Mô tả triệu chứng/i);
+    await waitFor(() => expect(input).toBeEnabled());
     fireEvent.change(input, { target: { value: 'Tôi bị đau ngực dữ dội và khó thở' } });
     fireEvent.click(screen.getByRole('button', { name: /Gửi/i }));
 
@@ -125,7 +126,7 @@ describe('Patient Web', () => {
   });
 
   it('P25: disables chatbot input when /health is down', async () => {
-    patientApiMock.override('GET', '/api/notifications/patient/chat/health', () => ({
+    patientApiMock.override('GET', '/api/notifications/patient/chat/status', () => ({
       status: 200,
       data: { available: false },
     }));
@@ -134,6 +135,29 @@ describe('Patient Web', () => {
     await waitFor(() => {
       expect(screen.getByPlaceholderText(/Trợ lý đang bảo trì/i)).toBeDisabled();
     });
+  });
+
+  it('P25: suggestion button sends a turn and appointment option links to ticket, reschedule, cancel', async () => {
+    renderWithProviders(<ChatbotPage />, ['/chatbot'], '/chatbot');
+    const suggestion = await screen.findByRole('button', { name: /Xem lịch của tôi/i });
+    await waitFor(() => expect(suggestion).toBeEnabled());
+    fireEvent.click(suggestion);
+
+    expect(await screen.findByText(/Bạn có 1 lịch hẹn sắp tới/i)).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: 'Xem vé' })).toHaveAttribute('href', '/appointments/apt-2/ticket');
+    expect(screen.getByRole('link', { name: 'Đổi lịch' })).toHaveAttribute('href', '/appointments/apt-2/reschedule');
+    expect(screen.getByRole('link', { name: 'Hủy lịch' })).toHaveAttribute('href', '/appointments/apt-2/cancel');
+  });
+
+  it('P25: doctor option opens the manual booking page for that day', async () => {
+    renderWithProviders(<ChatbotPage />, ['/chatbot'], '/chatbot');
+    const input = await screen.findByPlaceholderText(/Mô tả triệu chứng/i);
+    await waitFor(() => expect(input).toBeEnabled());
+    fireEvent.change(input, { target: { value: 'ngày mai còn bác sĩ nào' } });
+    fireEvent.click(screen.getByRole('button', { name: /Gửi/i }));
+
+    const link = await screen.findByRole('link', { name: /Đặt lịch/i });
+    expect(link.getAttribute('href')).toMatch(/^\/booking\/doctors\/doc-1\?date=\d{4}-\d{2}-\d{2}$/);
   });
 
   it('TV01: renders queue ticket numbers only with zero patient PII', async () => {

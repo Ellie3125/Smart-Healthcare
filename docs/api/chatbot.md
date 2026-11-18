@@ -60,6 +60,7 @@ Body:
 }
 ```
 - `proposal`: `ProposalDto` (§4.2) khi lượt này tạo đề nghị; web bệnh nhân hiển thị thẻ xác nhận.
+- `emergency` (bool, mặc định `false`): `true` khi câu có dấu hiệu cấp cứu (intent `EMERGENCY`, BOT-12). .NET bỏ `intent` nhưng giữ trường này; web hiện nút gọi 115 và không hiện nút đặt lịch.
 - `options`: lựa chọn bấm được (bác sĩ, lịch hẹn, chuyên khoa); bấm gửi lượt mới với `text` mô tả lựa chọn hoặc dùng làm tham số cho đề nghị. Số suất chỉ để tham khảo (Giải pháp §11.6).
 - 503 `ChatbotUnavailable`: Colab tắt, lỗi kết nối, 401 từ ngrok hoặc quá `OLLAMA_TIMEOUT_SECONDS`; lượt dừng, không gọi công cụ thay đổi dữ liệu (Giải pháp §11.7.5). Câu đi đường tắt (BOT-11) vẫn trả lời được khi model tạm ngưng.
 - 404 `ConversationNotFound`: `conversationId` không thuộc `userId` hoặc đã hết hạn (§3.3).
@@ -90,7 +91,7 @@ Route theo tiền tố kênh (`docs/conventions.md`, scheduling Q7). Module Noti
 - `status` gọi `GET /health` của chatbot, cache vài giây. Chatbot không chạy (profile `chatbot` tắt) cũng trả `available=false`.
 - Giới hạn tần suất: 10 lượt/phút mỗi tài khoản (fixed window, đã có trên dev; giá trị chốt lại khi đo p95 ở CB-09). Bị chặn trả 429 `TooManyRequests` kèm `Retry-After`.
 - Lượt không tới được chatbot (chưa cấu hình, lỗi kết nối, quá 90 giây, chatbot trả 503, sai `X-Chatbot-Key`) đều trả 503 `ChatbotUnavailable`; sai khóa được log lỗi cấu hình phía .NET.
-- Web bệnh nhân hiện gọi `chat/health`, `chat/sessions`, `chat/sessions/{id}/messages` với body `{ content }`: đổi sang `chat/status`, `chat/conversations`, `chat/conversations/{id}/messages` với body ở trên (CB-08).
+- Web bệnh nhân (CB-08) đã dùng `chat/status`, `chat/conversations`, `chat/conversations/{id}/messages` với body ở trên (18/11/2026).
 
 ### 3.2 Cách .NET truyền ngữ cảnh
 
@@ -239,4 +240,4 @@ Access token, `userId`, `patientId`, `conversationId`, `proposalId` dạng thô,
 | Version | Ngày | Thay đổi |
 |---|---|---|
 | v0.1 Draft | 10/11/2026 | Bản đầu (CB-00): API nội bộ chatbot, API chat .NET, ngữ cảnh, đề nghị chờ xác nhận (đề xuất H-06), bảng intent ↔ công cụ ↔ endpoint, endpoint còn thiếu E1–E5 |
-| v0.2 Draft | 18/11/2026 | Q-C1, Q-C2, Q-C4 chốt; §3 có trên dev: body gửi lượt thêm `patientId`, mã `ProfileNotFound`, `SessionExpired`, cấu hình `Chatbot__BaseUrl`/`Chatbot__InternalKey`, 429 có `Retry-After`; ghi route web cần đổi |
+| v0.2 Draft | 18/11/2026 | Q-C1, Q-C2, Q-C4 chốt; §3 có trên dev: body gửi lượt thêm `patientId`, mã `ProfileNotFound`, `SessionExpired`, cấu hình `Chatbot__BaseUrl`/`Chatbot__InternalKey`, 429 có `Retry-After`; ghi route web cần đổi |; chatbot thêm `emergency` vào lượt trả về; web bệnh nhân nối API chat

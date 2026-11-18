@@ -1,14 +1,20 @@
-import { patientGet, patientPost } from '../shared/lib/http';
+import { patientDelete, patientGet, patientPost } from '../shared/lib/http';
 import type {
-  ChatHealthStatus,
-  ChatMessageDto,
-  ChatSessionResponse,
+  ChatConversation,
+  ChatStatus,
+  ChatSuggestionCode,
+  ChatTurnReply,
   PatientNotificationItem,
 } from '../types/assistant';
 
+const CHAT = '/api/notifications/patient/chat';
+
+/** Đúng một trong text hoặc suggestion; patientId là hồ sơ đã chọn khi mở cuộc trò chuyện. */
+export type ChatTurnBody = { patientId: string } & ({ text: string } | { suggestion: ChatSuggestionCode });
+
 /**
  * Notifications & Chatbot Assistant API (Patient Web).
- * Tham chiếu `docs/api/chatbot.md` (v0.1) + `// TODO: nối contract thật`.
+ * Chatbot theo `docs/api/chatbot.md` §3; thông báo còn `// TODO: nối contract thật`.
  */
 export const assistantApi = {
   // TODO: nối contract thật P24 Thông báo
@@ -24,25 +30,14 @@ export const assistantApi = {
       {},
     ),
 
-  // P25 Chatbot (`docs/api/chatbot.md`)
-  checkChatHealth: () => patientGet<ChatHealthStatus>('/api/notifications/patient/chat/health'),
+  // P25 Chatbot: API chat của .NET (contract §3). Web không gọi thẳng dịch vụ chatbot.
+  getChatStatus: () => patientGet<ChatStatus>(`${CHAT}/status`),
 
-  getOrCreateSession: () => patientPost<ChatSessionResponse, Record<string, never>>('/api/notifications/patient/chat/sessions', {}),
+  openConversation: (patientId: string) =>
+    patientPost<ChatConversation, { patientId: string }>(`${CHAT}/conversations`, { patientId }),
 
-  sendMessage: (sessionId: string, content: string, idempotencyKey: string) =>
-    patientPost<ChatMessageDto, { content: string }>(
-      `/api/notifications/patient/chat/sessions/${sessionId}/messages`,
-      { content },
-      { idempotencyKey },
-    ),
+  sendChatTurn: (conversationId: string, body: ChatTurnBody) =>
+    patientPost<ChatTurnReply, ChatTurnBody>(`${CHAT}/conversations/${conversationId}/messages`, body),
 
-  confirmProposal: (proposalId: string, patientProfileId: string, idempotencyKey: string) =>
-    patientPost<{ bookingAttemptId: string }, { patientProfileId: string }>(
-      `/api/scheduling/patient/proposals/${proposalId}/confirm`,
-      { patientProfileId },
-      { idempotencyKey },
-    ),
-
-  declineProposal: (proposalId: string) =>
-    patientPost<void, Record<string, never>>(`/api/scheduling/patient/proposals/${proposalId}/decline`, {}),
+  closeConversation: (conversationId: string) => patientDelete(`${CHAT}/conversations/${conversationId}`),
 };

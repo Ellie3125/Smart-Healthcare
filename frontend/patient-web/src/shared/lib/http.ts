@@ -86,6 +86,18 @@ export async function patientPut<TResponse, TBody = unknown>(
   }
 }
 
+export async function patientDelete(url: string, opts?: PatientRequestOptions): Promise<void> {
+  try {
+    await apiClient.delete(url, {
+      params: opts?.params,
+      headers: buildHeaders(opts, false),
+      signal: opts?.signal,
+    });
+  } catch (err) {
+    normalizeThrow(err);
+  }
+}
+
 /**
  * Tải tệp xét nghiệm/chẩn đoán qua luồng nhị phân của Backend, không lưu hay phơi bày URL lưu trữ trực tiếp.
  */

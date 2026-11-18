@@ -16,7 +16,10 @@ def shortcut_reply(tables: Tables, routed: Routed) -> tuple[TurnResponse, ChatSt
     match intent:
         case "EMERGENCY":
             # Kết thúc intent, không gợi ý đặt lịch (§11.3.4 bước 2).
-            return TurnResponse(reply=tables.template("emergency"), intent=intent), {"intent": intent, "stage": "ABORTED"}
+            return (
+                TurnResponse(reply=tables.template("emergency"), intent=intent, emergency=True),
+                {"intent": intent, "stage": "ABORTED"},
+            )
         case "OUT_OF_SCOPE":
             return (
                 TurnResponse(reply=tables.template("medical_advice"), intent=intent, suggestions=["SUGGEST_SPECIALTY", "SEARCH_SLOTS"]),

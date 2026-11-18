@@ -17,7 +17,6 @@ import type {
   PatientPrescriptionDetail,
 } from '../types/clinical';
 import type {
-  ChatMessageDto,
   PatientNotificationItem,
   PublicDisplayBoardDto,
 } from '../types/assistant';
@@ -408,15 +407,6 @@ export function createPatientRealStore() {
     ],
   };
 
-  const chatMessages: ChatMessageDto[] = [
-    {
-      id: 'msg-welcome',
-      role: 'assistant',
-      content: 'Xin chào! Tôi là trợ lý ảo Smart Healthcare. Bạn cần hỗ trợ gì hôm nay?',
-      createdAt: new Date().toISOString(),
-    },
-  ];
-
   const tickets: Record<string, AppointmentTicketDetail> = {
     'apt-1': {
       appointmentId: 'apt-1',
@@ -458,7 +448,6 @@ export function createPatientRealStore() {
     costSummary,
     notifications,
     displayBoard,
-    chatMessages,
     tickets,
     vnpayVerifyPollCount: {} as Record<string, number>,
   };
@@ -845,46 +834,56 @@ class PatientApiMock {
       };
     }
 
-    // Chat health
-    if (pathname === '/api/notifications/patient/chat/health') {
+    // Chat (contract docs/api/chatbot.md §3)
+    if (pathname === '/api/notifications/patient/chat/status') {
       return { data: { available: true } };
     }
 
-    // Chat sessions
-    if (pathname === '/api/notifications/patient/chat/sessions' && method === 'POST') {
+    if (pathname === '/api/notifications/patient/chat/conversations' && method === 'POST') {
       return {
-        data: {
-          sessionId: 'chat-session-1',
-          quickSuggestions: ['Đau ngực khó thở cần làm gì?'],
-          messages: this.store.chatMessages,
-        },
+        status: 201,
+        data: { conversationId: 'conv-1', patientId: body?.patientId, available: true },
       };
     }
 
-    const chatMsgMatch = matchPath('/api/notifications/patient/chat/sessions/:id/messages', pathname);
+    const chatMsgMatch = matchPath('/api/notifications/patient/chat/conversations/:id/messages', pathname);
     if (chatMsgMatch && method === 'POST') {
-      const text = (body?.content || '').toLowerCase();
-      if (text.includes('đau ngực') || text.includes('khó thở') || text.includes('115')) {
+      const text = (body?.text || '').toLowerCase();
+      if (text.includes('đau ngực') || text.includes('khó thở')) {
         return {
           data: {
-            id: `bot-${Date.now()}`,
-            role: 'assistant',
-            content:
-              'Triệu chứng bạn mô tả có thể là dấu hiệu cấp cứu nguy hiểm. Vui lòng gọi ngay 115 hoặc đến cơ sở cấp cứu gần nhất ngay lập tức.',
-            createdAt: new Date().toISOString(),
-            isRedFlagEmergency: true,
-            emergencyPhone: '115',
+            reply: 'Triệu chứng bạn mô tả có thể là dấu hiệu cấp cứu. Vui lòng gọi ngay 115 hoặc đến cơ sở cấp cứu gần nhất.',
+            suggestions: [],
+            proposal: null,
+            options: [],
+            emergency: true,
+          },
+        };
+      }
+      if (body?.suggestion === 'VIEW_APPOINTMENTS') {
+        return {
+          data: {
+            reply: 'Bạn có 1 lịch hẹn sắp tới:',
+            suggestions: ['VIEW_TICKET', 'RESCHEDULE', 'CANCEL'],
+            proposal: null,
+            options: [{ kind: 'Appointment', appointmentId: 'apt-2', serviceDate: this.store.tomorrow, label: 'SH-261112-008 – Nhi khoa' }],
+            emergency: false,
           },
         };
       }
       return {
         data: {
-          id: `bot-${Date.now()}`,
-          role: 'assistant',
-          content: 'Cảm ơn bạn đã liên hệ.',
-          createdAt: new Date().toISOString(),
+          reply: 'Ngày mai còn 1 bác sĩ:',
+          suggestions: ['SEARCH_SLOTS'],
+          proposal: null,
+          options: [{ kind: 'Doctor', doctorId: 'doc-1', serviceDate: this.store.tomorrow, label: 'BS Trần Quốc Khánh – còn 5 suất' }],
+          emergency: false,
         },
       };
+    }
+
+    if (matchPath('/api/notifications/patient/chat/conversations/:id', pathname) && method === 'DELETE') {
+      return { status: 204, data: null };
     }
 
     // Public display
