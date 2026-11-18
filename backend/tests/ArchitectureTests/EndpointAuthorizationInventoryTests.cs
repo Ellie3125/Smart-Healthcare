@@ -180,4 +180,16 @@ public sealed class EndpointAuthorizationInventoryTests
             Assert.True(routes.Any(r => r.StartsWith(prefix, StringComparison.Ordinal)), $"Thiếu {prefix} trong: {all}");
         }
     }
+
+    // Host Api phải dùng IClinicalModule có vòng đời CLS: lệnh sai trả ClinicalException, không phải NotSupportedException.
+    [Fact]
+    public async Task Api_host_resolves_clinical_module_with_cls_lifecycle()
+    {
+        await using var app = BuildApp("Production");
+        await using var scope = app.Services.CreateAsyncScope();
+        var clinical = scope.ServiceProvider.GetRequiredService<Clinical.Contracts.IClinicalModule>();
+        var error = await Assert.ThrowsAsync<Clinical.Contracts.ClinicalException>(() =>
+            clinical.StartClsServiceAsync(new(Guid.Empty, Guid.Empty, Guid.Empty), TestContext.Current.CancellationToken));
+        Assert.Equal(Clinical.Contracts.ClinicalErrorCode.InvalidRequest, error.Code);
+    }
 }

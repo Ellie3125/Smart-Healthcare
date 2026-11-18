@@ -175,6 +175,8 @@ public sealed class ClsDayEndTests
         protected override object? Invoke(MethodInfo? method, object?[]? args)
         {
             if (method?.Name == nameof(IClinicalModule.GetEncounterByIdAsync)) return Task.FromResult<EncounterDto?>(!Missing && (Guid)args![0]! == Encounter.Id ? Encounter : null);
+            // Vé CLS bắt đầu gọi vòng đời Clinical trong cùng lệnh (nhánh start thắng cuộc đua với job cuối ngày).
+            if (method?.Name is nameof(IClinicalModule.StartClsServiceAsync) or nameof(IClinicalModule.FinishClsServiceAsync)) return Task.CompletedTask;
             if (method?.Name != nameof(IClinicalModule.GetServiceOrdersByEncounterIdAsync)) throw new NotSupportedException(method?.Name);
             var order = Guid.NewGuid(); IReadOnlyList<ServiceOrderDto> orders = [new(order, Encounter.Id, 1, DateTime.UtcNow, Encounter.OriginalDoctorId, "Confirmed", false,
                 [new(Item, order, Guid.NewGuid(), "Test", 100, ItemStatus, true, null, null)])]; return Task.FromResult(orders);
