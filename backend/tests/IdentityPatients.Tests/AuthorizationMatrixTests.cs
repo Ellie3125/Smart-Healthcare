@@ -123,6 +123,8 @@ public sealed class AuthorizationMatrixTests
             (HttpMethod.Get, "/api/staff/verifications", [Roles.Receptionist, Roles.Admin]),
             (HttpMethod.Put, "/api/staff/patients/" + Guid.NewGuid(), [Roles.Receptionist, Roles.Admin]),
             (HttpMethod.Get, "/api/patient/profiles", [Roles.Patient]),
+            (HttpMethod.Get, "/api/patient/specialties", [Roles.Patient]),
+            (HttpMethod.Get, "/api/patient/doctor-ranks", [Roles.Patient]),
             (HttpMethod.Get, "/api/scheduling/patient/doctors?serviceDate=2099-01-01", [Roles.Patient]),
         };
 
@@ -145,6 +147,45 @@ public sealed class AuthorizationMatrixTests
         Assert.Equal(HttpStatusCode.OK, await Call(HttpMethod.Get, "/api/staff/verifications", Roles.Receptionist));
         Assert.Equal(HttpStatusCode.OK, await Call(HttpMethod.Get, "/api/staff/verifications", Roles.Admin));
         Assert.Equal(HttpStatusCode.OK, await Call(HttpMethod.Get, "/api/patient/profiles", Roles.Patient));
+
+        // Danh mục cho bệnh nhân: chỉ mục đang hoạt động, không lộ mô tả/IsActive của trang quản trị.
+        async Task<JsonElement> Get(string url, string role)
+        {
+            using var request = new HttpRequestMessage(HttpMethod.Get, url);
+            request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", Token(role, Policies.ChannelOf(role)));
+            using var response = await client.SendAsync(request, ct);
+            Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+            return JsonDocument.Parse(await response.Content.ReadAsStringAsync(ct)).RootElement.Clone();
+        }
+        async Task<Guid> CreateSpecialty(string code)
+        {
+            using var request = new HttpRequestMessage(HttpMethod.Post, "/api/staff/admin/specialties")
+            {
+                Content = new StringContent($$"""{"code":"{{code}}","name":"Khoa {{code}}","description":"x"}""", Encoding.UTF8, "application/json"),
+            };
+            request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", Token(Roles.Admin, Channels.Staff));
+            using var response = await client.SendAsync(request, ct);
+            Assert.Equal(HttpStatusCode.Created, response.StatusCode);
+            return JsonDocument.Parse(await response.Content.ReadAsStringAsync(ct)).RootElement.GetProperty("id").GetGuid();
+        }
+        var suffix = Guid.NewGuid().ToString("N")[..8].ToUpperInvariant();
+        var active = await CreateSpecialty("A" + suffix);
+        var inactive = await CreateSpecialty("I" + suffix);
+        using (var disable = new HttpRequestMessage(HttpMethod.Put, $"/api/staff/admin/specialties/{inactive}")
+        {
+            Content = new StringContent($$"""{"name":"Khoa I{{suffix}}","description":"x","isActive":false}""", Encoding.UTF8, "application/json"),
+        })
+        {
+            disable.Headers.Authorization = new AuthenticationHeaderValue("Bearer", Token(Roles.Admin, Channels.Staff));
+            using var disabled = await client.SendAsync(disable, ct);
+            Assert.Equal(HttpStatusCode.OK, disabled.StatusCode);
+        }
+        var specialties = (await Get("/api/patient/specialties", Roles.Patient)).EnumerateArray().ToList();
+        Assert.Contains(specialties, x => x.GetProperty("id").GetGuid() == active);
+        Assert.DoesNotContain(specialties, x => x.GetProperty("id").GetGuid() == inactive);
+        Assert.All(specialties, x => Assert.False(x.TryGetProperty("isActive", out _) || x.TryGetProperty("description", out _)));
+        var ranks = (await Get("/api/patient/doctor-ranks", Roles.Patient)).EnumerateArray().Select(x => x.GetProperty("displayOrder").GetInt32()).ToList();
+        Assert.Equal(ranks.Order(), ranks);
 
         // /me: mọi vai trò với đúng kênh; token Patient mang kênh Staff bị 403.
         foreach (var role in AllRoles)

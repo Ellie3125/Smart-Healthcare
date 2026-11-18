@@ -43,6 +43,7 @@ public static class DependencyInjection
             .AddScoped<IWalkInStore, SqlWalkInStore>()
             .AddScoped<IRoomQueueReader, SqlRoomQueueReader>()
             .AddScoped<Scheduling.Application.Queues.IQueueStore, Queues.SqlQueueStore>()
+            .AddScoped<Scheduling.Application.Queues.RoomAuditRequest>()
             .AddScoped<Scheduling.Application.Queues.IClsTicketStore, Queues.SqlClsTicketStore>()
             .AddScoped<Scheduling.Contracts.IClsTicketReader, Queues.SqlClsTicketReader>()
             .AddScoped(provider => ActivatorUtilities.CreateInstance<Queues.ClsDayEndJob>(provider))

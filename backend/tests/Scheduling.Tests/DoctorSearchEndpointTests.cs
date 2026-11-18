@@ -64,5 +64,14 @@ public sealed class DoctorSearchEndpointTests
         Assert.Equal(doctorId, item.GetProperty("doctorId").GetGuid());
         Assert.Equal(5, item.GetProperty("availableSlots").GetInt32());
         Assert.Equal(150000m, item.GetProperty("examFee").GetDecimal());
+        // Tiếp tân dùng route staff, cùng DTO; bệnh nhân không gọi được route staff.
+        var staffUrl = url.Replace(route, "/api/scheduling/staff/doctors");
+        using var patientOnStaff = await client.GetAsync(staffUrl, ct);
+        Assert.Equal(HttpStatusCode.Forbidden, patientOnStaff.StatusCode);
+        SchedulingEndpointTestSetup.Authorize(client, app.Configuration, Roles.Receptionist);
+        using var receptionist = JsonDocument.Parse(await client.GetStringAsync(staffUrl, ct));
+        Assert.Equal(doctorId, Assert.Single(receptionist.RootElement.GetProperty("items").EnumerateArray()).GetProperty("doctorId").GetGuid());
+        using var badDate = await client.GetAsync("/api/scheduling/staff/doctors?serviceDate=x", ct);
+        Assert.Equal(HttpStatusCode.BadRequest, badDate.StatusCode);
     }
 }

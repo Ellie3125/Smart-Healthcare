@@ -1,3 +1,4 @@
+using Clinical.Infrastructure;
 using Microsoft.Extensions.DependencyInjection;
 using Notifications.Infrastructure;
 using Notifications.Infrastructure.Persistence;
@@ -224,8 +225,10 @@ public sealed partial class SchedulingHoldTests
             .AddSharedInfrastructure(connectionString)
             .AddSchedulingInfrastructure(connectionString)
             .AddNotificationsInfrastructure(connectionString)
+            .AddClinicalInfrastructure(connectionString)
             .AddUnitOfWorkParticipant<SchedulingDbContext>()
             .AddUnitOfWorkParticipant<WorkflowDbContext>()
+            .AddUnitOfWorkParticipant<Clinical.Infrastructure.Persistence.ClinicalDbContext>()
             .AddSchedulingApplication()
             .AddSingleton<Billing.Contracts.IBillingModule>(new FixedFeeBilling())
             .AddSingleton<Billing.Contracts.IPaymentRefunds>(new RecordingRefunds())
