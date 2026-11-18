@@ -8,6 +8,10 @@ public enum AccessLevel
 
 public interface IIdentityPatientsModule
 {
+    /// <summary>Active doctors on duty in this CLS room at a UTC instant; includes the authoritative Staff.Id.</summary>
+    Task<IReadOnlyList<RoomReadingDoctorDto>> GetRoomReadingDoctorsAsync(Guid roomId, DateTime atUtc, CancellationToken ct = default) =>
+        throw new NotSupportedException();
+
     Task<bool> CanAccessPatientAsync(Guid userId, Guid patientId, AccessLevel level = AccessLevel.Booking, CancellationToken ct = default);
 
     /// <summary>

@@ -7,4 +7,6 @@ public interface IClsTicketReader
 {
     Task<ClsTicketContext?> GetByIdAsync(Guid ticketId, CancellationToken ct);
     Task<ClsTicketContext?> GetByItemAsync(Guid orderItemId, CancellationToken ct);
+    Task<IReadOnlyList<ClsTicketContext>> GetByEncounterRoomAsync(Guid encounterId, Guid roomId, CancellationToken ct) =>
+        throw new NotSupportedException();
 }

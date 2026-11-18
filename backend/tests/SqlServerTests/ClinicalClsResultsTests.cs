@@ -53,6 +53,10 @@ public sealed class ClinicalClsResultsTests
         Assert.False(context.IsResultReturned);
         Assert.Null(await module.ValidateClsTicketForRoomAsync(f.TicketId, Guid.NewGuid(), Ct));
         Assert.Null(await module.ValidateClsTicketForRoomAsync(Guid.NewGuid(), f.RoomId, Ct));
+        var reader = scope.ServiceProvider.GetRequiredService<Scheduling.Contracts.IClsTicketReader>();
+        Assert.Equal(f.ItemId, Assert.Single(await reader.GetByEncounterRoomAsync(f.EncounterId, f.RoomId, Ct)).ServiceOrderItemId);
+        Assert.Empty(await reader.GetByEncounterRoomAsync(f.EncounterId, Guid.NewGuid(), Ct));
+        Assert.Empty(await reader.GetByEncounterRoomAsync(Guid.NewGuid(), f.RoomId, Ct));
     }
 
     [Fact]
@@ -115,11 +119,13 @@ internal sealed class ClsResultFixture(ServiceProvider services) : IAsyncDisposa
     public Guid RoomId { get; } = Guid.NewGuid();
     public Guid UserId { get; } = Guid.NewGuid();
     private static CancellationToken Ct => TestContext.Current.CancellationToken;
-    public static async Task<ClsResultFixture> CreateAsync()
+    public static async Task<ClsResultFixture> CreateAsync(Action<IServiceCollection>? configure = null)
     {
         var cs = TestDatabase.RequiredConnectionString();
-        var services = new ServiceCollection().AddSharedInfrastructure(cs).AddClinicalInfrastructure(cs).AddSchedulingInfrastructure(cs)
-            .AddUnitOfWorkParticipant<ClinicalDbContext>().AddUnitOfWorkParticipant<SchedulingDbContext>().BuildServiceProvider();
+        var registrations = new ServiceCollection().AddSharedInfrastructure(cs).AddClinicalInfrastructure(cs).AddSchedulingInfrastructure(cs)
+            .AddUnitOfWorkParticipant<ClinicalDbContext>().AddUnitOfWorkParticipant<SchedulingDbContext>();
+        configure?.Invoke(registrations);
+        var services = registrations.BuildServiceProvider();
         var f = new ClsResultFixture(services);
         await using var scope = services.CreateAsyncScope();
         var db = scope.ServiceProvider.GetRequiredService<ClinicalDbContext>();
@@ -159,11 +165,17 @@ internal sealed class ClsResultFixture(ServiceProvider services) : IAsyncDisposa
         await using (var scope = Services.CreateAsyncScope())
         {
             var db = scope.ServiceProvider.GetRequiredService<ClinicalDbContext>();
-            var resultIds = db.Set<CLSResult>().Where(x => x.ServiceOrderItemId == ItemId).Select(x => x.Id);
+            var resultIds = await db.Set<CLSResult>().Where(x => x.ServiceOrderItemId == ItemId).Select(x => x.Id).ToListAsync(Ct);
+            if (scope.ServiceProvider.GetService<DocumentsReporting.Infrastructure.Persistence.DocumentsDbContext>() is { } documents)
+                await documents.ResultAttachments.Where(x => x.EncounterId == EncounterId).ExecuteDeleteAsync(Ct);
+            var shared = scope.ServiceProvider.GetRequiredService<SharedDbContext>();
+            await shared.Set<OutboxMessage>().Where(x => resultIds.Contains(x.AggregateId)).ExecuteDeleteAsync(Ct);
+            await shared.Set<ApiIdempotencyRecord>().Where(x => x.CallerScope == "AppUser:" + UserId.ToString("D")).ExecuteDeleteAsync(Ct);
             await db.Set<CLSResultRevision>().Where(x => resultIds.Contains(x.CLSResultId)).ExecuteDeleteAsync(Ct);
             await db.Set<CLSResult>().Where(x => x.ServiceOrderItemId == ItemId).ExecuteDeleteAsync(Ct);
             await db.Set<ServiceOrderItem>().Where(x => x.Id == ItemId).ExecuteDeleteAsync(Ct);
             await db.Set<ServiceOrder>().Where(x => x.Id == OrderId).ExecuteDeleteAsync(Ct);
+            await db.Set<EncounterClinicalRecord>().Where(x => x.EncounterId == EncounterId).ExecuteDeleteAsync(Ct);
             await db.Set<Encounter>().Where(x => x.Id == EncounterId).ExecuteDeleteAsync(Ct);
             await scope.ServiceProvider.GetRequiredService<SchedulingDbContext>().Set<QueueTicket>().Where(x => x.Id == TicketId).ExecuteDeleteAsync(Ct);
             await scope.ServiceProvider.GetRequiredService<SharedDbContext>().Set<AuditLog>().Where(x => x.PerformedByUserId == UserId).ExecuteDeleteAsync(Ct);
