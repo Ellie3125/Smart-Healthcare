@@ -10,7 +10,8 @@ namespace Scheduling.Application;
 public sealed class SchedulingModule(DoctorSearchService doctorSearch, Func<CheckInService> checkIn,
     Func<ClsTicketService>? clsTickets = null, Func<IClsTicketReader>? clsTicketReader = null,
     Func<IClinicalModule>? clinical = null,
-    Func<RoomQueues.IClinicalQueueReader>? clinicalQueue = null) : ISchedulingModule
+    Func<RoomQueues.IClinicalQueueReader>? clinicalQueue = null,
+    Func<Reports.ISchedulingReportReader>? reports = null) : ISchedulingModule
 {
     public Task<ClinicalQueuePage> GetClinicalQueueAsync(Guid roomId, DateTime atUtc, int page, int pageSize, CancellationToken ct = default)
     {
@@ -18,6 +19,8 @@ public sealed class SchedulingModule(DoctorSearchService doctorSearch, Func<Chec
             throw new SchedulingException(SchedulingErrorCode.InvalidInput, "Phòng hoặc phân trang không hợp lệ.");
         return (clinicalQueue ?? throw new NotSupportedException())().ReadAsync(roomId, atUtc, page, pageSize, ct);
     }
+    public Task<IReadOnlyList<SchedulingDailyReport>> GetDailyReportAsync(DateTime fromUtc, DateTime untilUtc, CancellationToken ct = default) =>
+        (reports ?? throw new NotSupportedException())().ReadAsync(fromUtc, untilUtc, ct);
 
     public Task<DoctorSearchPage> SearchDoctorsAsync(DoctorSearchQuery query, CancellationToken ct)
     {

@@ -61,4 +61,8 @@ public interface ISchedulingModule
     /// Dùng cho module DocumentsReporting kiểm tra vé khi phòng CLS tải tệp kết quả.
     /// </summary>
     Task<ClsQueueTicketValidationDto?> ValidateClsTicketForRoomAsync(Guid queueTicketId, Guid roomId, CancellationToken ct = default);
+
+    /// <summary>Read-only daily totals in GMT+7 for a caller-validated UTC interval [from,until), at most31 days.</summary>
+    Task<IReadOnlyList<SchedulingDailyReport>> GetDailyReportAsync(DateTime fromUtc, DateTime untilUtc, CancellationToken ct = default) =>
+        throw new NotSupportedException();
 }
