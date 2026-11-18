@@ -10,9 +10,8 @@ internal sealed class SqlPatientAppointmentReader(SchedulingDbContext db, IIdent
 {
     public async Task<IReadOnlyList<PatientAppointment>> ListAsync(Guid appUserId, int offset, int limit, CancellationToken ct)
     {
-        // shortcut: Identity can filter supplied IDs only; add a Booking-profile ID reader when appointment history grows.
-        var candidates = await db.Set<Appointment>().AsNoTracking().Select(a => a.PatientId).Distinct().ToListAsync(ct);
-        var allowed = await identity.GetAccessiblePatientsAsync(appUserId, candidates, AccessLevel.Booking, ct);
+        // Vài hồ sơ của tài khoản → lọc Appointment theo index PatientId, không quét cả bảng.
+        var allowed = await identity.ListAccessiblePatientsAsync(appUserId, AccessLevel.Booking, ct);
         if (allowed.Count == 0) return [];
         return await Project(Rows(db.Set<Appointment>().AsNoTracking().Where(a => allowed.Contains(a.PatientId)))
                 .OrderByDescending(x => x.Quota.ServiceDate).ThenByDescending(x => x.Appointment.ConfirmedAtUtc)

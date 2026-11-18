@@ -26,6 +26,11 @@ public interface IIdentityPatientsModule
 
     Task<bool> CanAccessPatientAsync(Guid userId, Guid patientId, AccessLevel level = AccessLevel.Booking, CancellationToken ct = default);
 
+    /// <summary>Mọi PatientId mà <paramref name="userId"/> được truy cập ở mức <paramref name="level"/> (cùng luật
+    /// <see cref="GetAccessiblePatientsAsync"/>); một tài khoản chỉ có vài hồ sơ nên dùng để lọc theo index PatientId.</summary>
+    Task<IReadOnlyList<Guid>> ListAccessiblePatientsAsync(Guid userId, AccessLevel level = AccessLevel.Booking, CancellationToken ct = default) =>
+        throw new NotSupportedException();
+
     /// <summary>
     /// Các PatientId trong <paramref name="patientIds"/> mà <paramref name="userId"/> được truy cập ở mức <paramref name="level"/>
     /// (cùng luật <see cref="CanAccessPatientAsync"/>), cho danh sách nhiều hồ sơ trong một request. Bản cài đặt Identity

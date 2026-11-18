@@ -142,9 +142,14 @@ public sealed partial class SchedulingHoldTests
     {
         public Guid Owner { get; set; }
         public Guid Patient { get; set; }
-        protected override object? Invoke(MethodInfo? method, object?[]? args) => method?.Name == nameof(IIdentityPatientsModule.GetAccessiblePatientsAsync)
-            ? Task.FromResult<IReadOnlySet<Guid>>(((IReadOnlyCollection<Guid>)args![1]!).Where(id => (Guid)args[0]! == Owner && id == Patient).ToHashSet())
-            : throw new NotSupportedException(method?.Name);
+        protected override object? Invoke(MethodInfo? method, object?[]? args) => method?.Name switch
+        {
+            nameof(IIdentityPatientsModule.GetAccessiblePatientsAsync) => Task.FromResult<IReadOnlySet<Guid>>(
+                ((IReadOnlyCollection<Guid>)args![1]!).Where(id => (Guid)args[0]! == Owner && id == Patient).ToHashSet()),
+            nameof(IIdentityPatientsModule.ListAccessiblePatientsAsync) => Task.FromResult<IReadOnlyList<Guid>>(
+                (Guid)args![0]! == Owner ? [Patient] : []),
+            _ => throw new NotSupportedException(method?.Name)
+        };
     }
 
     private static ServiceProvider BuildPaymentServices()
