@@ -85,6 +85,11 @@ def build_tools(tables: Tables, handler: ToolIntentHandler) -> list:
         return await run(runtime.context, "VIEW_EXAM_PAYMENT")
 
     @tool(return_direct=True)
+    async def get_visit_history(runtime: ToolRuntime[ChatContext]) -> str:
+        """Xem tóm tắt các lần khám trước của hồ sơ đang chat (ngày, bác sĩ, khoa, trạng thái). Không có chẩn đoán hay thuốc."""
+        return await run(runtime.context, "VIEW_VISIT_HISTORY")
+
+    @tool(return_direct=True)
     async def guide_change(action: Literal["cancel", "reschedule"], runtime: ToolRuntime[ChatContext]) -> str:
         """Hướng dẫn hủy hoặc đổi lịch và liệt kê các lịch còn hủy/đổi được. Không tự hủy hay đổi lịch.
 
@@ -93,4 +98,4 @@ def build_tools(tables: Tables, handler: ToolIntentHandler) -> list:
         """
         return await run(runtime.context, "CANCEL" if action == "cancel" else "RESCHEDULE")
 
-    return [search_doctors, list_my_appointments, get_tickets, get_exam_payments, guide_change]
+    return [search_doctors, list_my_appointments, get_tickets, get_exam_payments, get_visit_history, guide_change]

@@ -30,7 +30,7 @@ def test_scenario_without_model(tmp_path, scenario):
 
 def test_every_intent_has_scenarios():
     covered = {t["expect"].get("intent") for s in SCENARIOS for t in s.turns}
-    for intent in ["SEARCH_SLOTS", "VIEW_APPOINTMENTS", "VIEW_TICKET", "VIEW_EXAM_PAYMENT", "CANCEL", "RESCHEDULE",
+    for intent in ["SEARCH_SLOTS", "VIEW_APPOINTMENTS", "VIEW_TICKET", "VIEW_EXAM_PAYMENT", "VIEW_VISIT_HISTORY", "CANCEL", "RESCHEDULE",
                    "SUGGEST_SPECIALTY", "EMERGENCY", "OUT_OF_SCOPE", "HELP"]:
         assert intent in covered, f"Thiếu kịch bản cho {intent}"
     assert any(s.needs_model for s in SCENARIOS) and any(not s.needs_model for s in SCENARIOS)

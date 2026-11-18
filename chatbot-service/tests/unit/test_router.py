@@ -99,6 +99,8 @@ def test_specialty_names_only_come_from_table(tables):
         ("cho tôi đổi lịch sang thứ sáu", "RESCHEDULE"),
         ("số thứ tự của tôi là bao nhiêu", "VIEW_TICKET"),
         ("tôi đã thanh toán chưa", "VIEW_EXAM_PAYMENT"),
+        ("xem lịch sử khám của tôi", "VIEW_VISIT_HISTORY"),
+        ("lần khám trước của con tôi", "VIEW_VISIT_HISTORY"),
         ("đặt lịch khám thứ sáu này", "SEARCH_SLOTS"),
         ("xin chào", "HELP"),
     ],

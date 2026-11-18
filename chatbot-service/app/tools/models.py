@@ -65,3 +65,14 @@ class RefundOut(_Out):
     amount: Decimal
     currency: str
     appointment_id: UUID | None
+
+
+class VisitOut(_Out):
+    """Một lượt khám, chỉ phần tóm tắt. Không giữ chẩn đoán, đơn thuốc hay kết quả: chatbot hướng bệnh nhân sang mục Hồ sơ khám
+    (dữ liệu y tế do bác sĩ công bố, model không diễn giải)."""
+
+    checked_in_at_utc: datetime
+    doctor_name: str | None
+    specialty_name: str | None
+    status: str
+    has_prescription: bool

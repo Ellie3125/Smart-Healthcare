@@ -17,7 +17,7 @@ from datetime import date
 from app.backend import BackendClient
 from app.schemas import ChatContext
 from app.textnorm import plain
-from app.tools.models import AppointmentOut, PendingBookingOut, RefundOut, SlotOption
+from app.tools.models import AppointmentOut, PendingBookingOut, RefundOut, SlotOption, VisitOut
 
 PAGE_SIZE = 50  # tối đa của API .NET
 
@@ -85,6 +85,23 @@ class ReadTools:
                 appointment_id=item.get("appointmentId"),
             )
             for item in items
+        ]
+
+    async def list_visit_history(self, ctx: ChatContext, limit: int) -> list[VisitOut]:
+        """Lượt khám gần nhất của hồ sơ trong cuộc trò chuyện. .NET chỉ mở cho hồ sơ đã xác minh (quyền ClinicalRecords);
+        hồ sơ chưa xác minh hoặc không thuộc tài khoản → 403 (BackendNotFound)."""
+        page = await self._backend.get(
+            "/api/documents/patient/encounters", ctx.access_token, {"patientProfileId": ctx.patient_id, "page": 1, "pageSize": limit}
+        )
+        return [
+            VisitOut(
+                checked_in_at_utc=item["serviceDate"],
+                doctor_name=item.get("doctorName"),
+                specialty_name=item.get("specialtyName"),
+                status=item["status"],
+                has_prescription=bool(item.get("hasPrescription")),
+            )
+            for item in page.get("items", [])
         ]
 
 
