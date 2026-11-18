@@ -34,7 +34,7 @@ export const DoctorRecordsPage: React.FC = () => {
 
       <Card>
         <FormField label="Tìm theo tên bệnh nhân hoặc mã hồ sơ">
-          {(props) => <Input {...props} value={keyword} onChange={(e) => setKeyword(e.target.value)} placeholder="VD: HS-2026..." />}
+          {(props) => <Input {...props} value={keyword} onChange={(e) => setKeyword(e.target.value)} placeholder="Mã lượt khám, tên bệnh nhân hoặc chẩn đoán" />}
         </FormField>
       </Card>
 

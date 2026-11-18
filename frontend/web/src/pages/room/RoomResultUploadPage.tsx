@@ -27,7 +27,7 @@ import { extractFriendlyError } from '../../shared/lib/errors';
  */
 export const RoomResultUploadPage: React.FC = () => {
   const [searchParams] = useSearchParams();
-  const orderItemId = searchParams.get('orderItemId') || 'cls-ord-1';
+  const orderItemId = searchParams.get('orderItemId') || '';
   const { pushToast } = useToast();
 
   const [summaryText, setSummaryText] = useState('');
@@ -53,7 +53,7 @@ export const RoomResultUploadPage: React.FC = () => {
       clinicalStaffApi.saveRoomResultDraft(orderItemId, {
         summaryText,
         technicalConclusion,
-        readingDoctorName,
+        readingDoctorId: readingDoctorName,
         version: query.data!.version,
       }),
     onSuccess: () => {
@@ -69,6 +69,7 @@ export const RoomResultUploadPage: React.FC = () => {
         orderItemId,
         query.data!.version,
         createIdempotencyKey(`room-pub-${orderItemId}`),
+        readingDoctorName,
       ),
     onSuccess: () => {
       setPublishOpen(false);
@@ -101,8 +102,8 @@ export const RoomResultUploadPage: React.FC = () => {
       </Link>
 
       <Card
-        title={`${d.serviceName} (${d.serviceCode}) — Vé ${d.ticketNumber}`}
-        subtitle={`Bệnh nhân: ${d.patientName}`}
+        title={d.ticketNumber ? `${d.serviceName} — Vé ${d.ticketNumber}` : d.serviceName}
+        subtitle={d.patientName ? `Bệnh nhân: ${d.patientName}` : undefined}
         actions={<StatusPill status={d.resultStatus} />}
       >
         {isPublished ? (
@@ -117,7 +118,7 @@ export const RoomResultUploadPage: React.FC = () => {
                   {...props}
                   value={readingDoctorName}
                   onChange={(e) => setReadingDoctorName(e.target.value)}
-                  options={d.availableShiftDoctors.map((doc) => ({ value: doc, label: doc }))}
+                  options={(d.readingDoctors ?? []).map((doc) => ({ value: doc.doctorId, label: doc.fullName }))}
                 />
               )}
             </FormField>
@@ -137,9 +138,9 @@ export const RoomResultUploadPage: React.FC = () => {
             </FormField>
 
             <ResultFileUploader
-              queueTicketId={orderItemId}
+              queueTicketId={d.queueTicketId ?? ''}
               patientInfo={{
-                fullName: d.patientName,
+                fullName: d.patientName || 'Đối chiếu theo mã vé',
                 ticketCode: d.ticketNumber,
               }}
               onUploadSuccess={() => query.refetch()}
@@ -153,7 +154,7 @@ export const RoomResultUploadPage: React.FC = () => {
               <Button
                 variant="primary"
                 leftIcon={<Send className="h-4 w-4" />}
-                disabled={!summaryText.trim() || !readingDoctorName}
+                disabled={!summaryText.trim() || ((d.readingDoctors ?? []).length > 1 && !readingDoctorName)}
                 onClick={() => setPublishOpen(true)}
               >
                 Phát hành kết quả chính thức

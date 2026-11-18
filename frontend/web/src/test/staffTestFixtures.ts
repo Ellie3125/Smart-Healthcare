@@ -316,7 +316,7 @@ export function createStaffRealStore() {
       patientAge: 34,
       patientGender: 'Nam',
       status: 'InProgress',
-      version: 2,
+      version: 'AAAAAAAAB9E=',
       vitalsSummary: 'HA 134/84 mmHg • Mạch 76 l/p • SpO2 99% • 36.7°C • 68kg',
       symptoms: 'Đau đầu nhẹ vùng chẩm, hồi hộp buổi sáng.',
       clinicalNotes: 'Nhịp tim đều, không tiếng thổi bệnh lý.',
@@ -341,7 +341,7 @@ export function createStaffRealStore() {
       technicalConclusion: '',
       readingDoctorName: 'BS.CKII Đỗ Văn Hùng',
       availableShiftDoctors: ['BS.CKII Đỗ Văn Hùng', 'ThS.BS Lê Minh Ngọc'],
-      version: 1,
+      version: 'AAAAAAAAB9E=',
       draftFiles: [],
     },
   };
@@ -591,6 +591,14 @@ class StaffApiMock {
 
     // Nurse queue & vitals
     // Dạng Backend: phòng hôm nay, hàng chờ phòng (Scheduling §4.6, §4.8) và hàng chờ điều dưỡng (envelope).
+    if (matchPath('/api/scheduling/staff/rooms/:roomId/pending-results', pathname)) {
+      return {
+        data: {
+          items: [{ queueTicketId: 'qt-sa-1', ticketNumber: 'CLS-088', serviceOrderItemId: 'cls-ord-draft', encounterId: 'enc-1', completedAtUtc: null }],
+          hasMore: false,
+        },
+      };
+    }
     if (pathname === '/api/scheduling/staff/my-rooms') {
       return { data: [{ roomId: 'room-001', roomName: 'Phòng khám P201' }] };
     }
@@ -668,9 +676,43 @@ class StaffApiMock {
 
     // Doctor queues & workspace
 
-    const docWsMatch = matchPath('/api/clinical/staff/doctor/encounters/:encounterId', pathname);
-    if (docWsMatch && method === 'GET') {
-      return { data: this.store.doctorWorkspaces['enc-doc-1'] };
+    // Dạng Backend của màn khám (contract Clinical): lượt khám, bệnh án + version, chỉ định CLS, đơn thuốc.
+    const ws = this.store.doctorWorkspaces['enc-doc-1'];
+    const docBase = '/api/clinical/staff/doctor/encounters/:encounterId';
+    if (matchPath(docBase, pathname) && method === 'GET') {
+      return { data: { id: ws.encounterId, status: 'InProgress', checkedInAtUtc: new Date().toISOString() } };
+    }
+    if (matchPath(`${docBase}/record`, pathname) && method === 'GET') {
+      return {
+        data: {
+          record: {
+            status: 'Draft',
+            symptoms: ws.symptoms,
+            clinicalExaminationNotes: ws.clinicalNotes,
+            postCLSConclusion: ws.conclusion,
+            followUpInstructions: ws.followUpInstruction,
+          },
+          diagnoses: ws.diagnoses.map((d, i) => ({
+            diagnosisType: 'Initial',
+            icD10Code: d.code,
+            diagnosisName: d.name,
+            isPrimary: i === 0,
+            clinicalNotes: '',
+          })),
+          version: ws.version,
+        },
+      };
+    }
+    if (matchPath(`${docBase}/service-orders`, pathname)) {
+      return {
+        data: [{ items: ws.clsOrders.map((o) => ({ id: o.id, serviceNameSnapshot: o.serviceName, itemStatus: 'Ordered', result: null })) }],
+      };
+    }
+    if (matchPath(`${docBase}/prescriptions`, pathname)) {
+      return { data: [] };
+    }
+    if (pathname === '/api/scheduling/staff/medical-services') {
+      return { data: { items: [], page: 1, pageSize: 100 } };
     }
 
     // Room results
@@ -681,7 +723,7 @@ class StaffApiMock {
     }
 
     // Room ticket files
-    const ticketFilesMatch = matchPath('/api/documents/staff/room/tickets/:queueTicketId/files', pathname);
+    const ticketFilesMatch = matchPath('/api/documents/staff/room/results/:queueTicketId/files', pathname);
     if (ticketFilesMatch && method === 'GET') {
       const draft = this.store.roomDrafts[ticketFilesMatch.queueTicketId] ?? this.store.roomDrafts['cls-ord-1'];
       const files: ResultAttachmentDto[] = (draft?.draftFiles ?? []).map((f) => ({

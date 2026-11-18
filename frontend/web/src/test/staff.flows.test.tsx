@@ -105,7 +105,7 @@ describe('Staff Web', () => {
     fireEvent.click(finishBtn);
     expect(await screen.findByText(/Vẫn còn chỉ số sinh hiệu để trống/i)).toBeInTheDocument();
 
-    staffApiMock.override('PUT', '/api/clinical/staff/nurse/encounters/:encounterId/vitals', () => ({
+    staffApiMock.override('POST', '/api/clinical/staff/nurse/encounters/:encounterId/vitals', () => ({
       status: 409,
       data: { code: 'VERSION_CONFLICT', currentVersion: 5, detail: 'Xung đột' },
     }));
@@ -135,6 +135,25 @@ describe('Staff Web', () => {
     expect(await screen.findByText(/Xung đột phiên bản dữ liệu \(409\)/i)).toBeInTheDocument();
   });
 
+  it('DR02: saves the draft in the backend shape and keeps the loaded record fields', async () => {
+    let sent: Record<string, unknown> | undefined;
+    staffApiMock.override('PUT', '/api/clinical/staff/doctor/encounters/:encounterId/draft', (_url, body) => {
+      sent = typeof body === 'string' ? JSON.parse(body) : (body as Record<string, unknown>);
+      return { status: 200, data: {} };
+    });
+    renderStaff(<DoctorPage />);
+    fireEvent.click(await screen.findByRole('button', { name: /Lưu nháp/i }));
+    await waitFor(() => expect(sent).toBeDefined());
+    expect(sent).toMatchObject({
+      version: 'AAAAAAAAB9E=',
+      symptoms: 'Đau đầu nhẹ vùng chẩm, hồi hộp buổi sáng.',
+      clinicalExaminationNotes: 'Nhịp tim đều, không tiếng thổi bệnh lý.',
+    });
+    expect(sent).toHaveProperty('chiefComplaint');
+    expect((sent!.diagnoses as { icd10Code: string; diagnosisType: string }[])[0]).toMatchObject({ diagnosisType: 'Initial' });
+    expect(sent).not.toHaveProperty('prescriptionItems');
+  });
+
   it('CL04: locks viewing after CLS result is Published', async () => {
     staffApiMock.override('GET', '/api/clinical/staff/room/results/:id', () => ({
       status: 200,
@@ -159,25 +178,22 @@ describe('Staff Web', () => {
     });
   });
 
-  it('DOC-W3: ResultFileUploader renders patient match info, allows file selection and lists draft files', async () => {
+  it('DOC-W3: ResultFileUploader shows the ticket to match, allows file selection and lists draft files', async () => {
     staffApiMock.override('GET', '/api/clinical/staff/room/results/:id', () => ({
       status: 200,
       data: {
+        resultId: 'res-1',
         orderItemId: 'cls-ord-draft',
-        ticketNumber: 'CLS-088',
-        patientName: 'Trần Thị Mai',
-        serviceCode: 'SA-OB',
-        serviceName: 'Siêu âm ổ bụng tổng quát',
+        queueTicketId: 'qt-sa-1',
         resultStatus: 'Draft',
         summaryText: '',
         technicalConclusion: '',
-        readingDoctorName: 'BS.CKI Trần Quốc Khánh',
-        availableShiftDoctors: ['BS.CKI Trần Quốc Khánh'],
-        version: 1,
-        draftFiles: [],
+        version: 'AAAAAAAAB9E=',
+        readingDoctorId: 'doc-1',
+        readingDoctors: [{ doctorId: 'doc-1', fullName: 'BS.CKI Trần Quốc Khánh' }],
       },
     }));
-    staffApiMock.override('GET', '/api/documents/staff/room/tickets/:id/files', () => ({
+    staffApiMock.override('GET', '/api/documents/staff/room/results/:id/files', () => ({
       status: 200,
       data: [
         {
@@ -199,9 +215,7 @@ describe('Staff Web', () => {
     }));
 
     renderStaff(<RoomResultUploadPage />, ['/room/upload?orderItemId=cls-ord-draft']);
-    expect(await screen.findByText(/Đối chiếu hồ sơ:/i)).toBeInTheDocument();
-    expect(screen.getAllByText(/Trần Thị Mai/i).length).toBeGreaterThanOrEqual(1);
-    expect(screen.getByText(/Mã vé: CLS-088/i)).toBeInTheDocument();
+    expect(await screen.findByText(/Mã vé: CLS-088/i)).toBeInTheDocument();
     expect(await screen.findByText(/SieuAm-OB-TranThiMai\.png/i)).toBeInTheDocument();
     expect(screen.getByRole('button', { name: /Chọn tệp từ máy/i })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: /Xóa/i })).toBeInTheDocument();
