@@ -1,8 +1,8 @@
-namespace Clinical.Domain.Enums;
-
-public enum PrescriptionStatus
-{
-    Draft,
-    Issued,
-    Cancelled
-}
+namespace Clinical.Domain.Enums;
+
+public enum PrescriptionStatus
+{
+    Draft,
+    Issued,
+    Cancelled
+}

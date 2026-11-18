@@ -1,116 +1,1089 @@
-import React from "react";
+import React, { useEffect, useState } from "react";
+import { apiClient } from "../../api/client";
+import { receptionApi } from "../../api/receptionApi";
+import {
+  PagedResult,
+  VerificationDetailDto,
+  VerificationItemDto,
+} from "../../types/verification";
+
+type ReceptionTab = "verifications" | "checkin";
 
 export const ReceptionPage: React.FC = () => {
-  // TODO(tuần 2): Nối API /api/scheduling/queue và /api/identity/patients/checkin
-  const mockTickets = [
-    {
-      ticketNumber: "A-001",
-      patientName: "Nguyễn Văn Bệnh Nhân",
-      serviceTime: "07:00",
-      status: "Chờ tiếp đón",
-    },
-    {
-      ticketNumber: "A-002",
-      patientName: "Lê Hoàng Minh",
-      serviceTime: "07:15",
-      status: "Đã check-in",
-    },
-    {
-      ticketNumber: "A-003",
-      patientName: "Phạm Thị Mai",
-      serviceTime: "07:30",
-      status: "Chờ tiếp đón",
-    },
-  ];
+  const [activeTab, setActiveTab] = useState<ReceptionTab>("verifications");
+
+  // Verification Queue States
+  const [items, setItems] = useState<VerificationItemDto[]>([]);
+  const [totalCount, setTotalCount] = useState(0);
+  const [page, setPage] = useState(1);
+  const pageSize = 10;
+  const [statusFilter, setStatusFilter] = useState("Pending");
+  const [searchTerm, setSearchTerm] = useState("");
+  const [isLoading, setIsLoading] = useState(true);
+  const [errorMsg, setErrorMsg] = useState<string | null>(null);
+  const [successMsg, setSuccessMsg] = useState<string | null>(null);
+
+  // Detail & Action Modals
+  const [detailItem, setDetailItem] = useState<VerificationDetailDto | null>(
+    null,
+  );
+  const [loadingDetail, setLoadingDetail] = useState(false);
+
+  const [reasonModal, setReasonModal] = useState<{
+    mode: "reject" | "revoke";
+    item: VerificationItemDto;
+  } | null>(null);
+  const [reasonText, setReasonText] = useState("");
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
+  // Edit Patient Info Modal (PUT /api/staff/patients/{patientId})
+  const [editTarget, setEditTarget] = useState<VerificationItemDto | null>(
+    null,
+  );
+  const [editFullName, setEditFullName] = useState("");
+  const [editDob, setEditDob] = useState("");
+  const [editGender, setEditGender] = useState("Male");
+  const [editNationalId, setEditNationalId] = useState("");
+  const [editPhone, setEditPhone] = useState("");
+  const [editAddress, setEditAddress] = useState("");
+  const [editReason, setEditReason] = useState("");
+
+  // Check-in (Tiếp đón khám bệnh) States
+  const [todayAppointments, setTodayAppointments] = useState<{
+    appointmentId: string;
+    appointmentNumber: string;
+    patientId: string;
+    doctorId: string;
+    assignedRoomId: string;
+    serviceDate: string;
+    status: string;
+    checkInDeadlineUtc: string;
+  }[]>([]);
+  const [todayLoading, setTodayLoading] = useState(false);
+  const [todayError, setTodayError] = useState<string | null>(null);
+  const [todaySuccess, setTodaySuccess] = useState<string | null>(null);
+  const [aptSearch, setAptSearch] = useState("");
+  const [verifiedApts, setVerifiedApts] = useState<Record<string, boolean>>({});
+  const [checkingInId, setCheckingInId] = useState<string | null>(null);
+
+  const fetchTodayAppointments = async () => {
+    setTodayLoading(true);
+    setTodayError(null);
+    try {
+      const res = await receptionApi.listTodayAppointments({
+        appointmentNumber: aptSearch.trim() || undefined,
+        pageSize: 50,
+      });
+      setTodayAppointments(res.items || []);
+    } catch (err: any) {
+      setTodayError(err?.message || "Không thể tải danh sách lịch hẹn hôm nay.");
+    } finally {
+      setTodayLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    if (activeTab === "checkin") {
+      fetchTodayAppointments();
+    }
+  }, [activeTab]);
+
+  const handleCheckIn = async (appointmentId: string) => {
+    setCheckingInId(appointmentId);
+    setTodayError(null);
+    setTodaySuccess(null);
+    try {
+      const res = await receptionApi.checkIn(appointmentId);
+      if (res.alreadyCheckedIn) {
+        setTodaySuccess(`Lịch hẹn đã check-in trước đó. Số thứ tự: ${res.sequenceNumber} (Mã vé: ${res.ticketNumber})`);
+      } else {
+        setTodaySuccess(`Check-in thành công! Cấp số thứ tự khám: ${res.sequenceNumber} (Mã vé: ${res.ticketNumber})`);
+      }
+      await fetchTodayAppointments();
+    } catch (err: any) {
+      const code = err?.response?.data?.code || err?.code;
+      let msg = "Lỗi khi thực hiện check-in.";
+      if (code === "CheckInDeadlinePassed") {
+        msg = "Đã quá hạn tiếp nhận (CheckInDeadline). Bệnh nhân bị tính vắng mặt, vui lòng liên hệ quầy xử lý ngoại lệ.";
+      } else if (code === "CheckInNotOpen") {
+        msg = "Chưa tới ngày khám bệnh theo giờ Việt Nam.";
+      } else if (code === "InvalidAppointmentState") {
+        msg = "Lịch hẹn ở trạng thái không thể tiếp nhận (đã hoàn thành hoặc đã bị hủy).";
+      } else if (code === "AppointmentNotFound") {
+        msg = "Không tìm thấy thông tin lịch hẹn trên hệ thống.";
+      } else if (err?.response?.data?.detail) {
+        msg = err.response.data.detail;
+      } else if (err?.message) {
+        msg = err.message;
+      }
+      setTodayError(msg);
+    } finally {
+      setCheckingInId(null);
+    }
+  };
+
+  const fetchVerifications = async (targetPage = page) => {
+    setIsLoading(true);
+    setErrorMsg(null);
+    try {
+      const params = new URLSearchParams();
+      if (statusFilter) params.append("status", statusFilter);
+      if (searchTerm.trim()) params.append("searchTerm", searchTerm.trim());
+      params.append("page", String(targetPage));
+      params.append("pageSize", String(pageSize));
+
+      const res = await apiClient.get<PagedResult<VerificationItemDto>>(
+        `/api/staff/verifications?${params}`,
+      );
+      setItems(res.data.items);
+      setTotalCount(res.data.totalCount);
+    } catch {
+      setErrorMsg("Không thể tải danh sách hồ sơ xác minh.");
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchVerifications(page);
+  }, [statusFilter, page]);
+
+  const handleSearch = (e: React.FormEvent) => {
+    e.preventDefault();
+    setPage(1);
+    fetchVerifications(1);
+  };
+
+  const handleOpenDetail = async (item: VerificationItemDto) => {
+    setLoadingDetail(true);
+    setErrorMsg(null);
+    try {
+      const res = await apiClient.get<VerificationDetailDto>(
+        `/api/staff/verifications/${item.representativeId}`,
+      );
+      setDetailItem(res.data);
+    } catch {
+      setErrorMsg("Không thể tải chi tiết người đại diện.");
+    } finally {
+      setLoadingDetail(false);
+    }
+  };
+
+  const handleVerify = async (item: VerificationItemDto) => {
+    setIsSubmitting(true);
+    setErrorMsg(null);
+    setSuccessMsg(null);
+    try {
+      await apiClient.post(
+        `/api/staff/verifications/${item.representativeId}/verify`,
+      );
+      setSuccessMsg(`Đã xác minh hồ sơ "${item.patientFullName}".`);
+      setDetailItem(null);
+      await fetchVerifications(page);
+    } catch (err: unknown) {
+      const errorObj = err as { response?: { data?: { detail?: string } } };
+      setErrorMsg(
+        errorObj.response?.data?.detail || "Không thể xác minh hồ sơ.",
+      );
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const handleSubmitReasonAction = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!reasonModal) return;
+    if (!reasonText.trim()) {
+      setErrorMsg("Vui lòng nhập lý do thao tác.");
+      return;
+    }
+
+    setIsSubmitting(true);
+    setErrorMsg(null);
+    setSuccessMsg(null);
+    try {
+      const endpoint =
+        reasonModal.mode === "reject"
+          ? `/api/staff/verifications/${reasonModal.item.representativeId}/reject`
+          : `/api/staff/verifications/${reasonModal.item.representativeId}/revoke`;
+      await apiClient.post(endpoint, { reason: reasonText.trim() });
+      setSuccessMsg(
+        reasonModal.mode === "reject"
+          ? `Đã từ chối yêu cầu xác minh cho "${reasonModal.item.patientFullName}".`
+          : `Đã thu hồi quyền đại diện của hồ sơ "${reasonModal.item.patientFullName}".`,
+      );
+      setReasonModal(null);
+      setReasonText("");
+      setDetailItem(null);
+      await fetchVerifications(page);
+    } catch (err: unknown) {
+      const errorObj = err as { response?: { data?: { detail?: string } } };
+      setErrorMsg(
+        errorObj.response?.data?.detail ||
+          "Không thể thực hiện chuyển trạng thái.",
+      );
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const handleOpenEditPatient = (item: VerificationItemDto) => {
+    setEditTarget(item);
+    setEditFullName(item.patientFullName);
+    setEditDob(item.dateOfBirth);
+    setEditGender(item.gender);
+    setEditNationalId("");
+    setEditPhone(item.phoneNumber);
+    setEditAddress(item.address);
+    setEditReason("");
+    setErrorMsg(null);
+  };
+
+  const handleSaveEditPatient = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editTarget) return;
+    if (!editReason.trim()) {
+      setErrorMsg("Tiếp tân sửa hồ sơ bắt buộc phải nhập lý do ghi AuditLog.");
+      return;
+    }
+
+    setIsSubmitting(true);
+    setErrorMsg(null);
+    setSuccessMsg(null);
+    try {
+      await apiClient.put(`/api/staff/patients/${editTarget.patientId}`, {
+        fullName: editFullName.trim(),
+        dateOfBirth: editDob,
+        gender: editGender,
+        nationalId: editNationalId.trim() || null,
+        phoneNumber: editPhone.trim(),
+        address: editAddress.trim(),
+        reason: editReason.trim(),
+        keepExistingNationalId: !editNationalId.trim(),
+      });
+      setSuccessMsg(
+        `Đã cập nhật hồ sơ bệnh nhân "${editFullName.trim()}" và ghi nhận AuditLog.`,
+      );
+      setEditTarget(null);
+      await fetchVerifications(page);
+    } catch (err: unknown) {
+      const errorObj = err as { response?: { data?: { detail?: string } } };
+      setErrorMsg(
+        errorObj.response?.data?.detail ||
+          "Không thể cập nhật thông tin bệnh nhân.",
+      );
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const getStatusBadge = (status: string) => {
+    switch (status) {
+      case "Verified":
+        return (
+          <span className="px-2 py-0.5 rounded-full text-[11px] font-semibold bg-[#D1FAE5] text-[#047857]">
+            Đã xác minh
+          </span>
+        );
+      case "Pending":
+        return (
+          <span className="px-2 py-0.5 rounded-full text-[11px] font-semibold bg-[#FEF3C7] text-[#B45309]">
+            Chờ xác minh
+          </span>
+        );
+      case "Rejected":
+        return (
+          <span className="px-2 py-0.5 rounded-full text-[11px] font-semibold bg-[#FEE2E2] text-[#B91C1C]">
+            Đã từ chối
+          </span>
+        );
+      case "Revoked":
+        return (
+          <span className="px-2 py-0.5 rounded-full text-[11px] font-semibold bg-gray-100 text-gray-600">
+            Đã thu hồi
+          </span>
+        );
+      default:
+        return (
+          <span className="px-2 py-0.5 rounded-full text-[11px] font-semibold bg-gray-100 text-gray-600">
+            {status}
+          </span>
+        );
+    }
+  };
+
+  const totalPages = Math.max(1, Math.ceil(totalCount / pageSize));
+
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="font-headline-md text-headline-md font-bold text-[#1C2B24]">
-          Bàn Tiếp Đón &amp; Check-in Bệnh Nhân
-        </h1>
-        <p className="font-body-md text-[#5E6F66] mt-1">
-          Đối chiếu thẻ CCCD thực tế, xác nhận danh tính và gọi số vào quầy tiếp
-          nhận.
-        </p>
-      </div>
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+        <div>
+          <h1 className="font-headline-md text-2xl font-extrabold tracking-tight text-on-surface">
+            Bàn làm việc Tiếp đón &amp; Xác minh Hồ sơ
+          </h1>
+          <p className="font-body-md text-on-surface-variant mt-1 text-sm">
+            Đối chiếu thẻ CCCD vật lý tại quầy, xác minh người đại diện và điều chỉnh nhân khẩu hồ sơ đã xác minh.
+          </p>
+        </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        <div className="bg-white p-5 rounded-xl border border-[#DDE7E1] shadow-sm">
-          <span className="text-[12px] font-semibold text-[#5E6F66] uppercase">
-            Số vé trong ngày
-          </span>
-          <div className="text-3xl font-bold text-[#006a41] mt-2">24 / 30</div>
-          <span className="text-xs text-[#5E6F66] mt-1 block">
-            Hạn mức phiên sáng (POL-01)
-          </span>
-        </div>
-        <div className="bg-white p-5 rounded-xl border border-[#DDE7E1] shadow-sm">
-          <span className="text-[12px] font-semibold text-[#5E6F66] uppercase">
-            Đã check-in
-          </span>
-          <div className="text-3xl font-bold text-[#1C2B24] mt-2">18</div>
-          <span className="text-xs text-[#5E6F66] mt-1 block">
-            Sẵn sàng phân luồng đo sinh hiệu
-          </span>
-        </div>
-        <div className="bg-white p-5 rounded-xl border border-[#DDE7E1] shadow-sm">
-          <span className="text-[12px] font-semibold text-[#5E6F66] uppercase">
-            Thời gian khóa đăng ký
-          </span>
-          <div className="text-3xl font-bold text-[#D32F2F] mt-2">09:30</div>
-          <span className="text-xs text-[#5E6F66] mt-1 block">
-            BookingCutoff ngày D (POL-02)
-          </span>
+        <div className="inline-flex rounded-full bg-surface-container-low p-1 shrink-0">
+          <button
+            type="button"
+            onClick={() => setActiveTab("verifications")}
+            className={`px-4 py-1.5 rounded-full text-xs font-semibold transition-all ${
+              activeTab === "verifications"
+                ? "bg-primary text-white shadow-sm"
+                : "text-on-surface-variant hover:text-on-surface"
+            }`}
+          >
+            Hàng đợi xác minh CCCD
+          </button>
+          <button
+            type="button"
+            onClick={() => setActiveTab("checkin")}
+            className={`px-4 py-1.5 rounded-full text-xs font-semibold transition-all ${
+              activeTab === "checkin"
+                ? "bg-primary text-white shadow-sm"
+                : "text-on-surface-variant hover:text-on-surface"
+            }`}
+          >
+            Tiếp đón khám bệnh
+          </button>
         </div>
       </div>
 
-      <div className="bg-white rounded-xl border border-[#DDE7E1] overflow-hidden shadow-sm">
-        <div className="p-4 border-b border-[#DDE7E1] flex items-center justify-between">
-          <h2 className="font-semibold text-[#1C2B24]">
-            Danh sách bệnh nhân đăng ký hôm nay
-          </h2>
-          <span className="text-xs text-[#5E6F66]">
-            Dữ liệu mẫu tuần 1 // TODO(tuần 2): Nối API
+      {/* Stitch 86a0f8a4 HIS Operational Status Strip */}
+      <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl bg-surface-container-low px-4 py-2.5 text-xs text-on-surface-variant">
+        <div className="flex flex-wrap items-center gap-3">
+          <span className="inline-flex items-center gap-1.5 font-semibold text-primary">
+            <span className="h-2 w-2 rounded-full bg-primary" />
+            Mạng nội bộ bệnh viện (HIS Online)
           </span>
+          <span className="hidden sm:inline text-outline-variant">|</span>
+          <span>Phím tắt: <strong>[F9]</strong> Lập phiếu &amp; thu phí • Đối chiếu CCCD gốc trước xác minh</span>
         </div>
-        <div className="overflow-x-auto">
-          <table className="w-full text-left text-sm">
-            <thead className="bg-[#F7FAF8] text-[#5E6F66] border-b border-[#DDE7E1]">
-              <tr>
-                <th className="py-3 px-4 font-semibold">Số vé</th>
-                <th className="py-3 px-4 font-semibold">Họ và tên</th>
-                <th className="py-3 px-4 font-semibold">Giờ hẹn</th>
-                <th className="py-3 px-4 font-semibold">Trạng thái</th>
-                <th className="py-3 px-4 font-semibold text-right">Thao tác</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-[#DDE7E1]">
-              {mockTickets.map((t) => (
-                <tr key={t.ticketNumber} className="hover:bg-[#F7FAF8]/60">
-                  <td className="py-3 px-4 font-bold text-[#006a41]">
-                    {t.ticketNumber}
-                  </td>
-                  <td className="py-3 px-4 font-medium text-[#1C2B24]">
-                    {t.patientName}
-                  </td>
-                  <td className="py-3 px-4 text-[#5E6F66]">{t.serviceTime}</td>
-                  <td className="py-3 px-4">
-                    <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-semibold bg-[#E8F5EE] text-[#006a41]">
-                      {t.status}
-                    </span>
-                  </td>
-                  <td className="py-3 px-4 text-right">
-                    <button className="px-3 py-1 bg-[#006a41] text-white rounded text-xs font-medium hover:bg-[#005231]">
-                      Check-in CCCD
-                    </button>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+        <span className="font-data-tabular font-medium text-on-surface">30 suất/ngày dùng chung trực tuyến &amp; quầy</span>
       </div>
+
+      {activeTab === "verifications" ? (
+        <div className="space-y-4">
+          {/* Filters */}
+          <form
+            onSubmit={handleSearch}
+            className="bg-surface-container-lowest p-4 rounded-2xl shadow-[0_1px_10px_rgba(15,31,24,0.04)] flex flex-wrap gap-3 items-center justify-between"
+          >
+            <div className="flex flex-wrap items-center gap-3 flex-1">
+              <div className="relative min-w-[240px] flex-1 max-w-md">
+                <span className="material-symbols-outlined text-[18px] text-on-surface-variant absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none w-5 h-5 flex items-center justify-center overflow-hidden shrink-0 select-none">
+                  search
+                </span>
+                <input
+                  type="text"
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  placeholder="Tìm theo họ tên, số CCCD hoặc SĐT..."
+                  className="w-full h-10 pl-10 pr-3 rounded-xl border border-transparent bg-surface-container-low/70 text-xs text-on-surface focus:bg-white focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/15"
+                />
+              </div>
+
+              <select
+                value={statusFilter}
+                onChange={(e) => {
+                  setStatusFilter(e.target.value);
+                  setPage(1);
+                }}
+                className="h-10 px-3 rounded-xl border border-transparent bg-surface-container-low/70 text-xs font-medium text-on-surface focus:bg-white focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/15"
+              >
+                <option value="Pending">Chờ xác minh (Pending)</option>
+                <option value="Verified">Đã xác minh (Verified)</option>
+                <option value="Rejected">Đã từ chối (Rejected)</option>
+                <option value="Revoked">Đã thu hồi (Revoked)</option>
+                <option value="">Tất cả trạng thái</option>
+              </select>
+
+              <button
+                type="submit"
+                className="h-10 px-4 rounded-xl bg-primary text-white text-xs font-semibold hover:bg-[#005231] transition-colors shadow-sm"
+              >
+                Tìm kiếm
+              </button>
+            </div>
+
+            <div className="text-xs text-on-surface-variant">
+              Tổng số: <strong className="font-data-tabular text-on-surface">{totalCount}</strong>{" "}
+              hồ sơ
+            </div>
+          </form>
+
+          {successMsg && (
+            <div className="p-3 rounded-lg bg-[#ECFDF5] border border-[#A7F3D0] text-xs text-[#065F46] flex items-center justify-between">
+              <span>{successMsg}</span>
+              <button
+                onClick={() => setSuccessMsg(null)}
+                className="text-xs font-bold"
+              >
+                ✕
+              </button>
+            </div>
+          )}
+
+          {errorMsg && (
+            <div className="p-3 rounded-lg bg-[#FEE2E2] border border-[#FECACA] text-xs text-[#B91C1C] flex items-center justify-between">
+              <span>{errorMsg}</span>
+              <button
+                onClick={() => setErrorMsg(null)}
+                className="text-xs font-bold"
+              >
+                ✕
+              </button>
+            </div>
+          )}
+
+          {/* Table */}
+          <div className="bg-surface-container-lowest rounded-2xl overflow-hidden shadow-[0_1px_10px_rgba(15,31,24,0.04)]">
+            {isLoading ? (
+              <div className="py-12 text-center text-xs text-on-surface-variant">
+                Đang tải danh sách xác minh...
+              </div>
+            ) : items.length === 0 ? (
+              <div className="py-12 text-center text-xs text-on-surface-variant">
+                Không có hồ sơ nào phù hợp điều kiện lọc.
+              </div>
+            ) : (
+              <div className="overflow-x-auto">
+                <table className="w-full text-left border-collapse text-xs">
+                  <thead>
+                    <tr className="bg-surface-container-low/85 text-on-surface-variant font-semibold uppercase tracking-wider text-[11px]">
+                      <th className="py-3.5 px-4">Bệnh Nhân</th>
+                      <th className="py-3.5 px-4">Ngày Sinh / GT</th>
+                      <th className="py-3.5 px-4">CCCD (Che)</th>
+                      <th className="py-3.5 px-4">SĐT &amp; Địa Chỉ</th>
+                      <th className="py-3.5 px-4">Quan Hệ</th>
+                      <th className="py-3.5 px-4">Trạng Thái</th>
+                      <th className="py-3.5 px-4 text-right">Thao Tác</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-surface-container-high/50">
+                    {items.map((item) => (
+                      <tr
+                        key={item.representativeId}
+                        className="hover:bg-surface-container-low/45 transition-colors"
+                      >
+                        <td className="py-3 px-4 font-semibold text-[#1C2B24]">
+                          {item.patientFullName}
+                        </td>
+                        <td className="py-3 px-4 text-[#5E6F66]">
+                          <div>{item.dateOfBirth}</div>
+                          <div className="text-[11px]">
+                            {item.gender === "Male"
+                              ? "Nam"
+                              : item.gender === "Female"
+                                ? "Nữ"
+                                : "Khác"}
+                          </div>
+                        </td>
+                        <td className="py-3 px-4 font-mono text-[#1C2B24]">
+                          {item.maskedNationalId || "Chưa khai"}
+                        </td>
+                        <td className="py-3 px-4 text-[#5E6F66] max-w-[220px]">
+                          <div className="font-mono text-[#1C2B24]">
+                            {item.phoneNumber}
+                          </div>
+                          <div className="truncate text-[11px]">
+                            {item.address}
+                          </div>
+                        </td>
+                        <td className="py-3 px-4 font-medium text-[#1C2B24]">
+                          {item.relationship}
+                        </td>
+                        <td className="py-3 px-4">
+                          {getStatusBadge(item.verificationStatus)}
+                        </td>
+                        <td className="py-3 px-4 text-right">
+                          <div className="inline-flex flex-wrap justify-end gap-1.5">
+                            <button
+                              type="button"
+                              onClick={() => handleOpenDetail(item)}
+                              className="h-7 px-2.5 rounded border border-[#DDE7E1] text-[#1C2B24] hover:bg-gray-50 font-semibold"
+                            >
+                              Chi tiết
+                            </button>
+                            {item.verificationStatus === "Pending" && (
+                              <>
+                                <button
+                                  type="button"
+                                  disabled={isSubmitting}
+                                  onClick={() => handleVerify(item)}
+                                  className="h-7 px-2.5 rounded bg-[#006a41] text-white hover:bg-[#028654] font-semibold disabled:opacity-50"
+                                >
+                                  Xác minh
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    setReasonText("");
+                                    setReasonModal({ mode: "reject", item });
+                                  }}
+                                  className="h-7 px-2.5 rounded border border-[#FECACA] text-[#B91C1C] hover:bg-[#FEE2E2] font-semibold"
+                                >
+                                  Từ chối
+                                </button>
+                              </>
+                            )}
+                            {item.verificationStatus === "Verified" && (
+                              <>
+                                <button
+                                  type="button"
+                                  onClick={() => handleOpenEditPatient(item)}
+                                  className="h-7 px-2.5 rounded border border-[#BFDBFE] text-[#1D4ED8] hover:bg-[#EFF6FF] font-semibold"
+                                >
+                                  Sửa hồ sơ
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    setReasonText("");
+                                    setReasonModal({ mode: "revoke", item });
+                                  }}
+                                  className="h-7 px-2.5 rounded border border-[#FECACA] text-[#B91C1C] hover:bg-[#FEE2E2] font-semibold"
+                                >
+                                  Thu hồi
+                                </button>
+                              </>
+                            )}
+                          </div>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+
+            {/* Pagination */}
+            {totalPages > 1 && (
+              <div className="px-4 py-3 border-t border-[#DDE7E1] flex items-center justify-between text-xs text-[#5E6F66]">
+                <span>
+                  Trang {page} / {totalPages}
+                </span>
+                <div className="flex gap-2">
+                  <button
+                    type="button"
+                    disabled={page <= 1}
+                    onClick={() => setPage((p) => Math.max(1, p - 1))}
+                    className="h-8 px-3 rounded border border-[#DDE7E1] disabled:opacity-40"
+                  >
+                    Trước
+                  </button>
+                  <button
+                    type="button"
+                    disabled={page >= totalPages}
+                    onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+                    className="h-8 px-3 rounded border border-[#DDE7E1] disabled:opacity-40"
+                  >
+                    Sau
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+      ) : (
+        <div className="space-y-6">
+          {/* KPI Cards */}
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div className="bg-surface-container-lowest p-5 rounded-2xl shadow-[0_1px_10px_rgba(15,31,24,0.04)]">
+              <span className="text-[11px] font-semibold text-on-surface-variant uppercase tracking-wider">
+                Tổng lịch hẹn hôm nay
+              </span>
+              <div className="font-data-tabular text-3xl font-extrabold text-primary mt-2">
+                {todayAppointments.length}
+              </div>
+              <span className="text-xs text-on-surface-variant mt-1.5 block">
+                Ca tiếp đón ngày {new Date().toLocaleDateString("vi-VN")}
+              </span>
+            </div>
+            <div className="bg-surface-container-lowest p-5 rounded-2xl shadow-[0_1px_10px_rgba(15,31,24,0.04)]">
+              <span className="text-[11px] font-semibold text-on-surface-variant uppercase tracking-wider">
+                Đã check-in
+              </span>
+              <div className="font-data-tabular text-3xl font-extrabold text-on-surface mt-2">
+                {todayAppointments.filter((a) => a.status === "CheckedIn").length}
+              </div>
+              <span className="text-xs text-on-surface-variant mt-2 block">
+                Đã cấp số thứ tự vào phòng khám
+              </span>
+            </div>
+            <div className="bg-surface-container-lowest p-5 rounded-2xl shadow-[0_1px_10px_rgba(15,31,24,0.04)]">
+              <span className="text-[11px] font-semibold text-on-surface-variant uppercase tracking-wider">
+                Chờ tiếp nhận
+              </span>
+              <div className="font-data-tabular text-3xl font-extrabold text-[#b3261e] mt-2">
+                {todayAppointments.filter((a) => a.status !== "CheckedIn").length}
+              </div>
+              <span className="text-xs text-on-surface-variant mt-2 block">
+                Chưa đến hoặc chờ đối chiếu giấy tờ
+              </span>
+            </div>
+          </div>
+
+          {/* Search bar */}
+          <div className="bg-surface-container-lowest p-4 rounded-2xl shadow-[0_1px_10px_rgba(15,31,24,0.04)] flex flex-wrap gap-3 items-center justify-between">
+            <div className="flex flex-wrap items-center gap-3 flex-1">
+              <div className="relative min-w-[240px] flex-1 max-w-md">
+                <span className="material-symbols-outlined text-[18px] text-on-surface-variant absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none w-5 h-5 flex items-center justify-center overflow-hidden shrink-0 select-none">
+                  search
+                </span>
+                <input
+                  type="text"
+                  value={aptSearch}
+                  onChange={(e) => setAptSearch(e.target.value)}
+                  placeholder="Tìm theo mã lịch hẹn (VD: SH-2611...)"
+                  className="w-full h-10 pl-10 pr-3 rounded-xl border border-transparent bg-surface-container-low/70 text-xs text-on-surface focus:bg-white focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/15"
+                />
+              </div>
+              <button
+                type="button"
+                onClick={() => fetchTodayAppointments()}
+                className="h-10 px-4 rounded-xl bg-primary text-white text-xs font-semibold hover:bg-[#005231] transition-colors shadow-sm"
+              >
+                Tìm kiếm
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setAptSearch("");
+                  fetchTodayAppointments();
+                }}
+                className="h-10 px-3 rounded-xl border border-surface-container-high text-xs font-semibold hover:bg-surface-container-low transition-colors"
+              >
+                Làm mới
+              </button>
+            </div>
+          </div>
+
+          {todaySuccess && (
+            <div className="p-3 rounded-lg bg-[#ECFDF5] border border-[#A7F3D0] text-xs text-[#065F46] flex items-center justify-between">
+              <span>{todaySuccess}</span>
+              <button onClick={() => setTodaySuccess(null)} className="text-xs font-bold">
+                ✕
+              </button>
+            </div>
+          )}
+
+          {todayError && (
+            <div className="p-3 rounded-lg bg-[#FEE2E2] border border-[#FECACA] text-xs text-[#B91C1C] flex items-center justify-between">
+              <span>{todayError}</span>
+              <button onClick={() => setTodayError(null)} className="text-xs font-bold">
+                ✕
+              </button>
+            </div>
+          )}
+
+          {/* Table */}
+          <div className="bg-surface-container-lowest rounded-2xl overflow-hidden shadow-[0_1px_10px_rgba(15,31,24,0.04)]">
+            <div className="p-4 border-b border-surface-container-high/60 flex items-center justify-between">
+              <h2 className="font-semibold text-on-surface">
+                Danh sách lịch hẹn hôm nay (Check-in tiếp đón)
+              </h2>
+              <span className="text-xs text-on-surface-variant">
+                Dữ liệu trực tiếp từ Scheduling Module
+              </span>
+            </div>
+            <div className="overflow-x-auto">
+              <table className="w-full text-left text-xs">
+                <thead className="bg-surface-container-low/85 text-on-surface-variant uppercase tracking-wider">
+                  <tr>
+                    <th className="py-3 px-4 font-semibold">Mã lịch hẹn</th>
+                    <th className="py-3 px-4 font-semibold">Mã bệnh nhân</th>
+                    <th className="py-3 px-4 font-semibold">Hạn tiếp nhận</th>
+                    <th className="py-3 px-4 font-semibold">Trạng thái</th>
+                    <th className="py-3 px-4 font-semibold">Đối chiếu CCCD</th>
+                    <th className="py-3 px-4 font-semibold text-right">Thao tác</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-surface-container-high/50">
+                  {todayLoading ? (
+                    <tr>
+                      <td colSpan={6} className="py-8 text-center text-on-surface-variant">
+                        Đang tải danh sách lịch hẹn hôm nay...
+                      </td>
+                    </tr>
+                  ) : todayAppointments.length === 0 ? (
+                    <tr>
+                      <td colSpan={6} className="py-8 text-center text-on-surface-variant">
+                        Không có lịch hẹn nào cho ngày hôm nay.
+                      </td>
+                    </tr>
+                  ) : (
+                    todayAppointments.map((apt) => {
+                      const isPastDeadline =
+                        apt.checkInDeadlineUtc &&
+                        new Date(apt.checkInDeadlineUtc) < new Date();
+                      const isCheckedIn = apt.status === "CheckedIn";
+                      const isVerified = Boolean(verifiedApts[apt.appointmentId]);
+
+                      return (
+                        <tr key={apt.appointmentId} className="hover:bg-surface-container-low/50">
+                          <td className="py-3 px-4 font-mono font-semibold text-primary">
+                            {apt.appointmentNumber}
+                          </td>
+                          <td className="py-3 px-4 font-mono text-on-surface-variant">
+                            {apt.patientId.slice(0, 8)}...
+                          </td>
+                          <td className="py-3 px-4">
+                            {isPastDeadline ? (
+                              <span className="inline-flex items-center gap-1 text-[#b3261e] font-semibold">
+                                Quá hạn ({new Date(apt.checkInDeadlineUtc).toLocaleTimeString("vi-VN", { hour: "2-digit", minute: "2-digit" })})
+                              </span>
+                            ) : apt.checkInDeadlineUtc ? (
+                              <span>
+                                Trước {new Date(apt.checkInDeadlineUtc).toLocaleTimeString("vi-VN", { hour: "2-digit", minute: "2-digit" })}
+                              </span>
+                            ) : (
+                              "—"
+                            )}
+                          </td>
+                          <td className="py-3 px-4">
+                            <span
+                              className={`px-2.5 py-0.5 rounded-full text-[11px] font-semibold ${
+                                isCheckedIn
+                                  ? "bg-[#D1FAE5] text-[#065F46]"
+                                  : isPastDeadline
+                                  ? "bg-[#FEE2E2] text-[#991B1B]"
+                                  : "bg-surface-container-high text-on-surface"
+                              }`}
+                            >
+                              {isCheckedIn ? "Đã check-in" : isPastDeadline ? "Vắng mặt (Trễ)" : apt.status}
+                            </span>
+                          </td>
+                          <td className="py-3 px-4">
+                            {!isCheckedIn && !isPastDeadline ? (
+                              <label className="inline-flex items-center gap-1.5 cursor-pointer">
+                                <input
+                                  type="checkbox"
+                                  checked={isVerified}
+                                  onChange={(e) =>
+                                    setVerifiedApts((prev) => ({
+                                      ...prev,
+                                      [apt.appointmentId]: e.target.checked,
+                                    }))
+                                  }
+                                  className="h-3.5 w-3.5 accent-primary rounded"
+                                />
+                                <span className="text-[11px]">Đã xem CCCD gốc</span>
+                              </label>
+                            ) : (
+                              <span className="text-on-surface-variant">—</span>
+                            )}
+                          </td>
+                          <td className="py-3 px-4 text-right">
+                            {isCheckedIn ? (
+                              <span className="text-xs font-semibold text-[#006a41]">
+                                Đã tiếp nhận
+                              </span>
+                            ) : isPastDeadline ? (
+                              <span className="text-xs font-medium text-[#b3261e]">
+                                Quá hạn tiếp nhận
+                              </span>
+                            ) : (
+                              <button
+                                type="button"
+                                disabled={!isVerified || checkingInId === apt.appointmentId}
+                                onClick={() => handleCheckIn(apt.appointmentId)}
+                                className="h-8 px-3 rounded-lg bg-primary text-white text-xs font-semibold hover:bg-[#005231] disabled:opacity-40 transition-colors shadow-xs"
+                              >
+                                {checkingInId === apt.appointmentId
+                                  ? "Đang xử lý..."
+                                  : "Xác nhận Check-in"}
+                              </button>
+                            )}
+                          </td>
+                        </tr>
+                      );
+                    })
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal Detail */}
+      {(detailItem || loadingDetail) && (
+        <div className="fixed inset-0 bg-black/40 backdrop-blur-xs flex items-center justify-center p-4 z-50">
+          <div className="bg-white rounded-2xl border border-[#DDE7E1] shadow-xl w-full max-w-lg p-6 space-y-4">
+            <div className="flex items-center justify-between border-b border-[#DDE7E1] pb-3">
+              <h3 className="text-base font-bold text-[#1C2B24]">
+                Chi Tiết Hồ Sơ &amp; Người Đại Diện
+              </h3>
+              <button
+                onClick={() => setDetailItem(null)}
+                className="text-gray-400 hover:text-black"
+              >
+                <span className="material-symbols-outlined text-[20px]">
+                  close
+                </span>
+              </button>
+            </div>
+            {loadingDetail ? (
+              <div className="py-8 text-center text-xs text-[#5E6F66]">
+                Đang tải chi tiết...
+              </div>
+            ) : (
+              detailItem && (
+                <div className="space-y-3 text-xs">
+                  <div className="p-3.5 rounded-xl bg-[#F7FAF8] border border-[#DDE7E1] space-y-1.5">
+                    <div className="font-bold text-[#006a41] mb-1">
+                      Thông tin bệnh nhân
+                    </div>
+                    <div>
+                      <strong>Họ tên:</strong> {detailItem.patientFullName}
+                    </div>
+                    <div>
+                      <strong>Ngày sinh:</strong> {detailItem.dateOfBirth} •{" "}
+                      <strong>Giới tính:</strong> {detailItem.gender}
+                    </div>
+                    <div>
+                      <strong>CCCD (che 8 số đầu):</strong>{" "}
+                      <span className="font-mono">
+                        {detailItem.maskedNationalId || "Chưa khai"}
+                      </span>
+                    </div>
+                    <div>
+                      <strong>SĐT:</strong> {detailItem.phoneNumber}
+                    </div>
+                    <div>
+                      <strong>Địa chỉ:</strong> {detailItem.address}
+                    </div>
+                  </div>
+                  <div className="p-3.5 rounded-xl bg-white border border-[#DDE7E1] space-y-1.5">
+                    <div className="font-bold text-[#1C2B24] mb-1">
+                      Tài khoản người đại diện ({detailItem.relationship})
+                    </div>
+                    <div>
+                      <strong>Tài khoản:</strong>{" "}
+                      <span className="font-mono">
+                        {detailItem.representativeUserName}
+                      </span>
+                    </div>
+                    <div>
+                      <strong>Email:</strong>{" "}
+                      {detailItem.representativeEmail || "—"} •{" "}
+                      <strong>SĐT:</strong>{" "}
+                      {detailItem.representativePhoneNumber || "—"}
+                    </div>
+                    <div>
+                      <strong>Trạng thái:</strong>{" "}
+                      {getStatusBadge(detailItem.verificationStatus)}
+                    </div>
+                  </div>
+                </div>
+              )
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* Modal Reject / Revoke */}
+      {reasonModal && (
+        <div className="fixed inset-0 bg-black/40 backdrop-blur-xs flex items-center justify-center p-4 z-50">
+          <div className="bg-white rounded-2xl border border-[#DDE7E1] shadow-xl w-full max-w-md p-6 space-y-4">
+            <div className="flex items-center justify-between border-b border-[#DDE7E1] pb-3">
+              <h3 className="text-base font-bold text-[#1C2B24]">
+                {reasonModal.mode === "reject"
+                  ? "Từ Chối Xác Minh Hồ Sơ"
+                  : "Thu Hồi Quyền Đại Diện"}
+              </h3>
+              <button
+                onClick={() => setReasonModal(null)}
+                className="text-gray-400 hover:text-black"
+              >
+                <span className="material-symbols-outlined text-[20px]">
+                  close
+                </span>
+              </button>
+            </div>
+            <form onSubmit={handleSubmitReasonAction} className="space-y-4">
+              <p className="text-xs text-[#5E6F66]">
+                Hồ sơ:{" "}
+                <strong className="text-[#1C2B24]">
+                  {reasonModal.item.patientFullName}
+                </strong>
+              </p>
+              <div>
+                <label className="block text-xs font-semibold text-[#1C2B24] mb-1">
+                  Lý do bắt buộc (lưu AuditLog){" "}
+                  <span className="text-red-500">*</span>
+                </label>
+                <textarea
+                  rows={3}
+                  required
+                  value={reasonText}
+                  onChange={(e) => setReasonText(e.target.value)}
+                  placeholder="Nhập lý do từ chối hoặc thu hồi..."
+                  className="w-full p-3 rounded-lg border border-[#DDE7E1] text-xs focus:ring-2 focus:ring-[#006a41]/20"
+                />
+              </div>
+              <div className="flex justify-end gap-2">
+                <button
+                  type="button"
+                  onClick={() => setReasonModal(null)}
+                  className="h-9 px-4 rounded-lg border border-[#DDE7E1] text-xs font-semibold"
+                >
+                  Hủy
+                </button>
+                <button
+                  type="submit"
+                  disabled={isSubmitting}
+                  className="h-9 px-4 rounded-lg bg-[#D32F2F] text-white text-xs font-semibold hover:bg-[#B91C1C] disabled:opacity-50"
+                >
+                  {isSubmitting ? "Đang xử lý..." : "Xác nhận"}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Modal Edit Verified Patient */}
+      {editTarget && (
+        <div className="fixed inset-0 bg-black/40 backdrop-blur-xs flex items-center justify-center p-4 z-50">
+          <div className="bg-white rounded-2xl border border-[#DDE7E1] shadow-xl w-full max-w-lg p-6 space-y-4">
+            <div className="flex items-center justify-between border-b border-[#DDE7E1] pb-3">
+              <h3 className="text-base font-bold text-[#1C2B24]">
+                Sửa Hồ Sơ Đã Xác Minh (Tại Quầy)
+              </h3>
+              <button
+                onClick={() => setEditTarget(null)}
+                className="text-gray-400 hover:text-black"
+              >
+                <span className="material-symbols-outlined text-[20px]">
+                  close
+                </span>
+              </button>
+            </div>
+            <form onSubmit={handleSaveEditPatient} className="space-y-3">
+              <div>
+                <label className="block text-xs font-semibold mb-1">
+                  Họ và tên
+                </label>
+                <input
+                  type="text"
+                  required
+                  value={editFullName}
+                  onChange={(e) => setEditFullName(e.target.value)}
+                  className="w-full h-9 px-3 rounded-lg border border-[#DDE7E1] text-xs"
+                />
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-xs font-semibold mb-1">
+                    Ngày sinh
+                  </label>
+                  <input
+                    type="date"
+                    required
+                    value={editDob}
+                    onChange={(e) => setEditDob(e.target.value)}
+                    className="w-full h-9 px-3 rounded-lg border border-[#DDE7E1] text-xs"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-semibold mb-1">
+                    Giới tính
+                  </label>
+                  <select
+                    value={editGender}
+                    onChange={(e) => setEditGender(e.target.value)}
+                    className="w-full h-9 px-3 rounded-lg border border-[#DDE7E1] text-xs"
+                  >
+                    <option value="Male">Nam</option>
+                    <option value="Female">Nữ</option>
+                    <option value="Other">Khác</option>
+                  </select>
+                </div>
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-xs font-semibold mb-1">
+                    CCCD mới (12 số, để trống giữ{" "}
+                    {editTarget.maskedNationalId || "nguyên"})
+                  </label>
+                  <input
+                    type="text"
+                    maxLength={12}
+                    value={editNationalId}
+                    onChange={(e) => setEditNationalId(e.target.value)}
+                    placeholder={
+                      editTarget.maskedNationalId
+                        ? `Hiện tại: ${editTarget.maskedNationalId}`
+                        : "12 chữ số"
+                    }
+                    className="w-full h-9 px-3 rounded-lg border border-[#DDE7E1] text-xs font-mono"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-semibold mb-1">
+                    Số điện thoại
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    value={editPhone}
+                    onChange={(e) => setEditPhone(e.target.value)}
+                    className="w-full h-9 px-3 rounded-lg border border-[#DDE7E1] text-xs"
+                  />
+                </div>
+              </div>
+              <div>
+                <label className="block text-xs font-semibold mb-1">
+                  Địa chỉ
+                </label>
+                <input
+                  type="text"
+                  required
+                  value={editAddress}
+                  onChange={(e) => setEditAddress(e.target.value)}
+                  className="w-full h-9 px-3 rounded-lg border border-[#DDE7E1] text-xs"
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-semibold mb-1">
+                  Lý do chỉnh sửa (bắt buộc lưu AuditLog){" "}
+                  <span className="text-red-500">*</span>
+                </label>
+                <input
+                  type="text"
+                  required
+                  value={editReason}
+                  onChange={(e) => setEditReason(e.target.value)}
+                  placeholder="VD: Đối chiếu CCCD gốc điều chỉnh sai ngày sinh"
+                  className="w-full h-9 px-3 rounded-lg border border-[#DDE7E1] text-xs"
+                />
+              </div>
+              <div className="pt-2 border-t border-[#DDE7E1] flex justify-end gap-2">
+                <button
+                  type="button"
+                  onClick={() => setEditTarget(null)}
+                  className="h-9 px-4 rounded-lg border border-[#DDE7E1] text-xs font-semibold"
+                >
+                  Hủy
+                </button>
+                <button
+                  type="submit"
+                  disabled={isSubmitting}
+                  className="h-9 px-4 rounded-lg bg-[#006a41] text-white text-xs font-semibold hover:bg-[#028654] disabled:opacity-50"
+                >
+                  {isSubmitting ? "Đang lưu..." : "Lưu điều chỉnh"}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

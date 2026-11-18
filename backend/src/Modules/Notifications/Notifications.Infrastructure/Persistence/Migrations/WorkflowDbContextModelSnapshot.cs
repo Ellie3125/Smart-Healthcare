@@ -74,7 +74,71 @@ namespace Notifications.Infrastructure.Persistence.Migrations
 
                     b.HasIndex("InitiatedByUserId");
 
+                    b.HasIndex(new[] { "Status", "CreatedAtUtc" }, "IX_Operation_Unfinished")
+                        .HasFilter("[Status] IN (N'Pending', N'Running', N'WaitingExternal', N'Failed', N'NeedsAction', N'ManualReview')");
+
+                    SqlServerIndexBuilderExtensions.IncludeProperties(b.HasIndex(new[] { "Status", "CreatedAtUtc" }, "IX_Operation_Unfinished"), new[] { "OperationType", "TargetEntityId" });
+
                     b.ToTable("Operation", "workflow");
+                });
+
+            modelBuilder.Entity("Notifications.Domain.Entities.PatientNotification", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTime>("CreatedAtUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("Kind")
+                        .IsRequired()
+                        .HasMaxLength(32)
+                        .HasColumnType("nvarchar(32)");
+
+                    b.Property<Guid>("PatientId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid>("SourceEventId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid>("TargetEntityId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("PatientId", "CreatedAtUtc", "Id")
+                        .IsDescending(false, true, true);
+
+                    b.HasIndex("SourceEventId", "PatientId", "Kind")
+                        .IsUnique();
+
+                    b.ToTable("PatientNotification", "workflow");
+                });
+
+            modelBuilder.Entity("Notifications.Domain.Entities.PatientNotificationRead", b =>
+                {
+                    b.Property<Guid>("NotificationId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid>("AppUserId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTime>("ReadAtUtc")
+                        .HasColumnType("datetime2");
+
+                    b.HasKey("NotificationId", "AppUserId");
+
+                    b.ToTable("PatientNotificationRead", "workflow");
+                });
+
+            modelBuilder.Entity("Notifications.Domain.Entities.PatientNotificationRead", b =>
+                {
+                    b.HasOne("Notifications.Domain.Entities.PatientNotification", null)
+                        .WithMany()
+                        .HasForeignKey("NotificationId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
                 });
 #pragma warning restore 612, 618
         }

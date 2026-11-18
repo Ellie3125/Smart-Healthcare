@@ -1,0 +1,261 @@
+# Contract IdentityPatients — HTTP
+
+- Phiên bản: v0.2 Draft (10/11/2026). Claude Code viết theo yêu cầu trưởng nhóm (CLA-FIX-012, sửa ở CLA-FIX-013). Người phụ trách IdentityPatients rà soát; trưởng nhóm duyệt rồi mới chuyển sang Approved.
+- Nguồn: Phạm vi nghiệp vụ v2.12 (mục 2.1 ý 7, 2.3); Giải pháp kỹ thuật v2.14 (§8.6, "Kênh và vai trò"); ERD v2.4 schema `identity`; DB-05; code trong `IdentityPatients.Api/Controllers`.
+- JSON camelCase. Thời gian UTC ISO 8601 (`...Z`). Ngày dạng `yyyy-MM-dd`. Enum truyền dạng chuỗi.
+- Lỗi do module trả là `application/problem+json`, gồm `title` (tiếng Việt), `status`, `detail` và extension **`code`** (PascalCase, `docs/conventions.md` §4). Frontend và chatbot rẽ nhánh theo `code`. Khi không có mã riêng thì `code` theo status: 400 `InvalidInput`, 403 `Forbidden`, 404 `NotFound`, 409 `Conflict`. 401/403 do middleware xác thực trả thì không có thân.
+- Tiền tố route `api/staff/...`, `api/patient/...` khác quy ước `api/<module>/<kênh>/...` của `docs/conventions.md` (PR #43, Draft). Chờ trưởng nhóm chốt một kiểu (PROGRESS mục 5).
+
+## 1. Xác thực và phân quyền
+
+- **JWT Bearer**, HMAC-SHA256. Issuer, Audience và SigningKey lấy từ `Jwt:*`. Khóa ký chỉ đặt ở user-secrets hoặc biến môi trường `Jwt__SigningKey`; thiếu hoặc ngắn hơn 32 byte thì ứng dụng không khởi động.
+- **Claim trong token:**
+  - `sub` và `nameidentifier`: AppUserId;
+  - `name`: UserName;
+  - `role`: một trong `Admin`, `Doctor`, `Nurse`, `Receptionist`, `RoomAccount`, `Patient`;
+  - `channel`: `Staff` hoặc `Patient`;
+  - `doctor_id`: chỉ có với bác sĩ đã có hồ sơ Doctor;
+  - `room_id`: chỉ có với tài khoản phòng.
+- **Vai trò suy ra lúc đăng nhập, không lưu cột** (ERD v2.4, không dùng bảng `AspNet*`):
+  - có `RoomAccount` → `RoomAccount`;
+  - có `Staff` → theo `StaffType`: `Doctor`, `Nurse`, `Receptionist`, `Admin`;
+  - không có cả hai → `Patient`.
+
+  `Technician` chưa có vai trò đăng nhập. `Staff` hoặc `RoomAccount` bị vô hiệu hóa thì không đăng nhập được. Mỗi tài khoản đúng một vai trò.
+- **Policy:** mỗi policy kiểm cả vai trò và claim `channel`. Token đúng vai trò nhưng sai kênh bị 403. Admin chỉ có trong `AdminOnly`.
+
+| Policy | Vai trò | Kênh | Khu vực web nhân viên |
+|---|---|---|---|
+| `AdminOnly` | `Admin` | `Staff` | `/admin` |
+| `ReceptionistOnly` | `Receptionist` | `Staff` | `/reception` |
+| `ReceptionistOrAdmin` | `Receptionist`, `Admin` | `Staff` | `/reception` |
+| `NurseOnly` | `Nurse` | `Staff` | `/nurse` (chưa có endpoint) |
+| `DoctorOnly` | `Doctor` | `Staff` | `/doctor` (chưa có endpoint) |
+| `RoomAccountOnly` | `RoomAccount` | `Staff` | `/room`, `POST /auth/room/logout` |
+| `PatientOnly` | `Patient` | `Patient` | web bệnh nhân |
+| `AnyChannel` | mọi vai trò | kênh phải khớp loại vai trò | `/me` |
+
+- **Mọi endpoint có policy**, trừ danh sách công khai:
+  - `POST /auth/staff/login`, `POST /auth/patient/login`;
+  - `POST /auth/patient/register` (công khai để bệnh nhân tự đăng ký tài khoản trên cổng `smarthealthcare.io.vn`, giới hạn tần suất fixed-window 10 request/phút/IP);
+  - `GET /api/billing/payments/vnpay/ipn` (callback VNPAY, xác minh bằng chữ ký);
+  - `/`, `/openapi/v1.json`, `/swagger` (chỉ Development).
+
+  Test `EndpointAuthorizationInventoryTests` (ArchitectureTests) duyệt mọi endpoint đã map và đỏ khi có endpoint thiếu policy.
+- **Mật khẩu:**
+  - băm PBKDF2-HMAC-SHA256, salt ngẫu nhiên 16 byte, 600.000 vòng, khóa 32 byte, so sánh thời gian không đổi;
+  - lưu dạng `vòng.salt.hash` (base64), 76 ký tự, vừa cột `PasswordHash` nvarchar(128);
+  - độ dài tối thiểu 6 ký tự.
+- **Không khóa tài khoản theo số lần nhập sai** (ERD v2.4 không có cột cho việc này).
+
+### Ma trận endpoint → policy → vai trò
+
+| Endpoint | Policy | Được phép | Mọi vai trò khác |
+|---|---|---|---|
+| `POST /auth/staff/login`, `POST /auth/patient/login`, `POST /auth/patient/register` | công khai | — | — |
+| `POST /auth/room/logout` | `RoomAccountOnly` | `RoomAccount` (kênh Staff) | 403 |
+| `GET /me` | `AnyChannel` | mọi vai trò, đúng kênh | 403 khi sai kênh |
+| `/api/patient/profiles/**` | `PatientOnly` | Patient (kênh Patient) | 403 |
+| `GET /api/patient/specialties`, `GET /api/patient/doctor-ranks` | `PatientOnly` | Patient (kênh Patient) | 403 |
+| `/api/staff/verifications/**`, `/api/staff/patients/**` | `ReceptionistOrAdmin` | Receptionist, Admin (kênh Staff) | 403 |
+| `/api/staff/admin/**`, `/api/staff/admin/rooms/**` | `AdminOnly` | Admin (kênh Staff) | 403 |
+| `/api/scheduling/admin/doctor-days/**` | `AdminOnly` | Admin (kênh Staff) | 403 |
+
+## 2. Auth
+
+### POST `/auth/staff/login` (công khai)
+
+Request:
+```json
+{ "userName": "letan01", "password": "...", "deviceId": "DEV-01", "deviceIpAddress": "10.0.0.5" }
+```
+`deviceId` và `deviceIpAddress` không bắt buộc. Hai trường này chỉ dùng khi đăng nhập tài khoản phòng (`RoomAccount`).
+
+200:
+```json
+{ "accessToken": "<jwt>", "role": "Receptionist", "userName": "letan01", "userId": "<guid>", "doctorId": null, "roomId": null }
+```
+
+| Status | `code` | Khi nào |
+|---|---|---|
+| 401 | `InvalidCredentials` | Sai mật khẩu, tài khoản không tồn tại, bị vô hiệu hóa, Technician, hoặc tài khoản `Patient` đăng nhập kênh này. Mọi trường hợp cùng `title` và `detail`; vẫn chạy PBKDF2 khi tên không tồn tại để không lộ thông tin qua thời gian phản hồi |
+
+**Tài khoản phòng:** đăng nhập chạy trong một unit of work có khóa hàng `RoomAccount`. Mọi phiên `RoomDeviceSession` đang hoạt động bị đóng rồi tạo phiên mới (lưu SHA-256 hex của token phiên) và ghi `AuditLog` (`RoomAccountId`, `RoomDeviceSessionId`, `DeviceId`, `ClientIpAddress`). JWT mang claim `room_session` chứa token phiên gốc; ở mọi request tiếp theo, `RoomSessionTokenValidator` đối chiếu SHA-256 của `room_session` với phiên `IsActive` trong DB — phiên cũ đã đóng/bị buộc đăng xuất bị từ chối `401`. Quy tắc mỗi phòng tối đa một phiên hoạt động do Backend kiểm (ERD v2.4), không có unique trong DB.
+
+### POST `/auth/patient/login` (công khai)
+
+Request và response như trên, `role` là `Patient`.
+
+| Status | `code` | Khi nào |
+|---|---|---|
+| 401 | `InvalidCredentials` | Như kênh nhân viên, kể cả tài khoản nhân viên hay tài khoản phòng đăng nhập kênh này |
+
+### POST `/auth/patient/register` (công khai, rate-limit `patient-register`)
+
+Tạo `AppUser` bệnh nhân (`Patient`, không có `Staff`/`RoomAccount`), tùy chọn kèm hồ sơ `Self` (`Pending`) trong cùng transaction. Trùng `userName` / `email` / `phoneNumber` → 409; trùng CCCD ở hồ sơ `Self` → 409 thông điệp chung; vượt ngưỡng rate-limit → 429 `TooManyRequests`.
+
+### POST `/auth/room/logout` (`RoomAccountOnly`)
+
+Đóng phiên `RoomDeviceSession` hiện tại (`LogoutAtUtc`, `IsActive = false`) và ghi `AuditLog`, trả `200`.
+
+### GET `/me` (`AnyChannel`)
+
+200:
+```json
+{ "userId": "<guid>", "userName": "...", "role": "...", "doctorId": null, "roomId": null }
+```
+
+## 3. Hồ sơ bệnh nhân — `api/patient/profiles` (`PatientOnly`)
+
+Một tài khoản quản lý nhiều hồ sơ qua `PatientRepresentative`. Mỗi tài khoản có tối đa một hồ sơ `Self` đang hoạt động. Backend kiểm trong unit of work có khóa hàng `AppUser`; DB không có unique cho quy tắc này.
+
+| Method | Route | Body | Thành công | Lỗi (`code`) |
+|---|---|---|---|---|
+| POST | `/api/patient/profiles` | `CreatePatientProfileRequest` | 201 `PatientProfileDto` | 400 `InvalidInput`; 409 `SelfProfileExists`; 409 `Conflict` trùng CCCD |
+| GET | `/api/patient/profiles` | — | 200 `PatientProfileDto[]` | — |
+| GET | `/api/patient/profiles/{patientId}` | — | 200 `PatientProfileDto` | 404 `ProfileNotFound` khi không có hoặc không thuộc tài khoản |
+| PUT | `/api/patient/profiles/{patientId}` | `UpdatePatientProfileRequest` | 200 `PatientProfileDto` | 400 `InvalidInput`; 403 `VerifiedProfileIdentityLocked` (sửa họ tên/ngày sinh/giới tính/CCCD khi đã `Verified`); 404 `ProfileNotFound`; 409 `Conflict` trùng CCCD |
+| POST | `/api/patient/profiles/{patientId}/resubmit` | `UpdatePatientProfileRequest?` | 200 `PatientProfileDto` | 400 `InvalidInput`; 404 `ProfileNotFound`; 409 `InvalidStatusTransition` |
+| POST | `/api/patient/profiles/{patientId}/unlink` | — | 204 | 404 `NotFound` |
+
+Hồ sơ không thuộc tài khoản trả cùng 404 và cùng nội dung như hồ sơ không có, để không lộ việc hồ sơ tồn tại.
+
+**`CreatePatientProfileRequest`:**
+```json
+{ "fullName": "...", "dateOfBirth": "1990-01-01", "gender": "Male", "nationalId": null, "phoneNumber": "...", "address": "...", "relationship": "Self" }
+```
+- `gender`: `Male`, `Female` hoặc `Other`.
+- `relationship`: `Self`, `Child`, `Parent`, `Spouse` hoặc `Other`.
+- `nationalId` để trống được (trẻ em). Khi có giá trị thì phải đúng 12 chữ số và unique (trùng trả 409 thông điệp chung).
+
+**`UpdatePatientProfileRequest`:** giống request tạo, không có `relationship`.
+
+**`PatientProfileDto`:** `patientId`, `representativeId`, `fullName`, `dateOfBirth`, `gender`, `nationalId`, `phoneNumber`, `address`, `relationship`, `verificationStatus` (`Pending`, `Verified`, `Rejected` hoặc `Revoked`), `isActive`, `rejectionReason`.
+
+## 3a. Danh mục cho bộ lọc tìm bác sĩ — `api/patient` (`PatientOnly`) — thêm 18/11/2026 (trưởng nhóm giao, OWN-10; chờ người phụ trách Identity duyệt)
+
+| Method | Path | 200 |
+|---|---|---|
+| GET | `/api/patient/specialties` | `[{ id, code, name }]`, chỉ chuyên khoa `IsActive`, theo tên |
+| GET | `/api/patient/doctor-ranks` | `[{ id, code, name, displayOrder }]`, chỉ cấp bậc `IsActive`, theo `displayOrder` |
+
+- Dùng `id` làm `specialtyId`, `doctorRankId` của `GET /api/scheduling/patient/doctors`. Không trả mô tả, `isActive` của trang quản trị.
+- Không có phí khám theo cấp bậc: phí phụ thuộc bác sĩ và bảng giá đang hiệu lực, lấy từ `examFee` của kết quả tìm bác sĩ.
+- Đăng nhập là bắt buộc (cùng kênh với tìm bác sĩ), không thêm vào danh sách route công khai.
+
+## 4. Xác minh người đại diện và sửa hồ sơ đã xác minh — `ReceptionistOrAdmin`
+
+| Method | Route | Body | Thành công | Lỗi |
+|---|---|---|---|---|
+| GET | `/api/staff/verifications?searchTerm=&status=&page=1&pageSize=20` | — | 200 `PagedResult<VerificationItemDto>` | — |
+| GET | `/api/staff/verifications/{representativeId}` | — | 200 `VerificationDetailDto` | 404 |
+| POST | `/api/staff/verifications/{representativeId}/verify` | — | 200 `VerificationItemDto` | 404; 409 `InvalidStatusTransition` (kèm extension `allowedTransitions`) |
+| POST | `/api/staff/verifications/{representativeId}/reject` | `{ "reason": "..." }` | 200 `VerificationItemDto` | 400 thiếu lý do; 404; 409 `InvalidStatusTransition` |
+| POST | `/api/staff/verifications/{representativeId}/revoke` | `{ "reason": "..." }` | 200 `VerificationItemDto` | 400 thiếu lý do; 404; 409 `InvalidStatusTransition` |
+| PUT | `/api/staff/patients/{patientId}` | `{ fullName, dateOfBirth, gender, nationalId, phoneNumber, address, reason }` | 200 `StaffPatientDto` | 400 thiếu lý do / nhập liệu sai; 404; 409 trùng CCCD |
+
+- **Chuyển trạng thái hợp lệ (`VerificationStateMachine`):**
+  - `Pending` → `Verified` (tiếp tân/admin);
+  - `Pending` → `Rejected` (tiếp tân/admin, bắt buộc lý do);
+  - `Verified` → `Revoked` (tiếp tân/admin, bắt buộc lý do);
+  - `Rejected` → `Pending` (người đại diện gửi lại qua `/resubmit`, khôi phục `IsActive = true`, `RevokedAtUtc = null`).
+  - Lặp lại cùng chuyển trạng thái đích là **idempotent** (trả `200`, không đổi dữ liệu, không tạo thêm `AuditLog`).
+
+  `Rejected` và `Revoked` đặt `IsActive = false` và ghi `RevokedAtUtc`.
+- **AuditLog:** mỗi lần chuyển trạng thái ghi một dòng `AuditLog` (bảng `identity.PatientRepresentative`) có người thực hiện và lý do, trong cùng unit of work với thay đổi trạng thái. Hàng `PatientRepresentative` được khóa, nên hai tiếp tân thao tác cùng hồ sơ thì người sau thấy trạng thái mới.
+- **Phân trang:** `pageSize` mặc định 20, tối đa 50.
+- **`VerificationItemDto`:** `representativeId`, `patientId`, `appUserId`, `patientFullName`, `dateOfBirth`, `gender`, `maskedNationalId`, `phoneNumber`, `address`, `relationship`, `verificationStatus`, `createdAtUtc`, `revokedAtUtc`.
+  - `maskedNationalId` chỉ hiện 4 số cuối, ví dụ `********3456`.
+- **`PagedResult<T>`:** `items`, `totalCount`, `page`, `pageSize`.
+
+## 5. Quản trị danh mục và nhân sự — `api/staff/admin` (`AdminOnly`)
+
+Kiểu enum hợp lệ:
+- `rankCode`: `SpecialistI`, `SpecialistII`, `Master`, `Doctor`, `AssociateProf` hoặc `Professor`;
+- `roomType`: `Clinical`, `Laboratory`, `XRay`, `Ultrasound` hoặc `Endoscopy`;
+- `staffType` khi tạo nhân sự: `Doctor`, `Nurse`, `Receptionist` hoặc `Admin`. `Technician` trả 400 vì chưa có vai trò đăng nhập; tài khoản phòng CLS dùng `RoomAccount`;
+- `shiftName`: `Morning`, `Afternoon` hoặc `FullDay`.
+
+**Quy tắc nhân sự loại Admin:**
+- Chỉ Admin tạo, sửa hoặc vô hiệu hóa nhân sự loại Admin; người gọi không phải Admin nhận 403 `AdminManagedByAdmin`.
+- Không vô hiệu hóa được Admin đang hoạt động cuối cùng: 409 `LastActiveAdmin`. Backend khóa các Admin đang hoạt động khi kiểm, nên hai lệnh đồng thời không cùng vượt qua.
+- Chưa có API đổi loại nhân sự. Khi thêm thì áp cùng hai quy tắc trên.
+
+| Method | Route | Body | Thành công | Lỗi (`code`) |
+|---|---|---|---|---|
+| GET | `/specialties` | — | 200 `SpecialtyAdminDto[]` | — |
+| POST | `/specialties` | `{ code, name, description? }` | 201 | 400; 409 trùng mã |
+| PUT | `/specialties/{id}` | `{ name, description?, isActive }` | 200 (không đổi được `code`) | 400; 404; 409 `SpecialtyHasActiveDoctors` khi tắt chuyên khoa còn bác sĩ hoạt động |
+| GET | `/doctor-ranks` | — | 200 `DoctorRankAdminDto[]` | — |
+| POST | `/doctor-ranks` | `{ code, name, displayOrder }` | 201 | 400; 409 |
+| PUT | `/doctor-ranks/{id}` | `{ name, displayOrder, isActive }` | 200 | 400; 404 |
+| GET | `/rooms?roomType=&isActive=` | — | 200 `RoomAdminDto[]` | — |
+| POST | `/rooms` | `{ roomNumber, roomName, roomType, departmentName }` | 201 | 400; 409 trùng số phòng |
+| PUT | `/rooms/{id}` | `{ roomName, roomType, departmentName, isActive }` | 200 | 400; 404 |
+| GET | `/staff?staffType=&isActive=&searchTerm=&page=&pageSize=` | — | 200 `StaffAdminDto[]` | — |
+| POST | `/staff` | `{ userName, email, phoneNumber, password, staffCode, fullName, staffType }` | 201 `StaffAdminDto` | 400 `InvalidInput`; 403 `AdminManagedByAdmin`; 409 `UserNameTaken`, `ContactTaken`, `StaffCodeTaken` |
+| PUT | `/staff/{id}` | `{ fullName, isActive }` | 200 (đồng bộ `AppUser.IsActive`) | 400; 403 `AdminManagedByAdmin`; 404; 409 `LastActiveAdmin` |
+| POST | `/staff/{id}/toggle-active?isActive=` | — | 200 (đồng bộ `AppUser` và `Doctor`) | 403 `AdminManagedByAdmin`; 404; 409 `LastActiveAdmin` |
+| POST | `/staff/{id}/reset-password` | `{ newPassword }` | 200 | 400; 403 `AdminManagedByAdmin`; 404 |
+| GET | `/doctors?specialtyId=&rankId=&isActive=&searchTerm=` | — | 200 `DoctorAdminDto[]` | — |
+| POST | `/doctors` | `{ staffId, specialtyId, doctorRankId, biography? }` | 201 | 400 nhân sự không phải `Doctor`; 404; 409 đã có bác sĩ |
+| PUT | `/doctors/{id}` | `{ specialtyId, doctorRankId, biography?, isActive }` | 200 | 404 |
+| POST | `/doctors/{id}/toggle-active?isActive=` | — | 200 | 404 |
+| GET | `/shift-assignments?date=&fromDate=&toDate=&roomId=&staffId=` | — | 200 `ShiftAssignmentDto[]` | — |
+| POST | `/shift-assignments` | `{ staffId, roomId, shiftDate, shiftName, startsAtUtc, endsAtUtc, isShiftLeader }` | 201 | 400 sai ca, giờ kết thúc ≤ giờ bắt đầu, hoặc nhân viên/phòng ngừng hoạt động; 404; 409 `ShiftAlreadyAssigned` / `ShiftOverlap`; 409 `ShiftLeaderExists` (phòng đã có trưởng ca cho ca đó) |
+| DELETE | `/shift-assignments/{id}` | — | 204 | 404 |
+
+Phòng làm việc của bác sĩ theo ngày lấy từ `StaffShiftAssignment.RoomId`; không có phòng mặc định của bác sĩ. Hai quy tắc phân ca do Backend kiểm trong unit of work có khóa hàng `Staff` và `Room` (ERD v2.4 không có unique).
+
+**DTO trả về:**
+- `SpecialtyAdminDto`: `id`, `code`, `name`, `description`, `isActive`.
+- `DoctorRankAdminDto`: `id`, `code`, `name`, `displayOrder`, `isActive`.
+- `RoomAdminDto`: `id`, `roomNumber`, `roomName`, `roomType`, `departmentName`, `isActive`.
+- `StaffAdminDto`: `id`, `appUserId`, `staffCode`, `fullName`, `staffType`, `userName`, `email`, `phoneNumber`, `isActive`, `createdAtUtc`.
+- `DoctorAdminDto`: `id`, `staffId`, `fullName`, `staffCode`, `specialtyId`, `specialtyName`, `doctorRankId`, `rankName`, `biography`, `isActive`.
+- `ShiftAssignmentDto`: `id`, `staffId`, `staffName`, `staffCode`, `roomId`, `roomNumber`, `roomName`, `shiftDate`, `shiftName`, `startsAtUtc`, `endsAtUtc`, `isShiftLeader`.
+
+## 6. Tài khoản phòng — `api/staff/admin/rooms` (`AdminOnly`)
+
+| Method | Route | Body | Thành công | Lỗi |
+|---|---|---|---|---|
+| GET | `/api/staff/admin/rooms/{roomId}/account` | — | 200 `RoomAccountDto` | 404 chưa có tài khoản phòng |
+| POST | `/api/staff/admin/rooms/{roomId}/account` | `{ userName, email, password, accountCode }` | 201 `RoomAccountDto` | 400; 404 không có phòng; 409 phòng đã có tài khoản, hoặc trùng mã, tên đăng nhập, email |
+| GET | `/api/staff/admin/rooms/{roomId}/sessions?activeOnly=false` | — | 200 `RoomSessionDto[]` | 404 |
+| POST | `/api/staff/admin/rooms/accounts/{roomAccountId}/toggle-active?isActive=` | — | 200 `RoomAccountDto`; khi tắt thì đóng mọi phiên | 404 |
+| POST | `/api/staff/admin/rooms/accounts/{roomAccountId}/reset-password` | `{ newPassword }` | 200 | 400; 404 |
+| POST | `/api/staff/admin/rooms/sessions/{sessionId}/revoke` | `{ reason? }` | 200; buộc đăng xuất phiên và ghi `AuditLog` | 404 |
+
+**DTO trả về:**
+- `RoomAccountDto`: `roomAccountId`, `roomId`, `appUserId`, `accountCode`, `userName`, `email`, `isActive`, `createdAtUtc`.
+- `RoomSessionDto`: `sessionId`, `roomAccountId`, `deviceId`, `deviceIpAddress`, `loginAtUtc`, `logoutAtUtc`, `isActive`.
+
+## 7. Câu hỏi đã xử lý ở CLA-FIX-013 (10/11/2026)
+
+- **Q1 (đã xử lý):** mọi lỗi do module trả có extension `code`.
+- **Q2 (đã xử lý):** `AuditLog` của xác minh ghi trong cùng unit of work với thay đổi trạng thái; `IdentityPatientsDbContext` là participant của `IUnitOfWork` ở SmartHealthcare.Api. Test `Verify_InsideFailedUnitOfWork_RollsBackStatusAndAuditLogTogether` kiểm cả hai cùng rollback.
+- **Q3 (đã xử lý):** hồ sơ không thuộc tài khoản trả 404 `ProfileNotFound`.
+- **Q4 (đã xử lý):** schema `identity` theo đúng ERD v2.4 gốc; các cột ngoài ERD đã bỏ bằng migration `AlignIdentityWithErd`.
+
+## 8. Còn mở
+
+- Tiền tố route (`api/staff/...` so với `api/identity-patients/staff/...` của `docs/conventions.md`): chờ trưởng nhóm chốt.
+- Endpoint của bác sĩ, điều dưỡng và tài khoản phòng chưa có; khi thêm thì dùng `DoctorOnly`, `NurseOnly` hoặc `RoomAccountOnly`.
+
+## 9. Contract trong tiến trình `IIdentityPatientsModule` — thay đổi 17/11/2026 (chờ người phụ trách Identity duyệt)
+
+- Thêm `GetAccessiblePatientsAsync(userId, patientIds, level = Booking)`: trả các PatientId trong danh sách mà người gọi được truy cập, **cùng luật** `CanAccessPatientAsync` (AppUser đang hoạt động; vai trò Patient tức không có RoomAccount, không có Staff; đại diện đang hiệu lực; Booking nhận Pending/Verified, ClinicalRecords chỉ Verified). Bản Identity chạy một truy vấn; interface có cài đặt mặc định gọi lần lượt để bản giả trong test không phải sửa.
+- `CanAccessPatientAsync` giữ chữ ký và kết quả, nay gọi bản batch với một PatientId: 1 truy vấn thay cho 4.
+- Lý do: danh sách lịch hẹn của bệnh nhân gọi kiểm quyền theo từng hồ sơ (đo 17/11: ~56 truy vấn cho 14 hồ sơ mỗi trang).
+
+## 10. Tra cứu cho tiếp tân và nhân viên đang hoạt động — thêm 17/11/2026 (trưởng nhóm giao, OWN-10; chờ người phụ trách Identity duyệt)
+
+Chỉ là contract trong tiến trình `IIdentityPatientsModule`; route HTTP do module gọi tự mở (Scheduling `GET /api/scheduling/staff/reception/search`, `ReceptionistOnly`).
+
+- `FindPatientsForReceptionAsync(keyword)` → `ReceptionPatientDto[]` `{ patientId, fullName, dateOfBirth, gender, maskedPhoneNumber, maskedNationalId?, isVerified }`. Bỏ khoảng trắng; độ dài 9–20 ký tự, ngoài khoảng trả rỗng. Khớp **chính xác** `Patient.PhoneNumber` hoặc `Patient.NationalId`, không tìm gần đúng hay theo tên để không lộ hồ sơ; tối đa 20 hồ sơ (một số điện thoại có thể dùng cho cả gia đình). SĐT, CCCD chỉ giữ 3 ký tự cuối. `isVerified` = có người đại diện đang hiệu lực đã `Verified`.
+- `PatientExistsAsync(patientId)` → `bool`: đăng ký tại quầy kiểm hồ sơ tồn tại.
+- `GetActiveStaffAsync(appUserId)` → `ActiveStaffDto?` `{ staffId, staffType, fullName }`: nhân viên của tài khoản trong JWT (`sub`), AppUser và Staff đều đang hoạt động; null nếu không phải nhân viên hoặc đã khóa. Dùng khi ghi `RecordedByStaffId` (điều dưỡng nhập sinh hiệu), người thao tác trong audit.
+- `GetDoctorShiftRoomIdsAsync(doctorId, date)` → các `RoomId` không trùng của `StaffShiftAssignment` thuộc bác sĩ (Doctor.Id → Staff) trong ngày; Scheduling dùng khi admin mở ngày trực không chọn phòng. Không thêm index (đi qua FK `StaffId`, đường quản trị ít gọi).
+- Schema: index không unique `IX_Patient_PhoneNumber` (migration Identity `PatientPhoneNumberIndex`); CCCD dùng index unique có lọc sẵn có.
+- Interface có cài đặt mặc định ném `NotSupportedException` cho ba hàm này để bản giả trong test không phải sửa; bản Identity cài đặt thật.
+

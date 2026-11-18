@@ -1,6 +1,6 @@
 namespace IdentityPatients.Application.Auth;
 
-public sealed record LoginRequest(string UserName, string Password);
+public sealed record LoginRequest(string UserName, string Password, string? DeviceId = null, string? DeviceIpAddress = null);
 
 public sealed record LoginResponse(
     string AccessToken,
@@ -24,17 +24,36 @@ public sealed class AuthResult
     public int StatusCode { get; private init; }
     public string? ErrorTitle { get; private init; }
     public string? ErrorDetail { get; private init; }
+    public string? ErrorCode { get; private init; }
 
     public static AuthResult Success(LoginResponse response) =>
         new() { IsSuccess = true, Response = response, StatusCode = 200 };
 
-    public static AuthResult Failure(int statusCode, string title, string detail) =>
-        new() { IsSuccess = false, StatusCode = statusCode, ErrorTitle = title, ErrorDetail = detail };
+    public static AuthResult Failure(int statusCode, string title, string detail, string code) =>
+        new() { IsSuccess = false, StatusCode = statusCode, ErrorTitle = title, ErrorDetail = detail, ErrorCode = code };
 }
+
+public sealed record RegisterPatientProfileRequest(
+    string FullName,
+    DateOnly DateOfBirth,
+    string Gender,
+    string? NationalId,
+    string PhoneNumber,
+    string Address);
+
+public sealed record RegisterPatientRequest(
+    string UserName,
+    string? Email,
+    string? PhoneNumber,
+    string Password,
+    bool CreateSelfProfile = false,
+    RegisterPatientProfileRequest? SelfProfile = null);
 
 public interface IAuthService
 {
     Task<AuthResult> LoginStaffAsync(LoginRequest request, CancellationToken ct = default);
     Task<AuthResult> LoginPatientAsync(LoginRequest request, CancellationToken ct = default);
+    Task<AuthResult> RegisterPatientAsync(RegisterPatientRequest request, CancellationToken ct = default);
+    Task<IdentityPatients.Application.Common.ServiceResult> LogoutRoomAsync(Guid userId, string? rawSessionToken, CancellationToken ct = default);
 }
 

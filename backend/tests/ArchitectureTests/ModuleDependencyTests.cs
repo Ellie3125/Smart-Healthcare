@@ -47,9 +47,10 @@ public class ModuleDependencyTests
     }
 
     [Fact]
-    public void Worker_does_not_reference_business_module_Domain_or_Infrastructure()
+    public void Worker_does_not_reference_business_module_Domain()
     {
-        var forbidden = Modules.SelectMany(ModuleAssemblies).ToHashSet();
+        // Worker là composition root như Api: được tham chiếu Infrastructure để đăng ký DbContext/DI, không chứa logic Domain (W2-02).
+        var forbidden = Modules.Select(m => $"{m}.Domain").ToHashSet();
 
         var violations = ReferencedNames("SmartHealthcare.Worker").Where(forbidden.Contains).ToArray();
 

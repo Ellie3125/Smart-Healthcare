@@ -1,9 +1,9 @@
-namespace Scheduling.Domain.Enums;
-
-public enum ReservationStatus
-{
-    Held,
-    Confirmed,
-    Expired,
-    Cancelled
-}
+namespace Scheduling.Domain.Enums;
+
+public enum ReservationStatus
+{
+    Held,
+    Confirmed,
+    Expired,
+    Cancelled
+}

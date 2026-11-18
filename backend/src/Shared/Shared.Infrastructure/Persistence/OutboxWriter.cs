@@ -15,7 +15,7 @@ namespace Shared.Infrastructure.Persistence;
 /// </summary>
 public sealed class OutboxWriter(SharedDbContext shared, TimeProvider clock)
 {
-    private static readonly JsonSerializerOptions Json = new() { Converters = { new JsonStringEnumConverter() } };
+    internal static readonly JsonSerializerOptions JsonOptions = new() { Converters = { new JsonStringEnumConverter() } };
 
     public async Task EnqueueAsync(DbContext owner, IIntegrationEvent integrationEvent, EventType eventType,
         AggregateType aggregateType, Guid aggregateId, CancellationToken ct)
@@ -33,7 +33,7 @@ public sealed class OutboxWriter(SharedDbContext shared, TimeProvider clock)
             EventType = eventType,
             AggregateType = aggregateType,
             AggregateId = aggregateId,
-            PayloadJson = JsonSerializer.Serialize(integrationEvent, integrationEvent.GetType(), Json),
+            PayloadJson = JsonSerializer.Serialize(integrationEvent, integrationEvent.GetType(), JsonOptions),
             RetryCount = 0,
             Status = OutboxMessageStatus.Pending,
             CreatedAtUtc = clock.GetUtcNow().UtcDateTime,

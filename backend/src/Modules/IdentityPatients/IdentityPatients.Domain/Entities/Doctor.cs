@@ -6,7 +6,6 @@ public sealed class Doctor
     public Guid StaffId { get; set; }
     public Guid SpecialtyId { get; set; }
     public Guid DoctorRankId { get; set; }
-    public Guid? DefaultRoomId { get; set; }
     public string? Biography { get; set; }
     public bool IsActive { get; set; }
 }

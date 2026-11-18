@@ -1,7 +1,7 @@
-namespace Billing.Domain.Enums;
-
-public enum PaymentType
-{
-    InitialConsultation,
-    CLSOrderBatch
-}
+namespace Billing.Domain.Enums;
+
+public enum PaymentType
+{
+    InitialConsultation,
+    CLSOrderBatch
+}

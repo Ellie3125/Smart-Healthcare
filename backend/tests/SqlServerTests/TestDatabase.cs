@@ -14,8 +14,8 @@ public sealed class TestDatabase : IAsyncDisposable
     public const int UniqueIndexViolation = 2601;
 
     private static readonly string? ConnectionString =
-        new ConfigurationBuilder().AddUserSecrets<TestDatabase>(optional: true).Build().GetConnectionString("SmartHealthcareTest")
-        ?? Environment.GetEnvironmentVariable("ConnectionStrings__SmartHealthcareTest");
+        Environment.GetEnvironmentVariable("ConnectionStrings__SmartHealthcareTest")
+        ?? new ConfigurationBuilder().AddUserSecrets<TestDatabase>(optional: true).Build().GetConnectionString("SmartHealthcareTest");
 
     private readonly SqlConnection _connection;
     private readonly SqlTransaction _transaction;
@@ -23,22 +23,35 @@ public sealed class TestDatabase : IAsyncDisposable
     private TestDatabase(SqlConnection connection, SqlTransaction transaction) =>
         (_connection, _transaction) = (connection, transaction);
 
-    public static async Task<TestDatabase> OpenAsync()
+    /// <summary>Connection string tới DB test; bỏ qua test khi chưa đặt, báo lỗi khi trỏ sang DB khác.</summary>
+    public static string RequiredConnectionString()
     {
         Assert.SkipWhen(string.IsNullOrWhiteSpace(ConnectionString), "Chưa đặt ConnectionStrings:SmartHealthcareTest (user-secrets của project test)");
 
         // Chặn chạy nhầm lên DB khác, nhất là DB SmartHealthcare.
-        if (new SqlConnectionStringBuilder(ConnectionString).InitialCatalog != DatabaseName)
-        {
-            throw new InvalidOperationException($"ConnectionStrings:SmartHealthcareTest phải trỏ tới {DatabaseName}.");
-        }
+        EnsureTestDatabase(new SqlConnectionStringBuilder(ConnectionString).InitialCatalog);
 
-        var connection = new SqlConnection(ConnectionString);
+        return ConnectionString!;
+    }
+
+    public static void EnsureTestDatabase(string name)
+    {
+        if (name is not (DatabaseName or "SmartHealthcare_Test_Codex"))
+            throw new InvalidOperationException("Chỉ được chạy SQL test trên SmartHealthcare_Test hoặc SmartHealthcare_Test_Codex.");
+    }
+
+    public static async Task<TestDatabase> OpenAsync()
+    {
+        var connection = new SqlConnection(RequiredConnectionString());
         await connection.OpenAsync(TestContext.Current.CancellationToken);
-        if (connection.Database != DatabaseName)
+        try
+        {
+            EnsureTestDatabase(connection.Database);
+        }
+        catch
         {
             await connection.DisposeAsync();
-            throw new InvalidOperationException($"Đã kết nối tới {connection.Database}, không phải {DatabaseName}.");
+            throw;
         }
 
         return new TestDatabase(connection, (SqlTransaction)await connection.BeginTransactionAsync(TestContext.Current.CancellationToken));

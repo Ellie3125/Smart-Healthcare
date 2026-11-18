@@ -1,0 +1,13 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <IsPackable>false</IsPackable>
+  </PropertyGroup>
+  <ItemGroup>
+    <PackageReference Include="xunit.v3" />
+    <PackageReference Include="Microsoft.AspNetCore.OpenApi" />
+    <ProjectReference Include="..\..\src\Modules\IdentityPatients\IdentityPatients.Infrastructure\IdentityPatients.Infrastructure.csproj" />
+    <ProjectReference Include="..\..\src\Modules\Scheduling\Scheduling.Api\Scheduling.Api.csproj" />
+    <ProjectReference Include="..\..\src\Modules\Scheduling\Scheduling.Application\Scheduling.Application.csproj" />
+  </ItemGroup>
+</Project>

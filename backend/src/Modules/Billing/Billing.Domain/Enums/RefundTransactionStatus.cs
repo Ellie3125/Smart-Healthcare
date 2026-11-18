@@ -1,7 +1,7 @@
-namespace Billing.Domain.Enums;
-
-public enum RefundTransactionStatus
-{
-    Success,
-    Failed
-}
+namespace Billing.Domain.Enums;
+
+public enum RefundTransactionStatus
+{
+    Success,
+    Failed
+}

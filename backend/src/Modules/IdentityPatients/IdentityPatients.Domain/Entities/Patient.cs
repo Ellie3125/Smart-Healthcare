@@ -5,7 +5,6 @@ namespace IdentityPatients.Domain.Entities;
 public sealed class Patient
 {
     public Guid Id { get; set; }
-    public Guid? OwnerUserId { get; set; }
     public string FullName { get; set; } = null!;
     public DateOnly DateOfBirth { get; set; }
     public Gender Gender { get; set; }

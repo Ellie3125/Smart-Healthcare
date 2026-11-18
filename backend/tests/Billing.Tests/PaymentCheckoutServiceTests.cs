@@ -25,6 +25,7 @@ public class PaymentCheckoutServiceTests
         var sent = Assert.Single(gateway.Requests);
         Assert.Equal(store.Transaction.TransactionReference, sent.TransactionReference);
         Assert.Equal(150_000m, sent.Amount);
+        Assert.Equal(store.Intent.CreatedAtUtc, sent.CreatedAtUtc);
         Assert.Equal(store.Intent.ExpiresAtUtc, sent.ExpiresAtUtc);
         Assert.Equal("Thanh toan phi kham ban dau PI-20261105-ABC", sent.Description);
         Assert.Equal("203.0.113.7", sent.CustomerIp);
@@ -127,6 +128,7 @@ public class PaymentCheckoutServiceTests
             Status = PaymentIntentStatus.Pending,
             Currency = "VND",
             TotalExpectedAmount = 150_000m,
+            CreatedAtUtc = Now.AddMinutes(-3),
             ExpiresAtUtc = Now.AddMinutes(15),
         };
 
@@ -153,6 +155,11 @@ public class PaymentCheckoutServiceTests
 
         public Task<bool> IsProviderTransactionIdTakenAsync(string providerTransactionId, Guid exceptTransactionId, CancellationToken ct) =>
             Task.FromResult(false);
+
+        public Task<bool> HasRetainedExamPaymentAsync(Guid bookingAttemptId, Guid exceptPaymentIntentId, CancellationToken ct) =>
+            throw new NotSupportedException();
+
+        public void AddRefundRequest(RefundRequest request) => throw new NotSupportedException();
 
         public Task SaveChangesAsync(CancellationToken ct)
         {

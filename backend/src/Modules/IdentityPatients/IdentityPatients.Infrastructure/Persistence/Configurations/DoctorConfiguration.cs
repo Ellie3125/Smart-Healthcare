@@ -16,7 +16,6 @@ internal sealed class DoctorConfiguration : IEntityTypeConfiguration<Doctor>
         builder.HasOne<Staff>().WithMany().HasForeignKey(x => x.StaffId).OnDelete(DeleteBehavior.Restrict);
         builder.HasOne<Specialty>().WithMany().HasForeignKey(x => x.SpecialtyId).OnDelete(DeleteBehavior.Restrict);
         builder.HasOne<DoctorRank>().WithMany().HasForeignKey(x => x.DoctorRankId).OnDelete(DeleteBehavior.Restrict);
-        builder.HasOne<Room>().WithMany().HasForeignKey(x => x.DefaultRoomId).OnDelete(DeleteBehavior.Restrict).IsRequired(false);
 
         builder.HasIndex(x => x.StaffId).IsUnique();
         builder.HasIndex(x => x.SpecialtyId);

@@ -1,0 +1,90 @@
+# Override cho VPS Staging (Giải pháp kỹ thuật v2.13 §8.6). Ghép với compose.yaml:
+#   docker compose --env-file .env.staging -f compose.yaml -f compose.staging.yaml up -d
+# Quy trình đầy đủ (kéo image, tạo DB, migration, khởi động, seed): scripts/deploy-staging.sh.
+#
+# Đường vào duy nhất: Cloudflare Tunnel (cloudflared) → nginx (image web) → Api. Không service nào publish port ra host.
+# Hai mạng: edge (cloudflared ↔ nginx) và backend (nginx ↔ Api ↔ SQL Server, Redis). cloudflared không thấy Api trực tiếp,
+# nên mọi request đều qua bộ lọc tuyến theo host của nginx.
+# Image lấy theo digest do scripts/build-images.sh in ra (OPS-02); VPS không build source.
+
+services:
+  api:
+    environment:
+      # Chỉ tin X-Forwarded-For từ mạng backend (nơi nginx đứng); xem TrustedProxyForwarding.cs.
+      ForwardedHeaders__KnownNetworks__0: ${BACKEND_SUBNET:?Thiếu BACKEND_SUBNET}
+      # Mật khẩu tài khoản demo cho lệnh seed (SEED=1 scripts/deploy-staging.sh); Api không tự seed khi khởi động.
+      Seed__DefaultPassword: ${SEED_DEFAULT_PASSWORD:-}
+
+  web:
+    image: ${WEB_IMAGE:?Thiếu WEB_IMAGE}
+    environment:
+      PUBLIC_HOST: ${PUBLIC_HOST:?Thiếu PUBLIC_HOST (host web bệnh nhân)}
+      STAFF_HOST: ${STAFF_HOST:?Thiếu STAFF_HOST (host web nhân viên)}
+    depends_on:
+      api:
+        condition: service_started
+    mem_limit: 128m
+    restart: unless-stopped
+    logging:
+      driver: json-file
+      options: { max-size: "10m", max-file: "3" }
+    networks: [edge, backend]
+
+  cloudflared:
+    # Tunnel quản lý trên Cloudflare dashboard (token). Public hostname: ${PUBLIC_HOST} và ${STAFF_HOST} cùng trỏ http://web:80.
+    image: cloudflare/cloudflared:2025.11.1
+    command: ["tunnel", "--no-autoupdate", "run"]
+    environment:
+      TUNNEL_TOKEN: ${CLOUDFLARE_TUNNEL_TOKEN:?Thiếu CLOUDFLARE_TUNNEL_TOKEN}
+    depends_on:
+      web:
+        condition: service_healthy
+    mem_limit: 128m
+    restart: unless-stopped
+    logging:
+      driver: json-file
+      options: { max-size: "10m", max-file: "3" }
+    networks: [edge]
+
+  # ---- Bước release, chạy bằng `docker compose run --rm` (profile release), không chạy cùng `up` ----
+
+  db-init:
+    # Tạo DB và login runtime (không dùng sa trong runtime); chạy lại an toàn (IF NOT EXISTS).
+    profiles: [release]
+    image: mcr.microsoft.com/mssql/server:2022-CU27-ubuntu-22.04
+    entrypoint:
+      ["/opt/mssql-tools18/bin/sqlcmd", "-C", "-b", "-f", "65001", "-S", "sqlserver", "-U", "sa", "-i", "/init/init.sql",
+       "-v", "DB_NAME=SmartHealthcare", "-v", "APP_LOGIN=${SQL_APP_LOGIN:?Thiếu SQL_APP_LOGIN}"]
+    # Mật khẩu qua biến môi trường, không qua tham số dòng lệnh.
+    environment:
+      SQLCMDPASSWORD: ${MSSQL_SA_PASSWORD:?Thiếu MSSQL_SA_PASSWORD}
+      APP_PASSWORD: ${SQL_APP_PASSWORD:?Thiếu SQL_APP_PASSWORD}
+    volumes:
+      - ./infrastructure/sqlserver/init-dev.sql:/init/init.sql:ro
+    depends_on:
+      sqlserver:
+        condition: service_healthy
+    restart: "no"
+    networks: [backend]
+
+  migrator:
+    # Migration là bước release có kiểm soát (DB-03): chạy trước khi khởi động image Api/Worker mới.
+    profiles: [release]
+    image: ${MIGRATOR_IMAGE:?Thiếu MIGRATOR_IMAGE}
+    environment:
+      MIGRATION_CONNECTION: ${MIGRATION_DB_CONNECTION:?Thiếu MIGRATION_DB_CONNECTION}
+      # Bundle dựng DbContext qua host của ứng dụng, host đọc chuỗi kết nối này (như compose.dev.yaml).
+      ConnectionStrings__SmartHealthcare: ${MIGRATION_DB_CONNECTION:?Thiếu MIGRATION_DB_CONNECTION}
+    depends_on:
+      sqlserver:
+        condition: service_healthy
+    restart: "no"
+    networks: [backend]
+
+networks:
+  # Subnet cố định để Api biết mạng nào là proxy tin cậy (BACKEND_SUBNET); chọn dải không trùng mạng sẵn có của VPS.
+  backend:
+    ipam:
+      config:
+        - subnet: ${BACKEND_SUBNET:?Thiếu BACKEND_SUBNET}
+  edge: {}

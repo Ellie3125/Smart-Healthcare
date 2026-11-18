@@ -50,6 +50,15 @@ public interface IPaymentStore
 
     Task<IReadOnlyList<PaymentAllocation>> GetAllocationsAsync(Guid paymentTransactionId, CancellationToken ct);
 
+    /// <summary>
+    /// Lượt đặt lịch đã có phí khám được thu và giữ lại: một yêu cầu thanh toán khác <paramref name="exceptPaymentIntentId"/> ở
+    /// Succeeded, giao dịch Success, có phân bổ chưa nằm trong yêu cầu hoàn nào đang hiệu lực (Pending, Approved, Settled).
+    /// </summary>
+    Task<bool> HasRetainedExamPaymentAsync(Guid bookingAttemptId, Guid exceptPaymentIntentId, CancellationToken ct);
+
+    /// <summary>Thêm yêu cầu hoàn tự phát hiện lúc ghi nhận thanh toán (trả trùng, tiền về cho khoản đã hủy); lưu cùng SaveChangesAsync.</summary>
+    void AddRefundRequest(RefundRequest request);
+
     Task SaveChangesAsync(CancellationToken ct);
 
     /// <summary>Ghi sự kiện vào Outbox trong cùng transaction với thay đổi nghiệp vụ (MSG-02).</summary>
@@ -69,14 +78,18 @@ public sealed record VerifiedPayment(
     string? ProviderRawData);
 
 /// <param name="AlreadyRecorded">Callback lặp: giao dịch đã ghi nhận trước đó, không đổi gì và không phát sự kiện mới.</param>
-public sealed record PaymentConfirmation(Guid PaymentIntentId, bool AlreadyRecorded, IReadOnlyList<Guid> PaidChargeIds);
+/// <param name="RefundsRequested">Số yêu cầu hoàn vừa tự tạo vì trả trùng hoặc tiền về cho khoản đã hủy/miễn.</param>
+public sealed record PaymentConfirmation(Guid PaymentIntentId, bool AlreadyRecorded, IReadOnlyList<Guid> PaidChargeIds, int RefundsRequested = 0);
 
 /// <summary>Cổng báo giao dịch thất bại. Đã xác minh chữ ký và người nhận.</summary>
 /// <param name="ProviderTransactionId">Mã giao dịch của cổng; null khi cổng chưa phát sinh giao dịch (ví dụ người trả hủy).</param>
+/// <param name="Amount">Số tiền cổng báo; phải khớp giao dịch như kết quả thành công.</param>
 public sealed record FailedPayment(
     string TransactionReference,
     string? ProviderTransactionId,
     string ProviderEventId,
+    decimal Amount,
+    string Currency,
     DateTime FailedAtUtc,
     string? ProviderRawData);
 

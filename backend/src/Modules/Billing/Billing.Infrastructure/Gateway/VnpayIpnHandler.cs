@@ -51,7 +51,7 @@ internal sealed class VnpayIpnHandler(PaymentService payments, IOptions<VnpayOpt
 
         var providerTransactionId = string.IsNullOrEmpty(transactionNo) || transactionNo == NoTransaction ? null : transactionNo;
         var failed = await payments.RecordFailedAsync(new FailedPayment(
-            reference, providerTransactionId, $"{reference}-{responseCode}", completedAtUtc, raw), ct);
+            reference, providerTransactionId, $"{reference}-{responseCode}", Amount(parameters), "VND", completedAtUtc, raw), ct);
         return failed.Outcome switch
         {
             PaymentFailureOutcome.Recorded => PaymentCallbackOutcome.FailureRecorded,

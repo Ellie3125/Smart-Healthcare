@@ -9,7 +9,6 @@ using DocumentsReporting.Application;
 using DocumentsReporting.Infrastructure;
 using IdentityPatients.Api;
 using IdentityPatients.Infrastructure;
-using IdentityPatients.Infrastructure.Seed;
 using IdentityPatients.Application;
 using MedicationCatalog.Api;
 using MedicationCatalog.Application;
@@ -18,23 +17,30 @@ using Microsoft.OpenApi;
 using Notifications.Api;
 using Notifications.Application;
 using Notifications.Infrastructure;
+using Notifications.Infrastructure.Persistence;
 using Scheduling.Api;
 using Scheduling.Application;
 using Scheduling.Infrastructure;
+using Scheduling.Infrastructure.Persistence;
 using Shared.Infrastructure;
+using SmartHealthcare.Api;
 
 var builder = WebApplication.CreateBuilder(args);
 
-var connectionString = builder.Configuration.GetConnectionString("SmartHealthcare");
+// Máy dev: `dotnet run` dùng DB trên máy, `dotnet run -lp docker` dùng DB trong Docker Compose (xem DatabaseSource).
+var connectionName = DatabaseSource.ConnectionName(builder.Configuration[DatabaseSource.ConfigurationKey]);
+var connectionString = builder.Configuration.GetConnectionString(connectionName);
 if (string.IsNullOrWhiteSpace(connectionString))
 {
-    throw new InvalidOperationException("ConnectionStrings:SmartHealthcare chưa được cấu hình (dotnet user-secrets hoặc biến môi trường ConnectionStrings__SmartHealthcare).");
+    throw new InvalidOperationException($"ConnectionStrings:{connectionName} chưa được cấu hình (dotnet user-secrets hoặc biến môi trường ConnectionStrings__{connectionName}).");
 }
 
 builder.Services.AddControllers()
     .AddIdentityPatientsApi();
 
 builder.Services.AddProblemDetails();
+builder.Services.AddTrustedProxyForwarding(builder.Configuration);
+builder.Services.AddPatientRegisterRateLimiter();
 
 builder.Services.AddCors(options =>
 {
@@ -55,16 +61,29 @@ builder.Services
     .AddMedicationCatalogInfrastructure(connectionString)
     .AddBillingInfrastructure(connectionString)
     .AddNotificationsInfrastructure(connectionString)
-    .AddDocumentsReportingInfrastructure(connectionString)
-    .AddSharedInfrastructure(connectionString);
+    .AddDocumentsReportingInfrastructure(connectionString, builder.Configuration)
+    .AddSharedInfrastructure(connectionString)
+    // DbContext tham gia IUnitOfWork (W1-06). Module khác tự thêm khi cần ghi cùng transaction.
+    .AddUnitOfWorkParticipant<SchedulingDbContext>()
+    .AddUnitOfWorkParticipant<WorkflowDbContext>()
+    .AddUnitOfWorkParticipant<IdentityPatients.Infrastructure.Persistence.IdentityPatientsDbContext>()
+    .AddUnitOfWorkParticipant<DocumentsReporting.Infrastructure.Persistence.DocumentsDbContext>()
+    // Tạo khoản thu + yêu cầu thanh toán cùng transaction với BookingAttempt (BookingPaymentService).
+    .AddUnitOfWorkParticipant<Billing.Infrastructure.Persistence.BillingDbContext>()
+    // Check-in mở Encounter đồng bộ trong cùng transaction với Appointment và QueueTicket (Q1, W3-02).
+    .AddUnitOfWorkParticipant<Clinical.Infrastructure.Persistence.ClinicalDbContext>();
 
 builder.Services
     .AddIdentityPatientsApplication().AddIdentityPatientsApi()
     .AddSchedulingApplication().AddSchedulingApi()
+    // Cần IIdentityPatientsModule nên đăng ký ở đây, không trong AddSchedulingInfrastructure mà Worker cũng gọi (FIX-014).
+    .AddScoped<Scheduling.Application.BookingAttempts.BookingProgressService>()
     .AddClinicalApplication().AddClinicalApi()
     .AddMedicationCatalogApplication().AddMedicationCatalogApi()
     .AddBillingApplication().AddBillingApi()
     .AddNotificationsApplication().AddNotificationsApi()
+    // SignalR backplane giữa BE1, BE2 và Worker (W4-01); trống thì chạy một instance (máy dev).
+    .AddNotificationsRedisBackplane(builder.Configuration.GetConnectionString("Redis"))
     .AddDocumentsReportingApplication().AddDocumentsReportingApi();
 
 string[] moduleTags =
@@ -78,7 +97,6 @@ string[] moduleTags =
     DocumentsReporting.Api.DependencyInjection.Tag,
 ];
 
-builder.Services.AddProblemDetails();
 builder.Services.AddOpenApi(options => options.AddDocumentTransformer((document, _, _) =>
 {
     // Route group chưa có endpoint thì OpenAPI không sinh tag; khai sẵn tag của 7 module.
@@ -87,24 +105,45 @@ builder.Services.AddOpenApi(options => options.AddDocumentTransformer((document,
     {
         document.Tags.Add(new OpenApiTag { Name = tag });
     }
+
+    // Cấu hình nút Authorize JWT Bearer cho Swagger UI
+    var securityScheme = new OpenApiSecurityScheme
+    {
+        Name = "Authorization",
+        Description = "Nhập token JWT theo định dạng: Bearer {token}",
+        In = ParameterLocation.Header,
+        Type = SecuritySchemeType.Http,
+        Scheme = "Bearer",
+        BearerFormat = "JWT"
+    };
+
+    document.Components ??= new OpenApiComponents();
+    if (document.Components.SecuritySchemes == null)
+    {
+        document.Components.SecuritySchemes = new Dictionary<string, IOpenApiSecurityScheme>();
+    }
+    document.Components.SecuritySchemes["Bearer"] = securityScheme;
+
     return Task.CompletedTask;
 }));
 
 var app = builder.Build();
 
+// Seed dữ liệu giả lập là lệnh riêng (`seed`), chạy xong thì thoát; Api không tự seed khi khởi động.
+if (SeedCommand.IsRequested(args))
+{
+    await SeedCommand.RunAsync(app);
+    return;
+}
+
+// Phải chạy trước mọi middleware đọc IP hoặc scheme (rate limit, auth, endpoint ghi AuditLog).
+app.UseTrustedProxyForwarding();
 app.UseCors();
 app.UseAuthentication();
 app.UseAuthorization();
+app.UseRateLimiter();
 
 app.MapControllers();
-
-// Seed dữ liệu mẫu (idempotent) chỉ chạy trong môi trường Development hoặc khi bật cấu hình Seed:Enabled
-if (app.Environment.IsDevelopment() || app.Configuration.GetValue<bool>("Seed:Enabled"))
-{
-    using var scope = app.Services.CreateScope();
-    var seedService = scope.ServiceProvider.GetRequiredService<IdentityPatientsSeedService>();
-    await seedService.SeedAsync();
-}
 
 app.UseExceptionHandler();
 app.UseStatusCodePages();
@@ -112,11 +151,18 @@ app.UseStatusCodePages();
 if (app.Environment.IsDevelopment())
 {
     app.MapOpenApi();
-    app.UseSwaggerUI(options => options.SwaggerEndpoint("/openapi/v1.json", "Smart Healthcare v1"));
+    app.UseSwaggerUI(options =>
+    {
+        options.SwaggerEndpoint("/openapi/v1.json", "Smart Healthcare v1");
+        options.RoutePrefix = "swagger";
+    });
+    app.MapGet("/", () => Results.Redirect("/swagger"));
 }
 
 app.MapIdentityPatientsEndpoints();
 app.MapSchedulingEndpoints();
+app.MapSchedulingCheckInEndpoints();
+app.MapSchedulingWalkInEndpoints();
 app.MapClinicalEndpoints();
 app.MapMedicationCatalogEndpoints();
 app.MapBillingEndpoints();

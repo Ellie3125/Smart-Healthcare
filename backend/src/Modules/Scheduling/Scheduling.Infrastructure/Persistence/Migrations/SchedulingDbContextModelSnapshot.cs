@@ -194,6 +194,8 @@ namespace Scheduling.Infrastructure.Persistence.Migrations
 
                     b.HasIndex("SessionQuotaId");
 
+                    SqlServerIndexBuilderExtensions.IncludeProperties(b.HasIndex("SessionQuotaId"), new[] { "AppointmentNumber", "PatientId", "Status", "ConfirmedAtUtc" });
+
                     b.ToTable("Appointment", "scheduling");
                 });
 
@@ -394,6 +396,9 @@ namespace Scheduling.Infrastructure.Persistence.Migrations
                         .ValueGeneratedOnAdd()
                         .HasColumnType("uniqueidentifier");
 
+                    b.Property<DateTime?>("ActivatedAtUtc")
+                        .HasColumnType("datetime2");
+
                     b.Property<DateTime?>("CalledAtUtc")
                         .HasColumnType("datetime2");
 
@@ -410,6 +415,11 @@ namespace Scheduling.Infrastructure.Persistence.Migrations
                         .IsRequired()
                         .HasMaxLength(32)
                         .HasColumnType("nvarchar(32)");
+
+                    b.Property<DateTime>("QueuedAtUtc")
+                        .ValueGeneratedOnAddOrUpdate()
+                        .HasColumnType("datetime2")
+                        .HasComputedColumnSql("COALESCE([ActivatedAtUtc], [IssuedAtUtc])", true);
 
                     b.Property<byte[]>("RowVersion")
                         .IsConcurrencyToken()
@@ -451,11 +461,26 @@ namespace Scheduling.Infrastructure.Persistence.Migrations
 
                     b.HasIndex("ServiceOrderId");
 
-                    b.HasIndex("ServiceOrderItemId");
-
-                    b.HasIndex("TargetRoomId");
+                    b.HasIndex("ServiceOrderItemId")
+                        .IsUnique()
+                        .HasFilter("[ServiceOrderItemId] IS NOT NULL");
 
                     b.HasIndex("TargetStationId");
+
+                    b.HasIndex("TicketNumber")
+                        .IsUnique();
+
+                    b.HasIndex(new[] { "TargetRoomId", "QueuedAtUtc" }, "IX_QueueTicket_Room_QueuedAt");
+
+                    SqlServerIndexBuilderExtensions.IncludeProperties(b.HasIndex(new[] { "TargetRoomId", "QueuedAtUtc" }, "IX_QueueTicket_Room_QueuedAt"), new[] { "QueueStatus", "TicketType", "SequenceNumber", "TicketNumber", "EncounterId", "TargetStationId", "CalledAtUtc", "ServedAtUtc" });
+
+                    b.HasIndex(new[] { "EncounterId" }, "UX_QueueTicket_InitialPerEncounter")
+                        .IsUnique()
+                        .HasFilter("[TicketType] = 'InitialConsultation'");
+
+                    b.HasIndex(new[] { "ServiceOrderId" }, "UX_QueueTicket_ReturnPerServiceOrder")
+                        .IsUnique()
+                        .HasFilter("[TicketType] = 'ReturnConsultation'");
 
                     b.ToTable("QueueTicket", "scheduling");
                 });
@@ -551,6 +576,20 @@ namespace Scheduling.Infrastructure.Persistence.Migrations
                         .IsUnique();
 
                     b.ToTable("ServiceStation", "scheduling");
+                });
+
+            modelBuilder.Entity("Scheduling.Domain.Entities.TicketSequence", b =>
+                {
+                    b.Property<string>("Scope")
+                        .HasMaxLength(64)
+                        .HasColumnType("nvarchar(64)");
+
+                    b.Property<int>("LastValue")
+                        .HasColumnType("int");
+
+                    b.HasKey("Scope");
+
+                    b.ToTable("TicketSequence", "scheduling");
                 });
 
             modelBuilder.Entity("Scheduling.Domain.Entities.ActiveBookingClaim", b =>

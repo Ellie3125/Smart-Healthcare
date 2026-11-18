@@ -1,0 +1,94 @@
+# Bảng gợi ý chuyên khoa tham khảo (Giải pháp kỹ thuật §11.3.4, Phạm vi nghiệp vụ §2.1 mục 1, §2.2).
+# Gợi ý chỉ để chọn nơi đặt lịch, KHÔNG phải chẩn đoán. Tên chuyên khoa chatbot đưa ra chỉ đến từ bảng này (model không đặt tên).
+#
+# TRẠNG THÁI: NHÁP. Nội dung dưới đây do nhóm phát triển soạn để dựng chức năng; PHẢI được người có chuyên môn y tế duyệt
+# (điền reviewed_by, đổi status: approved) trước khi bật cho bệnh nhân thật (Phạm vi §7: còn cần duyệt).
+#
+# Quy ước so khớp: không phân biệt hoa thường, bỏ dấu câu. Câu có dấu tiếng Việt thì so với cụm có dấu ("ngạt mũi" khác "ngất");
+# câu gõ không dấu thì so với cụm đã bỏ dấu. Mỗi cụm khớp theo nguyên từ.
+version: "2026-11-17"
+status: draft
+reviewed_by: null
+
+# Luôn kiểm TRƯỚC mọi thứ khác, kể cả khi câu cũng khớp chuyên khoa hoặc intent: khớp thì khuyên đi cấp cứu, không gợi ý đặt lịch.
+red_flags:
+  - đau ngực
+  - tức ngực
+  - đau thắt ngực
+  - khó thở
+  - thở dốc
+  - yếu liệt nửa người
+  - liệt nửa người
+  - méo miệng
+  - nói khó
+  - nói ngọng đột ngột
+  - co giật
+  - ngất
+  - ngất xỉu
+  - bất tỉnh
+  - chảy máu nhiều
+  - nôn ra máu
+  - lơ mơ
+
+# Chuyên khoa khám lâm sàng được phép gợi ý. code khớp identity.Specialty.SpecialtyCode; name/description hiển thị cho bệnh nhân.
+# Thứ tự là thứ tự hiển thị khi không khớp (fallback). Không đưa khoa CLS (X-Quang, Xét nghiệm, Nội soi, Siêu âm).
+# name phải trùng SpecialtyName trong identity.Specialty: tìm bác sĩ lọc theo tên vì web bệnh nhân chưa có API danh mục chuyên khoa (E5).
+# aliases: cách bệnh nhân gọi tên khoa khi muốn tìm lịch ("khám da liễu"); khác với từ khóa triệu chứng ở specialty_hints.
+specialties:
+  - code: NOI_TONG_QUAT
+    name: Khoa Nội tổng quát
+    description: Khám các bệnh nội khoa thường gặp; phù hợp khi chưa rõ chuyên khoa.
+    aliases: [nội tổng quát, nội khoa, khoa nội]
+  - code: TIEU_HOA
+    name: Khoa Tiêu hóa
+    description: Bệnh lý đường tiêu hóa, dạ dày, gan mật tụy.
+    aliases: [tiêu hóa, tiêu hoá]
+  - code: TAI_MUI_HONG
+    name: Khoa Tai Mũi Họng
+    description: Bệnh lý tai, mũi, họng ở người lớn và trẻ em.
+    aliases: [tai mũi họng, tmh]
+  - code: DA_LIEU
+    name: Khoa Da liễu
+    description: Bệnh lý về da, tóc, móng.
+    aliases: [da liễu]
+  - code: TIM_MACH
+    name: Khoa Tim mạch
+    description: Bệnh lý tim mạch, tăng huyết áp.
+    aliases: [tim mạch, khoa tim, khám tim]
+  - code: HO_HAP
+    name: Khoa Hô hấp
+    description: Bệnh lý hô hấp, phổi.
+    aliases: [hô hấp]
+  - code: NHI
+    name: Khoa Nhi
+    description: Khám bệnh cho trẻ em.
+    aliases: [khoa nhi, nhi khoa]
+
+# Từ khóa triệu chứng (2 điểm) và vị trí cơ thể (1 điểm) → chuyên khoa. Hiển thị tối đa max_suggestions khoa điểm cao nhất.
+specialty_hints:
+  - specialty: TIEU_HOA
+    body_parts: [bụng, dạ dày, bao tử, gan, ruột]
+    keywords: [đau bụng, đầy hơi, chướng bụng, ợ chua, ợ hơi, khó tiêu, tiêu chảy, táo bón, buồn nôn, đi ngoài]
+  - specialty: TAI_MUI_HONG
+    body_parts: [họng, cổ họng, tai, mũi, xoang, amidan]
+    keywords: [đau họng, viêm họng, ù tai, đau tai, nghẹt mũi, ngạt mũi, sổ mũi, viêm xoang, khàn tiếng]
+  - specialty: DA_LIEU
+    body_parts: [da, tóc, móng]
+    keywords: [nổi mẩn, mẩn ngứa, ngứa, phát ban, nổi mề đay, mụn, nấm da, rụng tóc]
+  - specialty: TIM_MACH
+    body_parts: [tim]
+    keywords: [hồi hộp, tim đập nhanh, đánh trống ngực, huyết áp cao, tăng huyết áp]
+  - specialty: HO_HAP
+    body_parts: [phổi, phế quản]
+    keywords: [ho, ho khan, ho có đờm, ho kéo dài, khò khè, viêm phế quản]
+  - specialty: NHI
+    body_parts: []
+    keywords: [trẻ em, con tôi, con nhỏ, bé nhà tôi, em bé, cháu bé]
+  - specialty: NOI_TONG_QUAT
+    body_parts: []
+    keywords: [sốt, mệt mỏi, đau đầu, chóng mặt, khám tổng quát, khám sức khỏe]
+
+max_suggestions: 2
+
+disclaimer: >-
+  Gợi ý chỉ mang tính tham khảo theo mô tả của bạn, không phải chẩn đoán. Bác sĩ sẽ đánh giá khi khám.

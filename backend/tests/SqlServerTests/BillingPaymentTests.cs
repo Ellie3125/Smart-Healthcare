@@ -352,6 +352,31 @@ public class BillingPaymentTests
         Assert.Equal(["Pending"], await TransactionStatusAsync(db, payment));
     }
 
+    [Fact]
+    public async Task Amount_is_checked_before_an_ipn_is_reported_as_already_processed()
+    {
+        await using var db = await OpenAsync();
+        var payment = await Payments(db).CreateAsync(Exam(Guid.NewGuid(), await ExamChargeAsync(db)), Ct);
+        await Handler(db).HandleAsync(Ipn(payment, "14226006"), Ct);
+
+        var error = await Assert.ThrowsAsync<BillingException>(() => Handler(db).HandleAsync(Ipn(payment, "14226006", amount: 100m), Ct));
+
+        Assert.Equal(BillingErrorCode.AmountMismatch, error.Code);
+    }
+
+    [Fact]
+    public async Task Failure_ipn_with_another_amount_records_nothing()
+    {
+        await using var db = await OpenAsync();
+        var payment = await Payments(db).CreateAsync(Exam(Guid.NewGuid(), await ExamChargeAsync(db)), Ct);
+
+        var error = await Assert.ThrowsAsync<BillingException>(() =>
+            Handler(db).HandleAsync(Ipn(payment, "0", responseCode: "24", status: "02", amount: 100m), Ct));
+
+        Assert.Equal(BillingErrorCode.AmountMismatch, error.Code);
+        Assert.Equal(["Pending"], await TransactionStatusAsync(db, payment));
+    }
+
     private static Task<List<string>> TransactionStatusAsync(TestDatabase db, PaymentDto payment) =>
         db.QueryAsync($"SELECT PaymentStatus FROM billing.PaymentTransaction WHERE TransactionReference = '{payment.TransactionReference}'");
 
@@ -372,7 +397,7 @@ public class BillingPaymentTests
         new(payment.TransactionReference, providerTransactionId, eventId, payment.Amount, "VND", DateTime.UtcNow, "{\"status\":\"Succeeded\"}");
 
     private static FailedPayment Failed(PaymentDto payment, string providerTransactionId, string eventId) =>
-        new(payment.TransactionReference, providerTransactionId, eventId, DateTime.UtcNow, "{\"status\":\"Failed\"}");
+        new(payment.TransactionReference, providerTransactionId, eventId, payment.Amount, "VND", DateTime.UtcNow, "{\"status\":\"Failed\"}");
 
     // Amount là giá trị vnp_Amount gửi đi (đã nhân 100); mặc định đúng số tiền của giao dịch.
     private static Dictionary<string, string> Ipn(PaymentDto payment, string transactionNo, string responseCode = "00", string status = "00",

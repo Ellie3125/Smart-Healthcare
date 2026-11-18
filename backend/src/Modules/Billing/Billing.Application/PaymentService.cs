@@ -82,6 +82,7 @@ public sealed class PaymentService(IPaymentStore store, TimeProvider clock)
             var intent = await store.GetIntentAsync(transaction.PaymentIntentId, token);
             var provider = EventProvider(intent);
             var now = clock.GetUtcNow().UtcDateTime;
+            EnsureAmount(transaction, payment.Amount, payment.Currency);
 
             // Cùng sự kiện của cổng gửi lại (bấm lại, gửi lại callback): đã xử lý, trả kết quả cũ.
             if (await store.HasEventAsync(provider, payment.ProviderEventId, token))
@@ -103,11 +104,6 @@ public sealed class PaymentService(IPaymentStore store, TimeProvider clock)
 
             EnsureSameProviderTransaction(transaction, payment.ProviderTransactionId);
 
-            if (payment.Amount != transaction.TransactionAmount
-                || !string.Equals(payment.Currency, transaction.Currency, StringComparison.Ordinal))
-                throw new BillingException(BillingErrorCode.AmountMismatch,
-                    $"Cổng báo {payment.Amount} {payment.Currency}, giao dịch {payment.TransactionReference} cần {transaction.TransactionAmount} {transaction.Currency}.");
-
             if (await store.IsProviderTransactionIdTakenAsync(payment.ProviderTransactionId, transaction.Id, token))
                 throw new BillingException(BillingErrorCode.PaymentConflict,
                     $"Mã giao dịch cổng {payment.ProviderTransactionId} đã được ghi nhận cho giao dịch khác.");
@@ -123,11 +119,43 @@ public sealed class PaymentService(IPaymentStore store, TimeProvider clock)
 
             var allocations = await store.GetAllocationsAsync(transaction.Id, token);
             var charges = await store.LockChargesAsync(allocations.Select(a => a.BillingItemId).Order().ToList(), token);
+
+            // Phí khám của lượt đặt lịch đã được thu và giữ bằng yêu cầu khác (giữ chỗ lại rồi cả hai lần đều trả): cả lần này là trả trùng.
+            var duplicateBooking = intent.PaymentType == PaymentType.InitialConsultation && intent.BookingAttemptId is { } attemptId
+                && await store.HasRetainedExamPaymentAsync(attemptId, intent.Id, token);
+            var refunds = 0;
             foreach (var allocation in allocations)
-                charges.Single(c => c.Id == allocation.BillingItemId).ApplyPayment(allocation.AllocatedAmount);
+            {
+                var charge = charges.Single(c => c.Id == allocation.BillingItemId);
+                var (refundable, reason) = Excess(charge, allocation.AllocatedAmount, duplicateBooking);
+                var hadMoney = charge.PaidAmount - charge.RefundedAmount > 0m;
+                charge.ApplyPayment(allocation.AllocatedAmount);
+                if (refundable <= 0m)
+                    continue;
+
+                // Khoản chỉ được lập cho lần trả trùng này thì không còn là nghĩa vụ.
+                if (duplicateBooking && !hadMoney && charge.IsInEffect)
+                    charge.Status = BillingItemStatus.Cancelled;
+                store.AddRefundRequest(new RefundRequest
+                {
+                    BillingItemId = charge.Id,
+                    OriginalPaymentTransactionId = transaction.Id,
+                    AppointmentId = charge.AppointmentId,
+                    RequestedAmount = refundable,
+                    RefundReason = reason,
+                    PolicyRuleApplied = PolicyRuleApplied.CustomApproval,
+                    Status = RefundRequestStatus.Pending,
+                    RequestedAtUtc = now,
+                });
+                refunds++;
+            }
 
             var paidChargeIds = charges.Where(c => c.Status == BillingItemStatus.Paid).Select(c => c.Id).ToList();
             await store.SaveChangesAsync(token);
+            // Trả trùng cả lượt đặt lịch: lịch đã được xác nhận bằng lần trả trước, không báo Scheduling lần nữa.
+            if (duplicateBooking)
+                return new PaymentConfirmation(intent.Id, AlreadyRecorded: false, [], refunds);
+
             await store.EnqueueAsync(new PaymentVerified(
                 Guid.CreateVersion7(),
                 intent.Id,
@@ -139,8 +167,22 @@ public sealed class PaymentService(IPaymentStore store, TimeProvider clock)
                 now,
                 OperationId: null), token);
 
-            return new PaymentConfirmation(intent.Id, AlreadyRecorded: false, paidChargeIds);
+            return new PaymentConfirmation(intent.Id, AlreadyRecorded: false, paidChargeIds, refunds);
         }, ct);
+    }
+
+    /// <summary>
+    /// Phần tiền của một phân bổ phải hoàn (Phạm vi §5.6), tính trước khi cộng vào khoản. Trả trùng cả lượt đặt lịch: hoàn hết
+    /// (DuplicatePayment). Khoản đã hủy/miễn: tiền không còn gì để trả, hoàn hết (PaidUnallocated). Khoản còn hiệu lực: hoàn phần
+    /// vượt số còn phải trả (DuplicatePayment). Khoản CLS đã trả rồi mới hủy cuối ngày D không đi qua đây (không hoàn).
+    /// </summary>
+    private static (decimal Amount, RefundReason Reason) Excess(BillingItem charge, decimal allocated, bool duplicateBooking)
+    {
+        if (duplicateBooking)
+            return (allocated, RefundReason.DuplicatePayment);
+        if (!charge.IsInEffect)
+            return (allocated, RefundReason.PaidUnallocated);
+        return (Math.Max(0m, allocated - charge.Outstanding), RefundReason.DuplicatePayment);
     }
 
     /// <summary>
@@ -159,6 +201,7 @@ public sealed class PaymentService(IPaymentStore store, TimeProvider clock)
         {
             var transaction = await store.LockTransactionAsync(failure.TransactionReference, token)
                 ?? throw new BillingException(BillingErrorCode.PaymentNotFound, $"Không có giao dịch {failure.TransactionReference}.");
+            EnsureAmount(transaction, failure.Amount, failure.Currency);
 
             switch (transaction.PaymentStatus)
             {
@@ -197,6 +240,15 @@ public sealed class PaymentService(IPaymentStore store, TimeProvider clock)
         foreach (var reference in references)
             if (string.IsNullOrWhiteSpace(reference))
                 throw Invalid("Thiếu mã tham chiếu, mã giao dịch hoặc mã sự kiện của cổng thanh toán.");
+    }
+
+    // Kiểm ngay sau khi tìm thấy giao dịch, trước khi xét đã xử lý chưa: kết quả sai số tiền bị từ chối (RspCode 04) kể cả khi
+    // gửi lại (Giải pháp kỹ thuật v2.13 mục 5.4 bước 4).
+    private static void EnsureAmount(PaymentTransaction transaction, decimal amount, string currency)
+    {
+        if (amount != transaction.TransactionAmount || !string.Equals(currency, transaction.Currency, StringComparison.Ordinal))
+            throw new BillingException(BillingErrorCode.AmountMismatch,
+                $"Cổng báo {amount} {currency}, giao dịch {transaction.TransactionReference} cần {transaction.TransactionAmount} {transaction.Currency}.");
     }
 
     // Mã giao dịch cổng đã ghi cho giao dịch phải khớp mã trong kết quả (BR-002: đúng giao dịch).
@@ -276,7 +328,7 @@ public sealed class PaymentService(IPaymentStore store, TimeProvider clock)
         i.Id,
         i.IntentNumber,
         t.TransactionReference,
-        i.PaymentType == PaymentType.InitialConsultation ? PaymentPurpose.InitialConsultation : PaymentPurpose.CLSOrderBatch,
+        PurposeOf(i),
         i.Provider switch
         {
             PaymentIntentProvider.VNPAY => PaymentProvider.VNPAY,
@@ -284,19 +336,24 @@ public sealed class PaymentService(IPaymentStore store, TimeProvider clock)
         },
         t.TransactionAmount,
         t.Currency,
-        i.Status switch
-        {
-            PaymentIntentStatus.Pending => PaymentState.Pending,
-            PaymentIntentStatus.Processing => PaymentState.Processing,
-            PaymentIntentStatus.Succeeded => PaymentState.Succeeded,
-            PaymentIntentStatus.Failed => PaymentState.Failed,
-            PaymentIntentStatus.Unknown => PaymentState.Unknown,
-            PaymentIntentStatus.Expired => PaymentState.Expired,
-            PaymentIntentStatus.Cancelled => PaymentState.Cancelled,
-            _ => throw new ArgumentOutOfRangeException(nameof(i), i.Status, null),
-        },
+        StateOf(i),
         i.ExpiresAtUtc,
         chargeIds.Order().ToList());
+
+    internal static PaymentPurpose PurposeOf(PaymentIntent i) =>
+        i.PaymentType == PaymentType.InitialConsultation ? PaymentPurpose.InitialConsultation : PaymentPurpose.CLSOrderBatch;
+
+    internal static PaymentState StateOf(PaymentIntent i) => i.Status switch
+    {
+        PaymentIntentStatus.Pending => PaymentState.Pending,
+        PaymentIntentStatus.Processing => PaymentState.Processing,
+        PaymentIntentStatus.Succeeded => PaymentState.Succeeded,
+        PaymentIntentStatus.Failed => PaymentState.Failed,
+        PaymentIntentStatus.Unknown => PaymentState.Unknown,
+        PaymentIntentStatus.Expired => PaymentState.Expired,
+        PaymentIntentStatus.Cancelled => PaymentState.Cancelled,
+        _ => throw new ArgumentOutOfRangeException(nameof(i), i.Status, null),
+    };
 
     private static BillingException Invalid(string message) => new(BillingErrorCode.InvalidRequest, message);
 

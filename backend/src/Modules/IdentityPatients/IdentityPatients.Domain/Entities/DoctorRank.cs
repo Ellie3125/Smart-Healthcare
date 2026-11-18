@@ -1,12 +1,12 @@
-using IdentityPatients.Domain.Enums;
-
-namespace IdentityPatients.Domain.Entities;
-
-public sealed class DoctorRank
-{
-    public Guid Id { get; set; }
-    public RankCode RankCode { get; set; }
-    public string RankName { get; set; } = null!;
-    public int DisplayOrder { get; set; }
-    public bool IsActive { get; set; }
-}
+using IdentityPatients.Domain.Enums;
+
+namespace IdentityPatients.Domain.Entities;
+
+public sealed class DoctorRank
+{
+    public Guid Id { get; set; }
+    public RankCode RankCode { get; set; }
+    public string RankName { get; set; } = null!;
+    public int DisplayOrder { get; set; }
+    public bool IsActive { get; set; }
+}

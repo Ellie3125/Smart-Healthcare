@@ -18,6 +18,7 @@ internal sealed class PatientConfiguration : IEntityTypeConfiguration<Patient>
         builder.Property(x => x.Address).HasMaxLength(200);
 
         builder.HasIndex(x => x.NationalId).IsUnique().HasFilter("[NationalId] IS NOT NULL");
-        builder.HasIndex(x => x.OwnerUserId);
+        // Tiếp tân tra hồ sơ theo số điện thoại (một số có thể dùng cho nhiều hồ sơ trong gia đình nên không unique).
+        builder.HasIndex(x => x.PhoneNumber);
     }
 }

@@ -1,8 +1,8 @@
-namespace IdentityPatients.Domain.Enums;
-
-public enum Gender
-{
-    Male,
-    Female,
-    Other
-}
+namespace IdentityPatients.Domain.Enums;
+
+public enum Gender
+{
+    Male,
+    Female,
+    Other
+}

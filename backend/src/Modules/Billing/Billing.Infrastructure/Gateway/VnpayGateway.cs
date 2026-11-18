@@ -9,7 +9,7 @@ namespace Billing.Infrastructure.Gateway;
 /// Tạo liên kết thanh toán VNPAY. VNPAY không có API tạo giao dịch: Billing tự dựng URL có ký rồi chuyển người trả sang đó,
 /// nên bước này không gọi mạng. Mã giao dịch của VNPAY (vnp_TransactionNo) chỉ có khi IPN về.
 /// </summary>
-internal sealed class VnpayGateway(IOptions<VnpayOptions> options, TimeProvider clock) : IPaymentGateway
+internal sealed class VnpayGateway(IOptions<VnpayOptions> options) : IPaymentGateway
 {
     private const string Currency = "VND";
     private const int MinimumIpLength = 7;
@@ -38,7 +38,8 @@ internal sealed class VnpayGateway(IOptions<VnpayOptions> options, TimeProvider 
             ["vnp_Locale"] = "vn",
             ["vnp_ReturnUrl"] = settings.ReturnUrl,
             ["vnp_IpAddr"] = request.CustomerIp is { Length: >= MinimumIpLength } ip ? ip : LoopbackIp,
-            ["vnp_CreateDate"] = VnpayTime.Format(clock.GetUtcNow().UtcDateTime),
+            // Từ giá trị đã lưu, không lấy giờ hiện tại: querydr phải tính lại đúng vnp_CreateDate (Giải pháp kỹ thuật v2.13 mục 5.4).
+            ["vnp_CreateDate"] = VnpayTime.Format(request.CreatedAtUtc),
             ["vnp_ExpireDate"] = VnpayTime.Format(request.ExpiresAtUtc),
         };
 

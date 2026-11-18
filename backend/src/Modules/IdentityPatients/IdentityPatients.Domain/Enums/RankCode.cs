@@ -1,11 +1,11 @@
-namespace IdentityPatients.Domain.Enums;
-
-public enum RankCode
-{
-    SpecialistI,
-    SpecialistII,
-    Master,
-    Doctor,
-    AssociateProf,
-    Professor
-}
+namespace IdentityPatients.Domain.Enums;
+
+public enum RankCode
+{
+    SpecialistI,
+    SpecialistII,
+    Master,
+    Doctor,
+    AssociateProf,
+    Professor
+}

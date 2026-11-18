@@ -95,7 +95,7 @@ public class PaymentRulesTests
         var success = await Assert.ThrowsAsync<BillingException>(() => service.ConfirmVerifiedAsync(
             new VerifiedPayment(reference, providerId, eventId, 150_000m, "VND", Now, null), TestContext.Current.CancellationToken));
         var failure = await Assert.ThrowsAsync<BillingException>(() => service.RecordFailedAsync(
-            new FailedPayment(reference, providerId, eventId, Now, null), TestContext.Current.CancellationToken));
+            new FailedPayment(reference, providerId, eventId, 150_000m, "VND", Now, null), TestContext.Current.CancellationToken));
 
         Assert.Equal(BillingErrorCode.InvalidRequest, success.Code);
         Assert.Equal(BillingErrorCode.InvalidRequest, failure.Code);
