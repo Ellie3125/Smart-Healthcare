@@ -1,3 +1,5 @@
+using IdentityPatients.Contracts;
+using System.Reflection;
 using Billing.Infrastructure;
 using Billing.Infrastructure.Persistence;
 using Microsoft.EntityFrameworkCore;
@@ -101,7 +103,7 @@ public sealed partial class SchedulingHoldTests
     }
 
     [Fact]
-    public async Task Appointment_reader_returns_only_appointments_booked_by_the_caller()
+    public async Task Appointment_reader_returns_appointments_with_booking_access()
     {
         await using var services = BuildPaymentServices();
         var booking = await HoldForPaymentAsync(services);
@@ -114,6 +116,8 @@ public sealed partial class SchedulingHoldTests
                 """);
 
             await using var scope = services.CreateAsyncScope();
+            var access = (AppointmentReaderAccess)scope.ServiceProvider.GetRequiredService<IIdentityPatientsModule>();
+            access.Owner = booking.AppUserId; access.Patient = booking.PatientId;
             var reader = scope.ServiceProvider.GetRequiredService<IPatientAppointmentReader>();
             var mine = Assert.Single(await reader.ListAsync(booking.AppUserId, 0, 10, Ct));
             var detail = await reader.GetAsync(appointmentId, booking.AppUserId, Ct);
@@ -134,6 +138,20 @@ public sealed partial class SchedulingHoldTests
     private sealed record HeldForPayment(DoctorDayQuota Day, Guid AttemptId, Guid AppUserId, Guid PatientId, Guid ReservationId,
         DateTime ExpiresAtUtc, string DoctorName, string PriceListCode);
 
+    public class AppointmentReaderAccess : DispatchProxy
+    {
+        public Guid Owner { get; set; }
+        public Guid Patient { get; set; }
+        protected override object? Invoke(MethodInfo? method, object?[]? args) => method?.Name switch
+        {
+            nameof(IIdentityPatientsModule.GetAccessiblePatientsAsync) => Task.FromResult<IReadOnlySet<Guid>>(
+                ((IReadOnlyCollection<Guid>)args![1]!).Where(id => (Guid)args[0]! == Owner && id == Patient).ToHashSet()),
+            nameof(IIdentityPatientsModule.ListAccessiblePatientsAsync) => Task.FromResult<IReadOnlyList<Guid>>(
+                (Guid)args![0]! == Owner ? [Patient] : []),
+            _ => throw new NotSupportedException(method?.Name)
+        };
+    }
+
     private static ServiceProvider BuildPaymentServices()
     {
         var cs = TestDatabase.RequiredConnectionString();
@@ -146,6 +164,7 @@ public sealed partial class SchedulingHoldTests
             .AddUnitOfWorkParticipant<WorkflowDbContext>()
             .AddUnitOfWorkParticipant<BillingDbContext>()
             .AddSchedulingApplication()
+            .AddSingleton(DispatchProxy.Create<IIdentityPatientsModule, AppointmentReaderAccess>())
             .BuildServiceProvider(validateScopes: true);
     }
 

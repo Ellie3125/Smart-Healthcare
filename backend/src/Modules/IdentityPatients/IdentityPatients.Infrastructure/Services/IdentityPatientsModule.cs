@@ -20,26 +20,33 @@ public sealed partial class IdentityPatientsModule(IdentityPatientsDbContext dbC
     public async Task<IReadOnlySet<Guid>> GetAccessiblePatientsAsync(Guid userId, IReadOnlyCollection<Guid> patientIds,
         AccessLevel level = AccessLevel.Booking, CancellationToken ct = default)
     {
+        var ids = patientIds.Distinct().ToList();
+        if (ids.Count == 0)
+        {
+            return new HashSet<Guid>();
+        }
+
+        return (await Accessible(userId, level).Where(id => ids.Contains(id)).ToListAsync(ct)).ToHashSet();
+    }
+
+    public async Task<IReadOnlyList<Guid>> ListAccessiblePatientsAsync(Guid userId, AccessLevel level = AccessLevel.Booking,
+        CancellationToken ct = default) => await Accessible(userId, level).Distinct().ToListAsync(ct);
+
+    // Luật chung của hai hàm trên: AppUser hoạt động, chỉ vai trò Patient, đại diện còn hiệu lực đúng mức xác minh.
+    private IQueryable<Guid> Accessible(Guid userId, AccessLevel level)
+    {
         VerificationStatus[] statuses = level switch
         {
             AccessLevel.Booking => [VerificationStatus.Pending, VerificationStatus.Verified],
             AccessLevel.ClinicalRecords => [VerificationStatus.Verified],
             _ => []
         };
-        var ids = patientIds.Distinct().ToList();
-        if (ids.Count == 0 || statuses.Length == 0)
-        {
-            return new HashSet<Guid>();
-        }
-
-        var allowed = await _dbContext.PatientRepresentatives.AsNoTracking()
-            .Where(r => r.AppUserId == userId && r.IsActive && ids.Contains(r.PatientId) && statuses.Contains(r.VerificationStatus)
+        return _dbContext.PatientRepresentatives.AsNoTracking()
+            .Where(r => r.AppUserId == userId && r.IsActive && statuses.Contains(r.VerificationStatus)
                 && _dbContext.AppUsers.Any(u => u.Id == userId && u.IsActive)
                 && !_dbContext.RoomAccounts.Any(a => a.AppUserId == userId)
                 && !_dbContext.Staffs.Any(s => s.AppUserId == userId))
-            .Select(r => r.PatientId)
-            .ToListAsync(ct);
-        return allowed.ToHashSet();
+            .Select(r => r.PatientId);
     }
 
     public async Task<DoctorDto?> GetDoctorAsync(Guid doctorId, CancellationToken ct = default)

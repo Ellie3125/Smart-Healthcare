@@ -21,7 +21,7 @@ internal static class PatientAppointmentEndpoints
     {
         var patient = scheduling.MapGroup("/patient/appointments").RequireAuthorization(Policies.PatientOnly);
         patient.MapGet("", ListAsync)
-            .WithSummary("Lịch hẹn người gọi đã đặt, mới nhất trước (Patient)")
+            .WithSummary("Lịch hẹn các hồ sơ được truy cập Booking, mới nhất trước (Patient)")
             .Produces<AppointmentPage>()
             .ProducesProblem(StatusCodes.Status400BadRequest);
         patient.MapGet("/{appointmentId:guid}", GetAsync)
@@ -56,6 +56,7 @@ internal static class PatientAppointmentEndpoints
         var row = await OwnedAsync(appointmentId, userId, reader, identity, ct);
         if (row is null)
             return NotFound();
+        if (ModificationError(row) is { } denied) return denied;
 
         var outcome = await changes.CancelAsync(new CancelRequest(appointmentId, userId, CancellationInitiator.Patient,
             row.PatientId, body?.Reason, null, key!), ct);
@@ -107,6 +108,7 @@ internal static class PatientAppointmentEndpoints
         var row = await OwnedAsync(appointmentId, userId, reader, identity, ct);
         if (row is null)
             return NotFound();
+        if (ModificationError(row) is { } denied) return denied;
         if (row.Status != AppointmentStatus.Scheduled || row.RescheduleCutoffTimeUtc is not { } cutoff)
             return Problem(StatusCodes.Status409Conflict, nameof(ChangeResult.InvalidAppointmentState), "Lịch hẹn không hủy được.");
 
@@ -129,6 +131,7 @@ internal static class PatientAppointmentEndpoints
         var row = await OwnedAsync(appointmentId, userId, reader, identity, ct);
         if (row is null)
             return NotFound();
+        if (ModificationError(row) is { } denied) return denied;
         // Hạng bác sĩ đích lấy phía server để báo giá; client không gửi.
         if (await identity.GetDoctorAsync(body.TargetDoctorId, ct) is not { IsActive: true } doctor)
             return Problem(StatusCodes.Status404NotFound, "DoctorNotFound", "Không tìm thấy bác sĩ đích.");
@@ -141,7 +144,7 @@ internal static class PatientAppointmentEndpoints
         return created is null ? NotFound() : TypedResults.Ok(await ToItemAsync(created, identity, [], ct));
     }
 
-    // Lịch do người gọi đặt và người gọi còn quyền Booking trên hồ sơ; khác thì cùng 404 (không lộ lịch người khác).
+    // Quyền đọc theo hồ sơ; các lệnh sửa lịch còn kiểm người đặt và kênh Counter riêng.
     private static async Task<PatientAppointment?> OwnedAsync(Guid appointmentId, Guid userId, IPatientAppointmentReader reader,
         IIdentityPatientsModule identity, CancellationToken ct) =>
         await reader.GetAsync(appointmentId, userId, ct) is { } row
@@ -173,6 +176,10 @@ internal static class PatientAppointmentEndpoints
         { Result: ChangeResult.InProgress } => Problem(StatusCodes.Status409Conflict, "RequestInProgress", "Lệnh đang xử lý."),
         _ => Problem(AppointmentChangeService.StatusCode(outcome.Result), outcome.Result.ToString(), "Không thể thay đổi lịch hẹn."),
     };
+
+    private static IResult? ModificationError(PatientAppointment row) => row.BookingChannel == BookingChannel.Counter
+        ? Problem(StatusCodes.Status409Conflict, nameof(ChangeResult.CounterAppointmentRequiresReception), "Lịch đặt tại quầy phải hủy hoặc đổi qua tiếp tân.")
+        : !row.IsBookedByCaller ? NotFound() : null;
 
     private static IResult Invalid() => Problem(StatusCodes.Status400BadRequest, "InvalidInput", "Yêu cầu không hợp lệ.");
 

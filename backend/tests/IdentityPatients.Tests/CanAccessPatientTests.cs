@@ -207,5 +207,9 @@ public sealed class CanAccessPatientTests
         Assert.Equal([verified], await module.GetAccessiblePatientsAsync(userId, all, AccessLevel.ClinicalRecords, ct));
         Assert.Empty(await module.GetAccessiblePatientsAsync(staffUserId, all, AccessLevel.Booking, ct));
         Assert.Empty(await module.GetAccessiblePatientsAsync(userId, [], AccessLevel.Booking, ct));
+        // Liệt kê cùng luật: không có hồ sơ đã thu hồi, hồ sơ người khác hay tài khoản nhân viên.
+        Assert.Equal(new[] { verified, pending }.Order(), (await module.ListAccessiblePatientsAsync(userId, AccessLevel.Booking, ct)).Order());
+        Assert.Equal([verified], await module.ListAccessiblePatientsAsync(userId, AccessLevel.ClinicalRecords, ct));
+        Assert.Empty(await module.ListAccessiblePatientsAsync(staffUserId, AccessLevel.Booking, ct));
     }
 }
