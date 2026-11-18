@@ -1,8 +1,7 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
-import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { Link, NavLink, Outlet, useNavigate } from 'react-router-dom';
-import { Bell, LogOut, Menu, Radio, X } from 'lucide-react';
-import { adminOpsApi } from '../api/adminOpsApi';
+import { useQueryClient } from '@tanstack/react-query';
+import { NavLink, Outlet, useNavigate } from 'react-router-dom';
+import { LogOut, Menu, Radio, X } from 'lucide-react';
 import { apiClient } from '../api/client';
 import { useAuth } from '../hooks/useAuth';
 import { createStaffRealtimeConnection, SignalRStatus } from '../shared/lib/signalr';
@@ -43,13 +42,6 @@ export const StaffLayout: React.FC = () => {
 
   const menus = user?.role ? ROLE_MENUS[user.role] ?? [] : [];
 
-  const notiQuery = useQuery({
-    queryKey: ['staff', 'notifications'],
-    queryFn: () => adminOpsApi.listNotifications(),
-    staleTime: 30_000,
-    enabled: Boolean(user),
-  });
-
   useEffect(() => {
     const unsubHttp = onRoomSessionReplaced(() => {
       navigate('/session-replaced', { replace: true });
@@ -67,7 +59,6 @@ export const StaffLayout: React.FC = () => {
             return;
           }
           if (eventName === 'NotificationReceived') {
-            queryClient.invalidateQueries({ queryKey: ['staff', 'notifications'] });
             const msg =
               typeof payload === 'object' && payload !== null && 'title' in payload
                 ? String((payload as { title?: string }).title)
@@ -98,7 +89,6 @@ export const StaffLayout: React.FC = () => {
     navigate('/login');
   };
 
-  const unread = notiQuery.data?.unreadCount ?? 0;
   const roleDisplay = getRoleDisplayName(user?.role ?? '');
 
   // Group menu items in definition order
@@ -247,19 +237,6 @@ export const StaffLayout: React.FC = () => {
             </div>
 
             <div className="flex items-center gap-2 sm:gap-3 shrink-0">
-              <Link
-                to="/notifications"
-                className="inline-flex items-center gap-1.5 rounded-full bg-surface-container-low px-3 py-1.5 text-xs font-medium text-on-surface hover:bg-surface-container transition-colors"
-              >
-                <Bell className="h-4 w-4 text-primary" aria-hidden="true" />
-                <span className="hidden sm:inline">Thông báo</span>
-                {unread > 0 ? (
-                  <span className="rounded-full bg-error px-1.5 py-0.5 text-[11px] font-semibold tabular-nums text-white">
-                    {unread}
-                  </span>
-                ) : null}
-              </Link>
-
               <div className="hidden sm:flex items-center gap-2 pl-2 border-l border-surface-container-high">
                 <div className="flex flex-col text-right leading-tight">
                   <span className="text-sm font-semibold text-on-surface truncate max-w-[140px]">

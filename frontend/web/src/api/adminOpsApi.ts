@@ -1,12 +1,9 @@
-import { apiGet, apiPost, apiPut } from '../shared/lib/http';
+import { apiGet, apiPost } from '../shared/lib/http';
 import { receptionApi } from './receptionApi';
 import type {
   AdminRefundItem,
   AuditLogEntry,
-  ChatbotSpecialtyConfigItem,
-  ClsWaiverRequestItem,
   DoctorDayQuotaItem,
-  HospitalDeviceItem,
   MedicalServiceCatalogItem,
   OperationalExceptionItem,
   PaymentReconcileRow,
@@ -14,7 +11,6 @@ import type {
   ReportSnapshotDto,
   RolePermissionMatrixRow,
   ServiceStationItem,
-  StaffNotificationItem,
 } from '../types/staffWorkflow';
 
 /**
@@ -55,12 +51,6 @@ const listRooms = async () =>
 export const adminOpsApi = {
   listRooms,
 
-  // S03 Notifications
-  // TODO: nối contract thật thông báo nhân sự
-  listNotifications: () =>
-    apiGet<{ items: StaffNotificationItem[]; unreadCount: number }>('/api/notifications/staff/notifications'),
-  markNotificationRead: (id: string) =>
-    apiPost<void, Record<string, never>>(`/api/notifications/staff/notifications/${id}/read`, {}),
 
   // AD03 Service Stations
   // Quầy/trạm thuộc Scheduling, gắn với một phòng; không có loại quầy hay tầng.
@@ -157,12 +147,6 @@ export const adminOpsApi = {
   // AD10 Permissions Matrix & Devices
   // TODO: nối contract thật phân quyền & thiết bị ngày
   getPermissionMatrix: () => apiGet<RolePermissionMatrixRow[]>('/api/identity/admin/permissions-matrix'),
-  listDevices: (date: string) => apiGet<HospitalDeviceItem[]>('/api/identity/admin/devices', { params: { date } }),
-  assignDevice: (deviceId: string, accountUsername: string) =>
-    apiPut<HospitalDeviceItem, { accountUsername: string }>(
-      `/api/identity/admin/devices/${deviceId}/assignment`,
-      { accountUsername },
-    ),
 
   // AD11 Exceptions
   // TODO: nối contract thật trung tâm ngoại lệ
@@ -249,22 +233,5 @@ export const adminOpsApi = {
   listAuditLogs: (params?: { keyword?: string; page?: number }) =>
     apiGet<{ items: AuditLogEntry[]; hasMore: boolean }>('/api/identity/admin/audit-logs', { params }),
 
-  // AD16 CLS Waivers
-  // TODO: nối contract thật duyệt miễn giảm CLS
-  listClsWaivers: () => apiGet<ClsWaiverRequestItem[]>('/api/billing/admin/cls-waivers'),
-  decideClsWaiver: (id: string, approve: boolean, idempotencyKey: string) =>
-    apiPost<ClsWaiverRequestItem, { approve: boolean }>(
-      `/api/billing/admin/cls-waivers/${id}/decision`,
-      { approve },
-      { idempotencyKey },
-    ),
 
-  // AD17 Chatbot Specialty Config
-  // TODO: nối contract thật cấu hình chatbot
-  listChatbotConfigs: () => apiGet<ChatbotSpecialtyConfigItem[]>('/api/notifications/admin/chatbot-config'),
-  saveChatbotConfig: (item: ChatbotSpecialtyConfigItem) =>
-    apiPut<ChatbotSpecialtyConfigItem, ChatbotSpecialtyConfigItem>(
-      `/api/notifications/admin/chatbot-config/${item.id}`,
-      item,
-    ),
 };
