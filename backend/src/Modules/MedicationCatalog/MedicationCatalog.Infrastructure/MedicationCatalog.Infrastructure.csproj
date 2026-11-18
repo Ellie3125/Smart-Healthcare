@@ -4,6 +4,7 @@
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\MedicationCatalog.Domain\MedicationCatalog.Domain.csproj" />
+    <ProjectReference Include="..\MedicationCatalog.Application\MedicationCatalog.Application.csproj" />
     <ProjectReference Include="..\..\..\Shared\Shared.Infrastructure\Shared.Infrastructure.csproj" />
   </ItemGroup>
 </Project>

@@ -8,5 +8,6 @@ public static class DependencyInjection
 {
     public static IServiceCollection AddMedicationCatalogInfrastructure(this IServiceCollection services, string connectionString) =>
         services.AddDbContext<MedicationDbContext>(options => options.UseSqlServer(connectionString,
-            sql => sql.MigrationsHistoryTable("__EFMigrationsHistory", MedicationDbContext.Schema)));
+            sql => sql.MigrationsHistoryTable("__EFMigrationsHistory", MedicationDbContext.Schema)))
+            .AddScoped<MedicationCatalog.Application.IDrugCatalog, EfDrugCatalog>();
 }
