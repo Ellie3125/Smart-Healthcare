@@ -21,6 +21,7 @@ public static class DependencyInjection
         services.AddScoped<IPrescriptionStore, EfPrescriptionStore>();
         services.AddScoped<Clinical.Application.Vitals.IVitalsStore, EfVitalsStore>();
         services.AddScoped<Clinical.Application.Vitals.RecordVitalsService>();
+        services.AddScoped<Clinical.Application.Orders.IClsOrderStore, EfClsOrderStore>();
         services.AddScoped<Clinical.Application.Records.IClinicalRecordStore, EfClinicalRecordStore>();
         services.AddScoped<Clinical.Application.Records.ClinicalRecordService>();
         services.AddScoped<Clinical.Application.Results.IClsLifecycleStore, EfClsLifecycleStore>();

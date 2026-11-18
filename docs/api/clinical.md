@@ -1,7 +1,7 @@
 # Contract Clinical
 
-- contract_version: v0.5 Draft, 18/11/2026 (gộp v0.2 bệnh án bác sĩ và v0.4 vòng đời/kết quả CLS).
-- Phạm vi bản này: nhập sinh hiệu; bệnh án bác sĩ draft/publish/amend và lịch sử theo schema revision (PR #141); Start/Finish CLS, xác minh vé thật, draft/publish kết quả và quyền đọc nội dung CLS.
+- contract_version: v0.6 Draft, 18/11/2026 (gộp v0.5 bệnh án và vòng đời/kết quả CLS với v0.3 chỉ định CLS).
+- Phạm vi bản này: nhập sinh hiệu; bệnh án bác sĩ draft/publish/amend và lịch sử (PR #141); tạo đợt chỉ định CLS; Start/Finish CLS, xác minh vé thật, draft/publish kết quả và quyền đọc nội dung CLS. Không sửa luồng tiền Billing hoặc schema.
 - Căn cứ: giao việc CLN-01 ngày 17/11/2026; ERD v2.4 với bổ sung RespiratoryRate/NurseNote qua PR #123; Phạm vi nghiệp vụ v2.12; Giải pháp kỹ thuật v2.14; conventions.md.
 - Trạng thái tích hợp: map trong `MapClinicalEndpoints`, cả Production và Development. `IdentityNurseStaffDirectory` gọi reader `GetActiveStaffAsync` đã có qua PR #126, chỉ nhận StaffType=Nurse. HTTP test có cả directory giả để cô lập transport và luồng Production với Identity/Clinical/audit/idempotency trên SQL Server thật.
 
@@ -219,3 +219,41 @@ Documents hiện tạo metadata Draft trước R2 rồi cập nhật Uploaded; p
 | ticketNumber/patientName/serviceCode/serviceName trong Draft DTO giả | Không có trong response mới; ghép context hàng chờ được phép, không giả dữ liệu trên server |
 
 Không sửa frontend; UI/E2E/R2 thật chưa kiểm. Sửa/gỡ kết quả Published cần task riêng, schema revision đã có nhưng chưa triển khai trong bản publish này.
+
+## 8. Tạo đợt chỉ định CLS
+
+`POST /api/clinical/staff/doctor/encounters/{encounterId}/cls-orders`, Staff, DoctorOnly. AppUserId từ sub/NameIdentifier, DoctorId từ claim ký `doctor_id`; chỉ OriginalDoctor của Encounter. Không lấy actor/PatientId/tên/giá hoặc phòng từ body. Ẩn danh 401, sai vai trò/kênh/claim/bác sĩ 403.
+
+JSON `{ "serviceIds": ["00000000-0000-0000-0000-000000000001"] }`; 1–50 ID khác rỗng, không trùng. `Content-Type: application/json`, một `Idempotency-Key` 1–128 ký tự ASCII hiển thị không khoảng trắng. Scope AppUser + Clinical.OrderCls, TTL 24h; cùng key và tập ID (không phụ thuộc thứ tự) replay 201; khác nội dung 409 IdempotencyConflict, đang xử lý 409 RequestInProgress. Quyền và Encounter chưa kết thúc kiểm trước replay.
+
+Response 201: `{ order: ServiceOrderDto, tickets: ClsTicketsCreated }`. `order` chứa id, encounterId, orderRoundNumber, orderedAtUtc, prescribedByDoctorId, orderBatchStatus Confirmed, hasActiveReturnTicket false, items; item gồm id, serviceOrderId, medicalServiceId, serviceNameSnapshot, appliedPrice, itemStatus Ordered, isMandatory, completedAtUtc null, result null. `tickets` gồm clsTickets và returnTicket (Scheduling DTO). Tên và IsMandatoryDefault lấy qua IClsServiceDirectory của Scheduling, chỉ đọc theo batch ID đang hoạt động; appliedPrice từ ChargeDto.UnitPrice do Billing tự tra. Tiền VND, timestamp UTC `Z`. Vé quay lại Deferred, chưa active nên hasActiveReturnTicket false.
+
+### Transaction
+
+Khóa Encounter UPDLOCK/HOLDLOCK → kiểm OriginalDoctor/trạng thái → idempotency → đọc directory active → giờ DB → round MAX+1 của Encounter → tạo ServiceOrder Draft + ServiceOrderItem → IBillingModule.CreateClsChargesAsync (EncounterId, PatientId, ServiceOrderId, mỗi item quantity1) → ISchedulingModule.CreateClsTicketsAsync (vé CLS + một vé quay lại Deferred) → ghi snapshot giá, order Confirmed, Encounter WaitingCLS → audit + response idempotency. Tất cả cùng IUnitOfWork; Clinical/Billing/Scheduling/Shared phải là participant (host Api hiện có). Không gọi cổng thanh toán trong transaction. Bất kỳ lỗi Billing/Scheduling nào rollback cả order/items/fees/tickets/audit/idempotency; không giữ lại đợt Draft rác.
+
+Audit chỉ EncounterId, round, DoctorId và số item. Không tạo migration hoặc FK chéo schema. Không thay đổi bộ đếm suất khám đầu; không tự kết thúc Encounter.
+
+| HTTP | code | Điều kiện |
+|---|---|---|
+| 400 | InvalidInput | JSON/null, Guid hoặc danh sách dịch vụ không hợp lệ, thiếu/sai key |
+| 401/403 | — hoặc Forbidden | Chưa đăng nhập / sai vai trò/kênh/claim/OriginalDoctor |
+| 404 | EncounterNotFound | Thiếu lượt khám |
+| 409 | EncounterClosed | Completed/Abandoned |
+| 409 | ClsBatchInProgress | Encounter đang WaitingCLS: đợt trước chưa xong, không mở đợt mới (tránh vé quay lại thứ hai) |
+| 409 | MedicalServiceUnavailable | Dịch vụ thiếu/ngừng hoặc Scheduling không tìm được phòng hoạt động |
+| 409 | IdempotencyConflict / RequestInProgress | Khóa xung đột / đang xử lý |
+| 409 | PriceNotConfigured / AmbiguousPrice / DuplicateCharge | Billing từ chối cấu hình giá/khoản phí |
+| 409 | InitialTicketNotFound | Scheduling không có vé khám đầu của Encounter |
+| 409 | InvalidInput / InvalidRequest từ dependency | Scheduling/Billing từ chối command theo contract; transaction rollback |
+| 415 | UnsupportedMediaType | Không gửi JSON |
+
+### Hủy một mục CLS — yêu cầu còn thiếu
+
+Chưa map lệnh hủy hoặc giả ghi Cancelled. IBillingModule chưa có hàm xử lý hủy theo ServiceOrderItemId (bao gồm phí chưa trả và khoản đã trả theo chính sách owner), ISchedulingModule chưa công bố lệnh hủy vé cho Clinical. Cần chủ contract chốt lệnh tham gia UoW, khóa tài chính/vé và idempotency; sau đó Clinical khóa Encounter/item, chỉ nhận item chưa thực hiện, đổi Cancelled và gọi hai module cùng transaction. Không tự sửa thu/hoàn tiền. Phần này còn chờ contract cho W3-13/W3-07.
+
+### Ánh xạ web
+
+Web `orderClsServices` dùng đúng POST route và body serviceIds/Idempotency-Key. Response là order+tickets, cần reload workspace; không phải DoctorEncounterWorkspaceDto. Route GET `/api/clinical/staff/doctor/cls-services` chưa thuộc việc này; danh mục thuộc Scheduling. Các API draft/publish/amend là PR độc lập; UI/E2E chưa kiểm chứng.
+
+Scheduling công bố IClsServiceDirectory.GetAsync(IReadOnlyList<Guid>, ct) trả OrderableClsService(Id, Name, IsMandatory), 1–50 ID distinct nonempty; chỉ trả active, không ghi/không cache schema khác. Cần chủ docs/api/scheduling.md bổ sung mục contract này (lõi riêng), không sửa tài liệu lõi trong PR này.
