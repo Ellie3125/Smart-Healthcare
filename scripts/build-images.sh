@@ -4,9 +4,10 @@
 #   REGISTRY=ghcr.io/<owner> PATIENT_PORTAL_URL=https://<PUBLIC_HOST> scripts/build-images.sh
 # Cần đăng nhập registry trước (ví dụ: docker login ghcr.io). TAG mặc định là commit hiện tại; working tree phải sạch
 # để image khớp đúng commit (ALLOW_DIRTY=1 để bỏ qua khi thử).
+# Build tại chỗ không push (Jenkins trên VPS): PUSH=0 SKIP_CHATBOT=1 REGISTRY=sh-local PATIENT_PORTAL_URL=... scripts/build-images.sh
 set -euo pipefail
 
-: "${REGISTRY:?Đặt REGISTRY, ví dụ ghcr.io/<owner>}"
+: "${REGISTRY:?Đặt REGISTRY, ví dụ ghcr.io/<owner> (PUSH=0: tên tùy ý, ví dụ sh-local)}"
 : "${PATIENT_PORTAL_URL:?Đặt PATIENT_PORTAL_URL, ví dụ https://staging.smarthealthcare.io.vn (liên kết ở trang đăng nhập nhân viên)}"
 
 cd "$(git rev-parse --show-toplevel)"
@@ -25,12 +26,24 @@ done
 echo "== build web"
 docker build -f infrastructure/docker/frontend.Dockerfile --build-context nginx=infrastructure/nginx \
   --build-arg PATIENT_PORTAL_URL="$PATIENT_PORTAL_URL" -t "$PREFIX/web:$TAG" frontend
-echo "== build chatbot"
-docker build -t "$PREFIX/chatbot:$TAG" chatbot-service
+# SKIP_CHATBOT=1: Staging chưa bật chatbot, không build image chatbot.
+names=(api worker migrator web)
+if [ "${SKIP_CHATBOT:-0}" != 1 ]; then
+  echo "== build chatbot"
+  docker build -t "$PREFIX/chatbot:$TAG" chatbot-service
+  names+=(chatbot)
+fi
+
+# PUSH=0: build ngay trên VPS (Jenkins), không có registry; deploy dùng tag local với SKIP_PULL=1.
+if [ "${PUSH:-1}" = 0 ]; then
+  echo "Đã build (không push), tag $TAG:"
+  for name in "${names[@]}"; do echo "  $PREFIX/$name:$TAG"; done
+  exit 0
+fi
 
 out="release-$TAG.env"
 : > "$out"
-for name in api worker migrator web chatbot; do
+for name in "${names[@]}"; do
   docker push "$PREFIX/$name:$TAG"
   digest=$(docker inspect --format '{{index .RepoDigests 0}}' "$PREFIX/$name:$TAG")
   var="$(echo "$name" | tr '[:lower:]' '[:upper:]')_IMAGE"
@@ -38,5 +51,5 @@ for name in api worker migrator web chatbot; do
 done
 
 echo
-echo "Digest (đã ghi vào $out; chép 5 dòng này vào .env.staging trên VPS):"
+echo "Digest (đã ghi vào $out; chép các dòng này vào .env.staging trên VPS):"
 cat "$out"
