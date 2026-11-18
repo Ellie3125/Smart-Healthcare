@@ -18,6 +18,7 @@ public static class DependencyInjection
     {
         var group = ClinicalEndpoints.MapEndpoints(app);
         group.MapNurseVitalsRoutes();
+        group.MapStaffListRoutes();
         group.MapDoctorRecordRoutes();
         group.MapRoomResultRoutes();
         group.MapClsOrderRoutes();

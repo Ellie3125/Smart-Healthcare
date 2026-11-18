@@ -7,6 +7,10 @@ namespace Scheduling.Contracts;
 /// </summary>
 public interface ISchedulingModule
 {
+    /// <summary>Clinical context only: today's initial-consultation queue in one room; caller checks staff duty.</summary>
+    Task<ClinicalQueuePage> GetClinicalQueueAsync(Guid roomId, DateTime atUtc, int page, int pageSize, CancellationToken ct = default) =>
+        throw new NotSupportedException();
+
     /// <summary>
     /// Tìm bác sĩ có phiên còn nhận đặt trong ngày D, kèm suất trống và phí khám, phân trang theo DoctorId.
     /// Chỉ trả phiên IsOpen = true, SessionStatus Scheduled/InProgress và giờ DB &lt; BookingCutoffTimeUtc (09:30 ngày D);
