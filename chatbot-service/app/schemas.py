@@ -19,6 +19,7 @@ ToolIntent = Literal[
     "CANCEL",
     "VIEW_TICKET",
     "VIEW_EXAM_PAYMENT",
+    "VIEW_VISIT_HISTORY",
 ]
 
 # Intent của GP §11.3.2, thêm EMERGENCY (dấu hiệu nguy hiểm, §11.3.4 bước 2) và HELP (chào hỏi, hỏi chatbot làm được gì).
@@ -30,6 +31,7 @@ Intent = Literal[
     "CANCEL",
     "VIEW_TICKET",
     "VIEW_EXAM_PAYMENT",
+    "VIEW_VISIT_HISTORY",
     "SUGGEST_SPECIALTY",
     "OUT_OF_SCOPE",
     "EMERGENCY",

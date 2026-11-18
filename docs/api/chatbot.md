@@ -1,6 +1,6 @@
 # Contract chatbot
 
-- contract_version: **v0.2 Draft** (§3 đã có trên dev 18/11/2026; CB-00, chờ trưởng nhóm duyệt, hạn 21/11/2026; §4 chờ chốt H-06, hạn 20/11/2026)
+- contract_version: **v0.3 Draft** (§3 đã có trên dev 18/11/2026; CB-00, chờ trưởng nhóm duyệt, hạn 21/11/2026; §4 chờ chốt H-06, hạn 20/11/2026)
 - Người giữ: theo ownership.md mục 1. Task: CB-00. Bên dùng: CB-01..CB-11 (dịch vụ chatbot), CB-05 (API đề nghị phía .NET), CB-08 (giao diện chat trên web bệnh nhân).
 - Nguồn: Phạm vi nghiệp vụ v2.13 §1, §2.1–2.2, §7; Giải pháp kỹ thuật v2.14 §2.1, §8.7, §11.1–11.7; luật BOT-01..BOT-12 (`docs/ai/instructions/chatbot-langchain-ollama.md`).
 - Dựa trên: `docs/api/scheduling.md` v0.2 Approved, `docs/api/identity.md` (dev 1026563), `docs/conventions.md` (ProblemDetails + `code`, JSON camelCase, UTC ISO-8601 có `Z`, ngày `yyyy-MM-dd`, `Idempotency-Key`).
@@ -185,6 +185,7 @@ Công cụ gọi REST API công khai của .NET với header `Authorization` c�
 | CANCEL | `list_my_appointments`, `prepare_cancel(appointment_id)` | `POST .../proposals` action `Cancel` | **Thiếu**: E1, E2 |
 | VIEW_TICKET | `get_appointment(appointment_id)` | `GET /api/scheduling/patient/appointments/{appointmentId}`: mã lịch hẹn, số thứ tự sau check in | **Thiếu**: E2; số thứ tự phụ thuộc W3-02 và Q1 scheduling |
 | VIEW_EXAM_PAYMENT | `get_exam_payment(appointment_id \| booking_attempt_id)` | `GET /api/billing/patient/exam-payments?bookingAttemptId` | **Thiếu**: E3 (Billing, ngoài vùng) |
+| VIEW_VISIT_HISTORY | `get_visit_history()` (hồ sơ của cuộc trò chuyện) | `GET /api/documents/patient/encounters?patientProfileId&page=1&pageSize=5` | **Có** (dev). .NET kiểm `ClinicalRecords`: hồ sơ chưa xác minh hoặc không thuộc tài khoản → 403, chatbot trả câu "chưa được xác minh". Chỉ tóm tắt: ngày, bác sĩ, khoa, trạng thái, có đơn thuốc hay không; không đưa chẩn đoán (`primaryDiagnosis`), đơn thuốc, kết quả CLS vào câu trả lời hay model, hướng sang mục Hồ sơ khám (mặc định 18/11/2026, chờ trưởng nhóm duyệt cùng contract). Xem hồ sơ khác của cùng tài khoản (ví dụ cha xem của con): chọn hồ sơ đó trên web, mở cuộc trò chuyện mới (Q-C2) |
 | SUGGEST_SPECIALTY | không gọi API nghiệp vụ; tra bảng YAML (CB-06), rồi `list_specialties()` khi không khớp | `GET /api/patient/catalog/specialties` | **Thiếu**: E5 (Identity, ngoài vùng) |
 | OUT_OF_SCOPE | không có công cụ | — | — |
 | (đọc kết quả đề nghị) | `get_proposal(proposal_id)` | `GET /api/scheduling/patient/proposals/{proposalId}` | **Thiếu**: E1 |
@@ -241,3 +242,4 @@ Access token, `userId`, `patientId`, `conversationId`, `proposalId` dạng thô,
 |---|---|---|
 | v0.1 Draft | 10/11/2026 | Bản đầu (CB-00): API nội bộ chatbot, API chat .NET, ngữ cảnh, đề nghị chờ xác nhận (đề xuất H-06), bảng intent ↔ công cụ ↔ endpoint, endpoint còn thiếu E1–E5 |
 | v0.2 Draft | 18/11/2026 | Q-C1, Q-C2, Q-C4 chốt; §3 có trên dev: body gửi lượt thêm `patientId`, mã `ProfileNotFound`, `SessionExpired`, cấu hình `Chatbot__BaseUrl`/`Chatbot__InternalKey`, 429 có `Retry-After`; ghi route web cần đổi |; chatbot thêm `emergency` vào lượt trả về; web bệnh nhân nối API chat
+| v0.3 Draft | 18/11/2026 | Thêm intent `VIEW_VISIT_HISTORY` và công cụ `get_visit_history` đọc tóm tắt lịch sử khám qua API bệnh nhân có sẵn, bằng token người dùng; web bệnh nhân cần nhãn cho intent mới |

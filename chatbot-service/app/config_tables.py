@@ -87,6 +87,7 @@ class RoutingTable(_Strict):
     templates: dict[str, str]
     status_labels: dict[str, str] = {}
     refund_status_labels: dict[str, str] = {}
+    visit_status_labels: dict[str, str] = {}
 
     @field_validator("templates")
     @classmethod

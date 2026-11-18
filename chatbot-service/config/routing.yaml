@@ -2,7 +2,7 @@
 # không gọi model (dưới khoảng 1 giây, chạy được cả khi model tạm ngưng). Câu không khớp mới cần model.
 # Sửa hành vi chatbot bằng cách sửa bảng này rồi chạy lại bộ kịch bản; không viết cứng trong code, không huấn luyện model.
 # Quy ước so khớp như config/specialty_hints.yaml (có dấu so với có dấu; không dấu so với đã bỏ dấu; nguyên từ).
-version: "2026-11-17"
+version: "2026-11-18"
 
 # Hỏi tư vấn chuyên môn: chẩn đoán, thuốc, kê đơn, chỉ định xét nghiệm. Chatbot từ chối (Phạm vi §2.2). Kiểm sau dấu hiệu nguy hiểm.
 medical_advice:
@@ -35,6 +35,8 @@ help:
 # Intent → cụm từ. Thứ tự là thứ tự ưu tiên khi một câu khớp nhiều intent.
 intents:
   SUGGEST_SPECIALTY: [khám khoa nào, khoa nào, chuyên khoa nào, nên khám ở đâu, nên khám gì]
+  # Đứng trước VIEW_APPOINTMENTS: "xem lịch sử khám" chứa "xem lịch".
+  VIEW_VISIT_HISTORY: [lịch sử khám, lần khám trước, lần khám gần nhất, các lần khám, những lần khám, khám lần trước, đã khám những gì, hồ sơ khám, bệnh án]
   CANCEL: [hủy lịch, huỷ lịch, hủy hẹn, huỷ hẹn, hủy cái hẹn, huỷ cái hẹn, bỏ lịch, bỏ hẹn, bỏ cái hẹn, không đi khám nữa]
   RESCHEDULE: [đổi lịch, dời lịch, chuyển lịch, đổi ngày khám, đổi bác sĩ, dời buổi khám, dời ngày khám, dời giúp, hoãn lịch, sang hôm khác]
   VIEW_TICKET: [xem vé, vé khám, số thứ tự, mã lịch hẹn, mã đặt lịch, mã để đi khám, mã đi khám, mã khám]
@@ -50,7 +52,7 @@ templates:
     Mình có thể gợi ý chuyên khoa để bạn đặt lịch, hoặc giúp tìm lịch khám.
   help: >-
     Mình giúp được: tìm và đặt lịch khám, xem, đổi hoặc hủy lịch, xem vé, xem trạng thái thanh toán phí khám,
-    và gợi ý chuyên khoa tham khảo khi bạn chưa biết nên khám khoa nào.
+    xem tóm tắt các lần khám trước, và gợi ý chuyên khoa tham khảo khi bạn chưa biết nên khám khoa nào.
   specialty_ask: >-
     Bạn mô tả giúp mình triệu chứng hoặc vị trí khó chịu (ví dụ: đau bụng trên mấy hôm nay), mình sẽ gợi ý chuyên khoa tham khảo.
   specialty_match: "Theo mô tả của bạn, bạn có thể tham khảo: {names}."
@@ -78,6 +80,12 @@ templates:
     Để {action}, bạn mở mục Lịch của tôi trên web bệnh nhân và chọn lịch tương ứng. Chatbot sẽ hỗ trợ {action}
     bằng thẻ xác nhận khi chức năng này hoàn thiện.
   change_none: "Hồ sơ này không có lịch hẹn nào còn {action} được."
+  visits_header: "Các lần khám gần đây của hồ sơ này:"
+  visits_none: "Hồ sơ này chưa có lần khám nào tại bệnh viện."
+  visits_hint: "Chẩn đoán, đơn thuốc và kết quả cận lâm sàng bạn xem ở mục Hồ sơ khám trên web bệnh nhân."
+  visits_not_verified: >-
+    Hồ sơ này chưa được xác minh danh tính nên chưa xem được lịch sử khám. Bạn mang giấy tờ tùy thân tới quầy tiếp tân
+    để xác minh, sau đó xem được ở đây và ở mục Hồ sơ khám.
 
 # Nhãn hiển thị cho trạng thái do API .NET trả về; trạng thái lạ hiển thị nguyên mã.
 status_labels:
@@ -87,6 +95,12 @@ status_labels:
   Cancelled: đã hủy
   Absent: vắng mặt
   Rescheduled: đã đổi lịch
+visit_status_labels:
+  InProgress: đang khám
+  WaitingCLS: đang chờ kết quả cận lâm sàng
+  ReturningDoctor: đang quay lại gặp bác sĩ
+  Completed: đã khám xong
+  Abandoned: không hoàn tất
 refund_status_labels:
   Pending: chờ duyệt
   Approved: đã duyệt, nhận tiền mặt tại quầy tiếp tân
