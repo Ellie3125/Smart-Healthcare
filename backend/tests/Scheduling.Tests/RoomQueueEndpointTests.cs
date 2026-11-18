@@ -99,6 +99,48 @@ public sealed class RoomQueueEndpointTests
         }
     }
 
+    [Fact]
+    public async Task My_rooms_follow_the_same_room_rules_as_the_staff_queue()
+    {
+        var ct = TestContext.Current.CancellationToken;
+        var reader = new Reader();
+        var builder = SchedulingEndpointTestSetup.CreateBuilder();
+        builder.Services.AddSingleton<IRoomQueueReader>(reader);
+        builder.Services.AddSingleton<IDbClock>(new DoctorSearchTests.FakeDbClock(new DateTime(2026, 11, 16, 17, 30, 0, DateTimeKind.Utc)));
+        var identity = DispatchProxy.Create<IIdentityPatientsModule, NurseDirectory>();
+        ((NurseDirectory)(object)identity).RoomId = reader.RoomId;
+        builder.Services.AddSingleton(identity);
+        await using var app = builder.Build();
+        app.MapSchedulingRoomQueueEndpoints();
+        await app.StartAsync(ct);
+        using var client = new HttpClient { BaseAddress = new Uri(app.Urls.Single()) };
+        async Task<Guid[]> RoomsAsync()
+        {
+            using var response = await client.GetAsync("/api/scheduling/staff/my-rooms", ct);
+            Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+            using var json = JsonDocument.Parse(await response.Content.ReadAsStringAsync(ct));
+            return json.RootElement.EnumerateArray().Select(r => r.GetProperty("roomId").GetGuid()).ToArray();
+        }
+
+        Authorize(client, app.Configuration, Roles.Doctor, Channels.Staff, doctor: reader.DoctorId);
+        Assert.Equal([reader.RoomId], await RoomsAsync());
+        Authorize(client, app.Configuration, Roles.Doctor, Channels.Staff, doctor: Guid.NewGuid());
+        Assert.Empty(await RoomsAsync());
+        Authorize(client, app.Configuration, Roles.Nurse, Channels.Staff);
+        Assert.Equal([reader.RoomId], await RoomsAsync());
+        Authorize(client, app.Configuration, Roles.Receptionist, Channels.Staff);
+        Assert.Equal(2, (await RoomsAsync()).Length);
+        var own = Guid.NewGuid();
+        Authorize(client, app.Configuration, Roles.RoomAccount, Channels.Staff, room: own);
+        Assert.Equal([own], await RoomsAsync());
+        foreach (var (role, channel) in new[] { (Roles.Admin, Channels.Staff), (Roles.Nurse, Channels.Patient) })
+        {
+            Authorize(client, app.Configuration, role, channel);
+            using var forbidden = await client.GetAsync("/api/scheduling/staff/my-rooms", ct);
+            Assert.Equal(HttpStatusCode.Forbidden, forbidden.StatusCode);
+        }
+    }
+
     private static void Authorize(HttpClient client, IConfiguration config, string role, string channel,
         Guid? room = null, Guid? doctor = null)
     {
@@ -119,12 +161,19 @@ public sealed class RoomQueueEndpointTests
             Task.FromResult<RoomQueuePage?>(doctorId is not null && (doctorId != DoctorId || roomId != RoomId)
                 ? null : new(new(2026, 11, 17), page, pageSize, false, []));
         public Task<PublicRoomDisplay> GetPublicAsync(Guid roomId, CancellationToken ct) => Task.FromResult(new PublicRoomDisplay([new("Q-007", 7)]));
+        public Guid OtherRoomId { get; } = Guid.NewGuid();
+        public Task<IReadOnlyList<Guid>> GetTodayRoomIdsAsync(Guid? doctorId, CancellationToken ct) =>
+            Task.FromResult<IReadOnlyList<Guid>>(doctorId is null ? [RoomId, OtherRoomId] : doctorId == DoctorId ? [RoomId] : []);
     }
 
     public class NurseDirectory : DispatchProxy
     {
         public Guid RoomId { get; set; }
-        protected override object? Invoke(MethodInfo? method, object?[]? args) => method!.Name == nameof(IIdentityPatientsModule.IsNurseOnDutyAsync)
-            ? Task.FromResult((Guid)args![1]! == RoomId) : throw new NotSupportedException();
+        protected override object? Invoke(MethodInfo? method, object?[]? args) => method!.Name switch
+        {
+            nameof(IIdentityPatientsModule.IsNurseOnDutyAsync) => Task.FromResult((Guid)args![1]! == RoomId),
+            nameof(IIdentityPatientsModule.GetRoomsAsync) => Task.FromResult<IReadOnlyList<RoomDto>>([new(RoomId, "P1", "Phòng 1", "Consultation", true)]),
+            _ => throw new NotSupportedException(),
+        };
     }
 }

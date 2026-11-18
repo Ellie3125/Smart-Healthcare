@@ -25,6 +25,14 @@ internal sealed class SqlRoomQueueReader(SchedulingDbContext db, IDbClock clock)
         return new(today, page, pageSize, rows.Count > pageSize, rows.Take(pageSize).ToArray());
     }
 
+    public async Task<IReadOnlyList<Guid>> GetTodayRoomIdsAsync(Guid? doctorId, CancellationToken ct)
+    {
+        var today = DateOnly.FromDateTime((await clock.GetUtcNowAsync(ct)).AddHours(7));
+        return await db.Set<DoctorDayQuota>().AsNoTracking()
+            .Where(q => q.ServiceDate == today && (doctorId == null || q.DoctorId == doctorId))
+            .Select(q => q.AssignedRoomId).Distinct().ToListAsync(ct);
+    }
+
     public async Task<PublicRoomDisplay> GetPublicAsync(Guid roomId, CancellationToken ct)
     {
         var today = DateOnly.FromDateTime((await clock.GetUtcNowAsync(ct)).AddHours(7));

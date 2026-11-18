@@ -6,6 +6,7 @@ import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import { staffApiMock } from './staffTestFixtures';
 import { ToastProvider } from '../shared/ui';
 import { SessionReplacedPage } from '../pages/common/SessionReplacedPage';
+import { NurseQueuePage } from '../pages/nurse/NurseQueuePage';
 import { DoctorDayQuotasPage } from '../pages/admin/DoctorDayQuotasPage';
 import { PaymentReconcilePage } from '../pages/admin/PaymentReconcilePage';
 import { AuditLogsPage } from '../pages/admin/AuditLogsPage';
@@ -110,6 +111,13 @@ describe('Staff Web', () => {
     }));
     fireEvent.click(screen.getByRole('button', { name: /^Xác nhận$/i }));
     expect(await screen.findByText(/Xung đột phiên bản dữ liệu \(409\)/i)).toBeInTheDocument();
+  });
+
+  it('NU01: lists the nurse room queue and calls the next patient through the room', async () => {
+    renderStaff(<NurseQueuePage />);
+    expect(await screen.findByText(/bệnh nhân trong hàng chờ/i)).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: /Gọi người tiếp theo/i }));
+    expect(await screen.findByText(/Đã gọi vé .* vào bàn sinh hiệu/i)).toBeInTheDocument();
   });
 
   it('DR01, DR06, DR07, DR10: dual queues with single Call Next buttons, no drug stock UI, 409 conflict dialog', async () => {

@@ -1,6 +1,6 @@
 # Contract module Scheduling
 
-- contract_version: **v0.14** (Draft, chờ trưởng nhóm duyệt; v0.4 Approved 12/11/2026)
+- contract_version: **v0.15** (Draft, chờ trưởng nhóm duyệt; v0.4 Approved 12/11/2026)
 - Trạng thái: **Approved** (H-02, trưởng nhóm duyệt 10/11/2026). Q1 đã chốt 17/11/2026; Q2–Q5 ở §6 vẫn là đề xuất cho tới khi trưởng nhóm chốt từng câu.
 - Người giữ: theo ownership.md mục 1. Task: W1-04.
 - Mã nguồn: `backend/src/Modules/Scheduling/Scheduling.Contracts/` (in-process), `Scheduling.Api/` (HTTP).
@@ -223,6 +223,10 @@ Bốn route chỉ map ở Development; policy `PatientOnly`. Thứ tự gọi c�
 - RoomAccount chỉ xem đúng `RoomId` trong token; Doctor chỉ xem phòng mình được phân công hôm nay; Nurse chỉ xem phòng mình đang trực theo giờ DB (`IsNurseOnDutyAsync`) và chỉ hàng chờ của ngày Việt Nam hiện tại; sai → 403. `page` 1..1000, `pageSize` 1..100; sai → 400 `InvalidInput`.
 - 200 `{ serviceDate, page, pageSize, hasMore, items }`; item `{ queueTicketId, ticketNumber, sequenceNumber, ticketType, queueStatus, targetStationId?, calledAtUtc?, encounterId?, serviceOrderItemId?, patientName }`; `patientName` lấy theo lô qua `IClinicalModule.GetQueuePatientContextsAsync` rồi IdentityPatients, rỗng khi vé chưa có lượt khám; chỉ vé `Waiting`, `Called`, `Deferred`, `InProgress`, theo thứ tự phát vé.
 
+`GET /api/scheduling/staff/my-rooms` — kênh Staff (Receptionist, Nurse, Doctor, RoomAccount)
+
+- 200 `[{ roomId, roomName }]`: phòng người gọi được xem hàng chờ hôm nay theo giờ DB, cùng luật với route hàng chờ ở trên: RoomAccount theo `RoomId` trong token, Doctor theo phân công ngày, Nurse theo ca trực, Receptionist mọi phòng có phiên. Không có phòng → `[]`. Vai trò khác hoặc kênh khác → 403.
+
 `GET /api/scheduling/public/display?roomId=` — ẩn danh (màn hình chờ)
 
 - 200 `{ tickets: [{ ticketNumber, sequenceNumber }] }`: vé đang `Called`/`InProgress` của phòng, mới nhất trước. Chỉ số vé (`ticketNumber`, `sequenceNumber`), không PII; không thêm trường của hàng chờ nhân viên. `roomId` thiếu hoặc sai → 400 `InvalidInput`.
@@ -353,3 +357,4 @@ Chỉ route và mục đích, để UI (W2-09) mock trước. Body, mã lỗi v�
 | v0.12 | 18/11/2026 | §4.7: `cancellation-preview` (bệnh nhân), tiếp tân hủy `POST /staff/appointments/{id}/cancel` (CheckedIn hủy vé chờ, mã `PatientInService`); `GET /staff/doctors` (Q2 chốt); hoàn tiền chỉ tại quầy (Phạm vi v2.13); bỏ route riêng `reschedule-options`, `ticket` |
 | v0.13 | 18/11/2026 | §4.8: vé của bác sĩ/phòng CLS nối tiến trình Clinical cùng transaction; khám xong vé cuối kết thúc lượt khám (cần bệnh án đã phát hành, 409 `RecordNotPublished`) |
 | v0.14 | 18/11/2026 | §4.6 hàng chờ phòng: thêm `encounterId`, `serviceOrderItemId`, `patientName`; Nurse kiểm đúng ca/phòng và ngày hiện tại (403); màn hình chờ giữ DTO chỉ số vé. `ISchedulingModule.GetPatientJourneyAsync` (chỉ đọc, bên gọi kiểm quyền) cho hành trình bệnh nhân hôm nay |
+| v0.15 | 18/11/2026 | §4.6 thêm `GET /staff/my-rooms` để web nhân viên biết phòng làm việc hôm nay |

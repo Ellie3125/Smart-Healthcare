@@ -590,8 +590,60 @@ class StaffApiMock {
     }
 
     // Nurse queue & vitals
+    // Dạng Backend: phòng hôm nay, hàng chờ phòng (Scheduling §4.6, §4.8) và hàng chờ điều dưỡng (envelope).
+    if (pathname === '/api/scheduling/staff/my-rooms') {
+      return { data: [{ roomId: 'room-001', roomName: 'Phòng khám P201' }] };
+    }
+    if (matchPath('/api/scheduling/staff/rooms/:roomId/queue', pathname)) {
+      const toTicket = (q: { encounterId: string; ticketNumber: string; patientName: string; status: string }, type: string) => ({
+        queueTicketId: `qt-${q.encounterId}`,
+        ticketNumber: q.ticketNumber,
+        sequenceNumber: 1,
+        ticketType: type,
+        queueStatus: q.status === 'Waiting' ? 'Waiting' : 'InProgress',
+        targetStationId: null,
+        calledAtUtc: null,
+        encounterId: q.encounterId,
+        serviceOrderItemId: null,
+        patientName: q.patientName,
+      });
+      return {
+        data: {
+          serviceDate: '2026-11-17',
+          page: 1,
+          pageSize: 100,
+          hasMore: false,
+          items: [
+            ...this.store.doctorInitialQueue.map((q) => toTicket(q, 'InitialConsultation')),
+            ...this.store.doctorClsReturnQueue.map((q) => toTicket(q, 'ReturnConsultation')),
+          ],
+        },
+      };
+    }
+    if (matchPath('/api/scheduling/staff/rooms/:roomId/call-next', pathname) && method === 'POST') {
+      const next = this.store.nurseQueue[0];
+      return { data: { queueTicketId: `qt-${next.encounterId}`, ticketNumber: next.ticketNumber, queueStatus: 'Called' } };
+    }
     if (pathname === '/api/clinical/staff/nurse/queue') {
-      return { data: this.store.nurseQueue };
+      return {
+        data: {
+          items: this.store.nurseQueue.map((n) => ({
+            encounterId: n.encounterId,
+            queueTicketId: `qt-${n.encounterId}`,
+            ticketNumber: n.ticketNumber,
+            patientName: n.patientName,
+            doctorId: 'doc-001',
+            specialtyName: n.specialtyName,
+            queueStatus: n.status,
+            encounterStatus: 'InProgress',
+            version: 'AAAAAAAAB9E=',
+            lastVitalsAtUtc: null,
+          })),
+          page: 1,
+          pageSize: 100,
+          hasMore: false,
+        },
+      };
     }
 
     const nurseVitalsMatch = matchPath('/api/clinical/staff/nurse/encounters/:encounterId/vitals', pathname);
@@ -615,15 +667,6 @@ class StaffApiMock {
     }
 
     // Doctor queues & workspace
-    if (pathname === '/api/clinical/staff/doctor/queues') {
-      return {
-        data: {
-          initialQueue: this.store.doctorInitialQueue,
-          clsReturnQueue: this.store.doctorClsReturnQueue,
-          activeEncounterId: 'enc-doc-1',
-        },
-      };
-    }
 
     const docWsMatch = matchPath('/api/clinical/staff/doctor/encounters/:encounterId', pathname);
     if (docWsMatch && method === 'GET') {

@@ -34,14 +34,12 @@ export const RoomPage: React.FC = () => {
 
   const actionMutation = useMutation({
     mutationFn: ({
-      orderItemId,
+      queueTicketId,
       action,
-      version,
     }: {
-      orderItemId: string;
+      queueTicketId: string;
       action: 'Call' | 'ConfirmPresence' | 'Defer' | 'Start' | 'FinishProcedure';
-      version: number;
-    }) => clinicalStaffApi.roomQueueAction(orderItemId, action, version),
+    }) => clinicalStaffApi.roomQueueAction(queueTicketId, action),
     onSuccess: () => {
       pushToast('Đã cập nhật trạng thái thực hiện kỹ thuật.', 'success');
       queryClient.invalidateQueries({ queryKey: ['staff', 'room-queue'] });
@@ -86,6 +84,17 @@ export const RoomPage: React.FC = () => {
         </Card>
       </div>
 
+      <div className="flex justify-end">
+        <Button
+          variant="secondary"
+          leftIcon={<PhoneCall className="h-4 w-4" />}
+          loading={actionMutation.isPending}
+          onClick={() => actionMutation.mutate({ queueTicketId: '', action: 'Call' })}
+        >
+          Gọi người tiếp theo
+        </Button>
+      </div>
+
       <Banner tone="info">
         Mỗi phòng CLS chỉ duy trì một phiên thiết bị đăng nhập. Nếu bị đăng nhập nơi khác, hệ thống sẽ tự dừng thao tác hiện tại.
       </Banner>
@@ -96,7 +105,7 @@ export const RoomPage: React.FC = () => {
         <ErrorState message={extractFriendlyError(query.error).message} onRetry={() => query.refetch()} />
       ) : (
         <DataTable
-          rowKey={(r) => r.orderItemId}
+          rowKey={(r) => r.queueTicketId ?? r.orderItemId}
           rows={query.data ?? []}
           empty={<EmptyState title="Hàng đợi phòng CLS đang trống" />}
           columns={[
@@ -116,8 +125,8 @@ export const RoomPage: React.FC = () => {
               header: 'Dịch vụ CLS & BS đọc KQ',
               render: (r) => (
                 <div>
-                  <p className="font-semibold">{r.serviceName}</p>
-                  <p className="text-xs text-[#44544c]">{r.serviceCode} • {r.readingDoctorName}</p>
+                  <p className="font-semibold">{r.serviceName || 'Dịch vụ CLS'}</p>
+                  
                 </div>
               ),
             },
@@ -128,23 +137,13 @@ export const RoomPage: React.FC = () => {
               header: 'Điều phối & Kết quả',
               render: (r) => (
                 <div className="flex flex-wrap gap-1.5">
-                  {r.queueStatus === 'Waiting' ? (
-                    <Button
-                      size="sm"
-                      variant="secondary"
-                      leftIcon={<PhoneCall className="h-3.5 w-3.5" />}
-                      onClick={() => actionMutation.mutate({ orderItemId: r.orderItemId, action: 'Call', version: r.version })}
-                    >
-                      Gọi lượt
-                    </Button>
-                  ) : null}
                   {r.queueStatus === 'Called' ? (
                     <>
                       <Button
                         size="sm"
                         variant="primary"
                         leftIcon={<Play className="h-3.5 w-3.5" />}
-                        onClick={() => actionMutation.mutate({ orderItemId: r.orderItemId, action: 'ConfirmPresence', version: r.version })}
+                        onClick={() => actionMutation.mutate({ queueTicketId: r.queueTicketId!, action: 'ConfirmPresence' })}
                       >
                         Bắt đầu làm
                       </Button>
@@ -152,7 +151,7 @@ export const RoomPage: React.FC = () => {
                         size="sm"
                         variant="outline"
                         leftIcon={<Clock className="h-3.5 w-3.5" />}
-                        onClick={() => actionMutation.mutate({ orderItemId: r.orderItemId, action: 'Defer', version: r.version })}
+                        onClick={() => actionMutation.mutate({ queueTicketId: r.queueTicketId!, action: 'Defer' })}
                       >
                         Hoãn lượt
                       </Button>
@@ -163,7 +162,7 @@ export const RoomPage: React.FC = () => {
                       size="sm"
                       variant="primary"
                       leftIcon={<CheckCircle2 className="h-3.5 w-3.5" />}
-                      onClick={() => actionMutation.mutate({ orderItemId: r.orderItemId, action: 'FinishProcedure', version: r.version })}
+                      onClick={() => actionMutation.mutate({ queueTicketId: r.queueTicketId!, action: 'FinishProcedure' })}
                     >
                       Xong kỹ thuật
                     </Button>

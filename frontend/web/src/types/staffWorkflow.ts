@@ -303,6 +303,7 @@ export interface DoctorEncounterWorkspaceDto {
 // CLS Room DTOs
 export interface ClsRoomQueueItem {
   orderItemId: string;
+  queueTicketId?: string;
   ticketNumber: string;
   patientName: string;
   serviceCode: string;
