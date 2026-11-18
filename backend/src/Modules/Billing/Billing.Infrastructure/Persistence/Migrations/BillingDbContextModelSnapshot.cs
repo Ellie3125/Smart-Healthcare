@@ -110,6 +110,61 @@ namespace Billing.Infrastructure.Persistence.Migrations
                         });
                 });
 
+            modelBuilder.Entity("Billing.Domain.Entities.CashierShiftClosure", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<decimal>("ActualCashCounted")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<Guid>("CashierUserId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTime>("ClosedAtUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("Currency")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("nvarchar(64)");
+
+                    b.Property<string>("DiscrepancyNote")
+                        .HasMaxLength(500)
+                        .HasColumnType("nvarchar(500)");
+
+                    b.Property<decimal>("ExpectedCashCollected")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<decimal>("ExpectedCashRefunded")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<int>("ReceiptCount")
+                        .HasColumnType("int");
+
+                    b.Property<int>("RefundCount")
+                        .HasColumnType("int");
+
+                    b.Property<DateOnly>("ShiftDate")
+                        .HasColumnType("date");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("CashierUserId", "ShiftDate")
+                        .IsUnique();
+
+                    b.ToTable("CashierShiftClosure", "billing", t =>
+                        {
+                            t.HasCheckConstraint("CK_CashierShiftClosure_Amounts", "[ExpectedCashCollected] >= 0 AND [ExpectedCashRefunded] >= 0 AND [ActualCashCounted] >= 0 AND [ReceiptCount] >= 0 AND [RefundCount] >= 0");
+
+                            t.HasCheckConstraint("CK_CashierShiftClosure_DiscrepancyNote", "[ActualCashCounted] = [ExpectedCashCollected] - [ExpectedCashRefunded] OR ([DiscrepancyNote] IS NOT NULL AND LEN(LTRIM(RTRIM([DiscrepancyNote]))) > 0)");
+                        });
+                });
+
             modelBuilder.Entity("Billing.Domain.Entities.PaymentAllocation", b =>
                 {
                     b.Property<Guid>("Id")
