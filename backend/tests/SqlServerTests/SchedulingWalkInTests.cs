@@ -109,6 +109,7 @@ public sealed partial class SchedulingHoldTests
         try
         {
             var request = new WalkInRequest(Guid.NewGuid(), day.DoctorId, actor, Key());
+            ((WalkInIdentity)services.GetRequiredService<IIdentityPatientsModule>()).DisplayRoom = day.AssignedRoomId;
             var concurrent = await Task.WhenAll(RegisterWalkInAsync(services, request), RegisterWalkInAsync(services, request));
             var result = concurrent[0];
             Assert.Equal(result, concurrent[1]);
@@ -118,6 +119,7 @@ public sealed partial class SchedulingHoldTests
             Assert.Equal((PaymentExamFee, "VND", false), (result.Receipt!.Amount, result.Receipt.Currency, result.Receipt.AlreadyCollected));
             Assert.Equal(1, result.CheckIn!.SequenceNumber);
             Assert.False(result.CheckIn.AlreadyCheckedIn);
+            Assert.Equal("P101-001", result.CheckIn.DisplayNumber);
             Assert.Equal(result, await RegisterWalkInAsync(services, request));
             Assert.Equal(WalkInResult.IdempotencyConflict, (await RegisterWalkInAsync(services, request with { PatientId = Guid.NewGuid() })).Result);
             Assert.Equal(1, await CountAsync($"SELECT COUNT(*) FROM billing.PaymentIntent WHERE BookingAttemptId = '{result.BookingAttemptId}' AND Provider = 'Counter' AND Status = 'Succeeded'"));
@@ -193,7 +195,10 @@ public sealed partial class SchedulingHoldTests
     }
     public class WalkInIdentity : DispatchProxy
     {
-        protected override object? Invoke(MethodInfo? method, object?[]? args) => method?.Name == "GetDoctorAsync"
+        public Guid DisplayRoom { get; set; }
+        protected override object? Invoke(MethodInfo? method, object?[]? args) => method?.Name == "GetRoomsAsync"
+            ? Task.FromResult<IReadOnlyList<RoomDto>>([new(DisplayRoom, "P101", "Test", "Clinical", true)])
+            : method?.Name == "GetDoctorAsync"
             ? Task.FromResult<DoctorDto?>(new((Guid)args![0]!, $"Walkin-{(Guid)args[0]!:N}", Guid.NewGuid(), "TEST", Guid.NewGuid(), "BS", true))
             : throw new NotSupportedException(method?.Name);
     }

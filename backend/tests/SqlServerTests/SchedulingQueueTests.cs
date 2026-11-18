@@ -324,6 +324,7 @@ public sealed partial class SchedulingHoldTests
         protected override object? Invoke(MethodInfo? method, object?[]? args) => method?.Name switch
         {
             "GetDoctorAsync" => Task.FromResult<DoctorDto?>(new((Guid)args![0]!, "BS Test", Guid.NewGuid(), "TEST", Guid.NewGuid(), "BS", true)),
+            "GetRoomsAsync" => Task.FromResult<IReadOnlyList<RoomDto>>([]),
             "GetRoomAsync" => Task.FromResult<RoomDto?>(new((Guid)args![0]!, "PT", "Phòng thử", "Clinical", true)),
             _ => throw new NotSupportedException(method?.Name),
         };

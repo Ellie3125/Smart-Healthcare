@@ -5,6 +5,7 @@ using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Routing;
 using Scheduling.Application.Queues;
+using Scheduling.Contracts;
 using Microsoft.Extensions.DependencyInjection;
 
 namespace Scheduling.Api;
@@ -19,14 +20,19 @@ internal static class QueueEndpoints
     public static void MapQueueEndpoints(this RouteGroupBuilder scheduling)
     {
         scheduling.MapGet("/staff/rooms/{roomId:guid}/pending-results", async (Guid roomId, int? page, int? pageSize,
-            ClaimsPrincipal user, [FromServices] IClsPendingResultReader reader, CancellationToken ct) =>
+            ClaimsPrincipal user, [FromServices] IClsPendingResultReader reader, [FromServices] IIdentityPatientsModule identity, CancellationToken ct) =>
         {
             if (!Guid.TryParse(user.FindFirstValue(AppClaims.RoomId), out var room) || room == Guid.Empty || room != roomId)
                 return (IResult)TypedResults.Forbid();
             var number = page ?? 1; var size = pageSize ?? 50;
             if (number < 1 || size is < 1 or > 100 || number > int.MaxValue / size)
                 return Problem(QueueResult.InvalidInput);
-            return TypedResults.Ok(await reader.ListAsync(roomId, number, size, ct));
+            var result = await reader.ListAsync(roomId, number, size, ct);
+            var roomNumber = (await identity.GetRoomsAsync(ct: ct)).SingleOrDefault(r => r.Id == roomId)?.Code;
+            return TypedResults.Ok(result with { Items = result.Items.Select(t => t with
+            {
+                DisplayNumber = TicketDisplayNumber.Format(roomNumber, "CLS", t.SequenceNumber)
+            }).ToArray() });
         }).RequireAuthorization(Policies.RoomAccountOnly)
             .WithSummary("Vé CLS khám xong, chưa phát hành kết quả của phòng (RoomAccount)")
             .Produces<ClsPendingResultPage>().ProducesProblem(400).ProducesProblem(403);
@@ -55,21 +61,21 @@ internal static class QueueEndpoints
             .Produces<QueueTicketResponse>().Produces(StatusCodes.Status204NoContent)
             .ProducesProblem(400).ProducesProblem(403).ProducesProblem(404).ProducesProblem(409);
         staff.MapPost("/tickets/{ticketId:guid}/start", (Guid ticketId, ClaimsPrincipal user, [FromServices] QueueService queue,
-                [FromServices] IQueueStore store, CancellationToken ct) => TransitionAsync(ticketId, TicketTransition.Start, user, queue, store, ct))
+                [FromServices] IQueueStore store, [FromServices] IIdentityPatientsModule identity, CancellationToken ct) => TransitionAsync(ticketId, TicketTransition.Start, user, queue, store, identity, ct))
             .WithSummary("Bắt đầu phục vụ vé đã gọi")
             .Produces<QueueTicketResponse>().ProducesProblem(400).ProducesProblem(403).ProducesProblem(404).ProducesProblem(409);
         staff.MapPost("/tickets/{ticketId:guid}/finish", (Guid ticketId, ClaimsPrincipal user, [FromServices] QueueService queue,
-                [FromServices] IQueueStore store, CancellationToken ct) => TransitionAsync(ticketId, TicketTransition.Finish, user, queue, store, ct))
+                [FromServices] IQueueStore store, [FromServices] IIdentityPatientsModule identity, CancellationToken ct) => TransitionAsync(ticketId, TicketTransition.Finish, user, queue, store, identity, ct))
             .WithSummary("Khám xong: giải phóng bệnh nhân và vị trí")
             .Produces<QueueTicketResponse>().ProducesProblem(400).ProducesProblem(403).ProducesProblem(404).ProducesProblem(409);
         staff.MapPost("/tickets/{ticketId:guid}/requeue", (Guid ticketId, ClaimsPrincipal user, [FromServices] QueueService queue,
-                [FromServices] IQueueStore store, CancellationToken ct) => TransitionAsync(ticketId, TicketTransition.Requeue, user, queue, store, ct))
+                [FromServices] IQueueStore store, [FromServices] IIdentityPatientsModule identity, CancellationToken ct) => TransitionAsync(ticketId, TicketTransition.Requeue, user, queue, store, identity, ct))
             .WithSummary("Gọi không có mặt: trả vé về hàng chờ, giữ số gốc")
             .Produces<QueueTicketResponse>().ProducesProblem(400).ProducesProblem(403).ProducesProblem(404).ProducesProblem(409);
     }
 
     private static async Task<IResult> CallNextAsync(Guid roomId, ClaimsPrincipal user, HttpRequest request,
-        [FromServices] QueueService queue, [FromServices] IQueueStore store, CancellationToken ct)
+        [FromServices] QueueService queue, [FromServices] IQueueStore store, [FromServices] IIdentityPatientsModule identity, CancellationToken ct)
     {
         if (!TryGetActor(user, out var userId))
             return TypedResults.Forbid();
@@ -90,11 +96,11 @@ internal static class QueueEndpoints
         }
 
         var outcome = await queue.CallNextAsync(new CallNext(roomId, stationId, userId), ct);
-        return outcome.Result == QueueResult.QueueEmpty ? TypedResults.NoContent() : ToResult(outcome);
+        return outcome.Result == QueueResult.QueueEmpty ? TypedResults.NoContent() : await ToResultAsync(outcome, identity, ct);
     }
 
     private static async Task<IResult> TransitionAsync(Guid ticketId, TicketTransition transition, ClaimsPrincipal user,
-        QueueService queue, IQueueStore store, CancellationToken ct)
+        QueueService queue, IQueueStore store, IIdentityPatientsModule identity, CancellationToken ct)
     {
         if (!TryGetActor(user, out var userId))
             return TypedResults.Forbid();
@@ -102,12 +108,12 @@ internal static class QueueEndpoints
         if (room == Guid.Empty)
             return TypedResults.Forbid();
         var command = new TicketCommand(ticketId, userId, room);
-        return ToResult(transition switch
+        return await ToResultAsync(transition switch
         {
             TicketTransition.Start => await queue.StartAsync(command, ct),
             TicketTransition.Finish => await queue.FinishAsync(command, ct),
             _ => await queue.RequeueAsync(command, ct),
-        });
+        }, identity, ct);
     }
 
     // Kênh Staff và vai trò được gọi số. Tiếp tân, admin không thao tác hàng đợi phòng.
@@ -134,13 +140,17 @@ internal static class QueueEndpoints
         return null;
     }
 
-    private static IResult ToResult(QueueOutcome outcome) => outcome switch
+    private static async Task<IResult> ToResultAsync(QueueOutcome outcome, IIdentityPatientsModule identity, CancellationToken ct)
     {
-        { Result: QueueResult.Called, Ticket: { } t } => TypedResults.Ok(new QueueTicketResponse(t.QueueTicketId, t.TicketNumber,
-            t.SequenceNumber, t.TicketType, t.QueueStatus, t.TargetRoomId, t.StationId, t.CalledAtUtc, outcome.AlreadyCalled)),
-        { Result: QueueResult.WrongRoom } => TypedResults.Forbid(),
-        _ => Problem(outcome.Result),
-    };
+        if (outcome is { Result: QueueResult.Called, Ticket: { } t })
+        {
+            var roomNumber = (await identity.GetRoomsAsync(ct: ct)).SingleOrDefault(r => r.Id == t.TargetRoomId)?.Code;
+            return TypedResults.Ok(new QueueTicketResponse(t.QueueTicketId, t.TicketNumber, t.SequenceNumber, t.TicketType,
+                t.QueueStatus, t.TargetRoomId, t.StationId, t.CalledAtUtc, outcome.AlreadyCalled,
+                TicketDisplayNumber.Format(roomNumber, t.TicketType, t.SequenceNumber)));
+        }
+        return outcome.Result == QueueResult.WrongRoom ? TypedResults.Forbid() : Problem(outcome.Result);
+    }
 
     private static IResult Problem(QueueResult result) => TypedResults.Problem(statusCode: result switch
     {
@@ -153,5 +163,5 @@ internal static class QueueEndpoints
 
     /// <param name="AlreadyCalled">Lệnh lặp: station đã có vé này (bấm gọi hai lần) hoặc vé đã ở trạng thái đích.</param>
     private sealed record QueueTicketResponse(Guid QueueTicketId, string TicketNumber, int SequenceNumber, string TicketType,
-        string QueueStatus, Guid TargetRoomId, Guid? StationId, DateTime? CalledAtUtc, bool AlreadyCalled);
+        string QueueStatus, Guid TargetRoomId, Guid? StationId, DateTime? CalledAtUtc, bool AlreadyCalled, string? DisplayNumber);
 }

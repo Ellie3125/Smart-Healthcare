@@ -51,8 +51,10 @@ public sealed partial class SchedulingHoldTests
         try
         {
             var a = await BookedAsync(services, day);
+            ((AttendanceIdentity)services.GetRequiredService<IIdentityPatientsModule>()).DisplayRoom = day.AssignedRoomId;
             var results = await Task.WhenAll(CheckInAsync(services, a.AppointmentId), CheckInAsync(services, a.AppointmentId));
             Assert.Single(results, x => !x.AlreadyCheckedIn);
+            Assert.All(results, r => Assert.Equal("P101-001", r.DisplayNumber));
             Assert.Equal(results[0].QueueTicketId, results[1].QueueTicketId);
             Assert.Equal(results[0].EncounterId, results[1].EncounterId);
             Assert.Equal(1, await CountAsync($"SELECT COUNT(*) FROM clinical.Encounter WHERE AppointmentId = '{a.AppointmentId}'"));
@@ -346,7 +348,10 @@ public sealed partial class SchedulingHoldTests
 
     public class AttendanceIdentity : DispatchProxy
     {
-        protected override object? Invoke(MethodInfo? method, object?[]? args) => method?.Name == "GetDoctorAsync"
+        public Guid DisplayRoom { get; set; }
+        protected override object? Invoke(MethodInfo? method, object?[]? args) => method?.Name == "GetRoomsAsync"
+            ? Task.FromResult<IReadOnlyList<RoomDto>>([new(DisplayRoom, "P101", "Test", "Clinical", true)])
+            : method?.Name == "GetDoctorAsync"
             ? Task.FromResult<DoctorDto?>(new((Guid)args![0]!, "BS Test", Guid.NewGuid(), "TEST", Guid.NewGuid(), "BS", true))
             : throw new NotSupportedException(method?.Name);
     }

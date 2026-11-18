@@ -4,7 +4,7 @@ public sealed record StaffListPage<T>(IReadOnlyList<T> Items, int Page, int Page
 public sealed record NurseEncounterContext(Guid EncounterId, Guid PatientId, Guid DoctorId, string SpecialtyName,
     string EncounterStatus, string Version, DateTime? LastVitalsAtUtc);
 public sealed record NurseQueueItem(Guid EncounterId, Guid QueueTicketId, string TicketNumber, string PatientName,
-    Guid DoctorId, string SpecialtyName, string Status, string EncounterStatus, string Version, DateTime? LastVitalsAtUtc);
+    Guid DoctorId, string SpecialtyName, string Status, string EncounterStatus, string Version, DateTime? LastVitalsAtUtc, string? DisplayNumber = null);
 public sealed record DoctorRecordItem(Guid Id, Guid PatientId, string PatientName, DateOnly ServiceDate,
     string Diagnosis, string Status);
 

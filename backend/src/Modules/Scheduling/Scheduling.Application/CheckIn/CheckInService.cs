@@ -43,7 +43,9 @@ public sealed class CheckInService(ICheckInStore store, IUnitOfWork uow, IIntegr
         // Quá hạn có thể vừa ghi Absent; trả lỗi sau commit để không rollback trạng thái đó.
         if (outcome.Error is { } error)
             throw new SchedulingException(error, "Lịch hẹn không đủ điều kiện check-in.");
-        return outcome.Result!;
+        var result = outcome.Result!;
+        var roomNumber = (await identity.GetRoomsAsync(ct: ct)).SingleOrDefault(r => r.Id == outcome.AssignedRoomId)?.Code;
+        return result with { DisplayNumber = TicketDisplayNumber.Format(roomNumber, "InitialConsultation", result.SequenceNumber) };
     }
 }
 

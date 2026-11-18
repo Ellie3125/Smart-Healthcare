@@ -5,7 +5,7 @@ using Shared.Abstractions;
 
 namespace Clinical.Application.Journey;
 
-public sealed record JourneyStep(string Id, string Title, string Location, string Status, string? QueueNumber, DateTime? UpdatedAt);
+public sealed record JourneyStep(string Id, string Title, string Location, string Status, string? QueueNumber, DateTime? UpdatedAt, string? DisplayNumber = null);
 public sealed record TodayJourneyDto(Guid PatientProfileId, string PatientName, DateOnly ServiceDate, Guid? AppointmentId,
     string? EncounterStatus, string? CurrentCallText, int UnpaidClsCount, IReadOnlyList<JourneyStep> Steps);
 
@@ -22,7 +22,8 @@ public sealed class TodayJourneyService(IIdentityPatientsModule identity, IEncou
         var encounter = await encounters.GetForPatientDayAsync(profile.PatientId, start, start.AddDays(1), ct);
         var snapshot = await scheduling.GetPatientJourneyAsync(profile.PatientId, encounter?.AppointmentId, encounter?.Id, now, ct);
         var rooms = snapshot.RoomId.HasValue || snapshot.Tickets.Count > 0
-            ? (await identity.GetRoomsAsync(ct: ct)).ToDictionary(r => r.Id, r => r.Name) : [];
+            ? (await identity.GetRoomsAsync(ct: ct)).ToDictionary(r => r.Id) : [];
+        string? Display(JourneyQueueTicket ticket) => TicketDisplayNumber.Format(rooms.GetValueOrDefault(ticket.RoomId)?.Code, ticket.TicketType, ticket.SequenceNumber);
         var charges = encounter is null ? [] : (await billing.GetEncounterCostSummaryAsync(encounter.Id, ct)).Charges;
         var unpaid = charges.Count(c => c.ChargeType == ChargeType.CLSService && c.Status is ChargeStatus.Pending or ChargeStatus.PartiallyPaid
             && c.TotalAmount > c.PaidAmount);
@@ -32,13 +33,13 @@ public sealed class TodayJourneyService(IIdentityPatientsModule identity, IEncou
         {
             "InitialConsultation" => "Khám ban đầu", "ReturnConsultation" => "Quay lại bác sĩ",
             _ => t.ServiceOrderItemId is { } id && names.TryGetValue(id, out var name) ? name : "Cận lâm sàng"
-        }, rooms.GetValueOrDefault(t.RoomId, ""), t.QueueStatus == "Finished" ? "Completed" : t.QueueStatus,
-            t.TicketNumber, t.CompletedAtUtc ?? t.ServedAtUtc ?? t.CalledAtUtc ?? t.QueuedAtUtc)).ToList();
+        }, rooms.GetValueOrDefault(t.RoomId)?.Name ?? "", t.QueueStatus == "Finished" ? "Completed" : t.QueueStatus,
+            t.TicketNumber, t.CompletedAtUtc ?? t.ServedAtUtc ?? t.CalledAtUtc ?? t.QueuedAtUtc, Display(t))).ToList();
         if (encounter is null && snapshot.AppointmentId is { } appointment && snapshot.AppointmentStatus == "Scheduled")
-            steps.Add(new("check-in-" + appointment, "Tiếp nhận tại quầy", snapshot.RoomId is { } room ? rooms.GetValueOrDefault(room, "") : "", "Waiting", null, null));
+            steps.Add(new("check-in-" + appointment, "Tiếp nhận tại quầy", snapshot.RoomId is { } room ? rooms.GetValueOrDefault(room)?.Name ?? "" : "", "Waiting", null, null));
         var called = snapshot.Tickets.Where(t => t.QueueStatus == "Called").OrderByDescending(t => t.CalledAtUtc).ThenBy(t => t.QueueTicketId).FirstOrDefault();
-        var callText = called is null ? null : "Đang gọi số " + called.TicketNumber
-            + (rooms.TryGetValue(called.RoomId, out var location) ? " tại " + location : "");
+        var callText = called is null ? null : "Đang gọi số " + (Display(called) ?? called.TicketNumber)
+            + (rooms.TryGetValue(called.RoomId, out var location) ? " tại " + location.Name : "");
         return new(profile.PatientId, profile.FullName, date, encounter?.AppointmentId ?? snapshot.AppointmentId,
             encounter?.Status.ToString(), callText, unpaid, steps);
     }

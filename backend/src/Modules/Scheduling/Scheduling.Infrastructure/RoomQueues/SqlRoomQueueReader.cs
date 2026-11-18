@@ -46,7 +46,7 @@ internal sealed class SqlRoomQueueReader(SchedulingDbContext db, IDbClock clock)
         var tickets = await TodayTickets(roomId, today)
             .Where(t => t.QueueStatus == QueueStatus.Called || t.QueueStatus == QueueStatus.InProgress)
             .OrderByDescending(t => t.CalledAtUtc ?? t.ServedAtUtc ?? t.IssuedAtUtc).ThenBy(t => t.Id)
-            .Take(100).Select(t => new PublicQueueNumber(t.TicketNumber, t.SequenceNumber)).ToListAsync(ct);
+            .Take(100).Select(t => new PublicQueueNumber(t.TicketNumber, t.SequenceNumber, null) { TicketType = t.TicketType.ToString() }).ToListAsync(ct);
         return new(tickets);
     }
 
