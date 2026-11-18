@@ -32,6 +32,7 @@ pipeline {
 
             umask 077
             cp "$ENV_SRC" "$CI_ENV"
+            chmod 600 "$CI_ENV"
             for n in api worker migrator web chatbot; do
               var="$(echo "$n" | tr '[:lower:]' '[:upper:]')_IMAGE"
               sed -i "/^${var}=/d" "$CI_ENV"
