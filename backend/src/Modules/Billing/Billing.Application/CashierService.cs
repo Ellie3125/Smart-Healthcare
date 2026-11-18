@@ -2,6 +2,7 @@ using System.Text.Json;
 using Billing.Contracts;
 using Billing.Domain.Entities;
 using Billing.Domain.Enums;
+using Shared.Abstractions;
 
 namespace Billing.Application;
 
@@ -53,7 +54,14 @@ public sealed record CashierShiftSummary(
     decimal NetCash,
     string Currency,
     IReadOnlyList<CounterReceipt> Receipts,
-    IReadOnlyList<CashRefundSlip> Refunds);
+    IReadOnlyList<CashRefundSlip> Refunds,
+    bool IsClosed = false, DateTime? ClosedAt = null, decimal? ActualCashCounted = null, string? DiscrepancyNote = null,
+    string CashierName = "")
+{
+    public decimal ExpectedCashCollected => CashCollected;
+    public decimal ExpectedCashRefunded => CashRefunded;
+    public decimal NetExpectedCash => NetCash;
+}
 
 /// <summary>
 /// Thu tiền mặt tại quầy (Giải pháp kỹ thuật v2.13 mục 5.5): phí CLS theo đợt chỉ định và phí khám của lượt đăng ký tại quầy
@@ -62,7 +70,7 @@ public sealed record CashierShiftSummary(
 /// PaymentVerified vào Outbox và AuditLog trong cùng một transaction.
 /// Với Provider = Counter, PaymentIntent.PayerAppUserId là tài khoản tiếp tân đã nhận tiền; đối soát ca dựa trên trường này.
 /// </summary>
-public sealed class CashierService(IChargeStore charges, IPaymentStore store, ICashierStore cashier, TimeProvider clock)
+public sealed class CashierService(IChargeStore charges, IPaymentStore store, ICashierStore cashier, TimeProvider clock, IDbClock? dbClock = null)
     : ICounterExamFeeCollector
 {
     public const int ListLimit = 500;
@@ -98,12 +106,21 @@ public sealed class CashierService(IChargeStore charges, IPaymentStore store, IC
         if (staffUserId == Guid.Empty)
             throw new BillingException(BillingErrorCode.InvalidRequest, "Thiếu tài khoản tiếp tân.");
 
+        return await store.InTransactionAsync(async token =>
+        {
+            var now = await OpenShiftTimeAsync(staffUserId, token);
+            return await CollectClsCoreAsync(serviceOrderId, staffUserId, clientIp, now, token);
+        }, ct);
+    }
+
+    private async Task<CashCollection> CollectClsCoreAsync(Guid serviceOrderId, Guid staffUserId, string? clientIp, DateTime now, CancellationToken ct)
+    {
+
         var items = await charges.GetClsByServiceOrderAsync(serviceOrderId, ct);
         if (items.Count == 0 || items.Any(i => i.PatientId is null || i.EncounterId is null)
             || items.Select(i => i.PatientId).Distinct().Count() != 1)
             return new CashCollection(CashCollectionOutcome.NotFound, null);
 
-        var now = clock.GetUtcNow().UtcDateTime;
         var batch = ClsBatches.Build(items, now);
         switch (batch.Status)
         {
@@ -139,6 +156,7 @@ public sealed class CashierService(IChargeStore charges, IPaymentStore store, IC
 
         return await store.InTransactionAsync(async token =>
         {
+            var now = await OpenShiftTimeAsync(command.ReceptionistAppUserId, token);
             // Cùng thứ tự khóa với PaymentService.CreateAsync: lượt đặt lịch rồi khoản thu.
             await store.LockBookingAttemptAsync(command.BookingAttemptId, token);
             var charge = (await store.LockChargesAsync([command.ChargeId], token)).SingleOrDefault();
@@ -156,7 +174,6 @@ public sealed class CashierService(IChargeStore charges, IPaymentStore store, IC
                 throw new BillingException(BillingErrorCode.ChargeNotPayable,
                     $"Lượt đặt lịch {command.BookingAttemptId} đã được thanh toán phí khám.");
 
-            var now = clock.GetUtcNow().UtcDateTime;
             var cash = await RecordCashAsync([charge], PaymentPurpose.InitialConsultation, command.PatientId, command.BookingAttemptId,
                 encounterId: null, command.ReceptionistAppUserId, now, new { bookingAttemptId = command.BookingAttemptId }, command.ClientIp,
                 token);
@@ -168,22 +185,35 @@ public sealed class CashierService(IChargeStore charges, IPaymentStore store, IC
     /// <summary>Tiền mặt tiếp tân đã thu và đã hoàn trong ngày hôm nay (giờ Việt Nam), kèm danh sách phiếu để đối chiếu.</summary>
     public async Task<CashierShiftSummary> GetTodaySummaryAsync(Guid staffUserId, CancellationToken ct)
     {
-        var now = clock.GetUtcNow().UtcDateTime;
+        var now = await NowAsync(ct);
         var from = ClsBatches.StartOfDayUtc(now);
+        var closure = await cashier.FindClosureAsync(staffUserId, DateOnly.FromDateTime(now.AddHours(7)), ct);
         var receipts = await cashier.GetReceiptsAsync(staffUserId, from, from.AddDays(1), ct);
         var refunds = await cashier.GetCashRefundsAsync(staffUserId, from, from.AddDays(1), ct);
-        var collected = receipts.Sum(r => r.Amount);
-        var refunded = refunds.Sum(r => r.Amount);
+        var collected = closure?.ExpectedCashCollected ?? receipts.Sum(r => r.Amount);
+        var refunded = closure?.ExpectedCashRefunded ?? refunds.Sum(r => r.Amount);
         return new CashierShiftSummary(
             DateOnly.FromDateTime(from + TimeSpan.FromHours(7)),
             staffUserId,
-            receipts.Count,
+            closure?.ReceiptCount ?? receipts.Count,
             collected,
             refunded,
             collected - refunded,
             BillingCurrency.Vnd,
             receipts,
-            refunds);
+            refunds, closure is not null, closure?.ClosedAtUtc, closure?.ActualCashCounted, closure?.DiscrepancyNote);
+    }
+
+    private Task<DateTime> NowAsync(CancellationToken ct) => dbClock?.GetUtcNowAsync(ct) ?? Task.FromResult(clock.GetUtcNow().UtcDateTime);
+    private async Task<DateTime> OpenShiftTimeAsync(Guid actor, CancellationToken ct)
+    {
+        var now = await NowAsync(ct);
+        var date = DateOnly.FromDateTime(now.AddHours(7));
+        await cashier.EnsureShiftOpenAsync(actor, date, ct);
+        now = await NowAsync(ct);
+        if (DateOnly.FromDateTime(now.AddHours(7)) != date)
+            throw new BillingException(BillingErrorCode.CashierShiftDateChanged, "Ngày thu ngân đã đổi; vui lòng gửi lại.");
+        return now;
     }
 
     private sealed record RecordedCash(string ReceiptNumber, Guid PaymentIntentId, decimal Amount, int CancelledOnlineRequests);
@@ -254,7 +284,7 @@ public sealed class CashierService(IChargeStore charges, IPaymentStore store, IC
             patientId,
             chargeIds = ids,
             cancelledOnlineIntentIds = open.Select(o => o.Intent.Id).ToList(),
-        }), clientIp, token);
+        }), clientIp, token, now);
 
         return new RecordedCash(receiptNumber, intent.Id, amount, open.Count);
     }

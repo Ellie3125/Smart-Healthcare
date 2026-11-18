@@ -4,18 +4,41 @@ using Billing.Domain.Enums;
 using Microsoft.EntityFrameworkCore;
 using Shared.Infrastructure.Persistence;
 using Shared.Infrastructure.Persistence.Entities;
+using Billing.Contracts;
+using Microsoft.Data.SqlClient;
+using System.Text.Json;
 
 namespace Billing.Infrastructure.Persistence;
 
 internal sealed class EfCashierStore(BillingDbContext db, SharedDbContext shared, TimeProvider clock) : ICashierStore
 {
+    public Task<CashierShiftClosure?> FindClosureAsync(Guid cashierUserId, DateOnly date, CancellationToken ct) =>
+        db.Set<CashierShiftClosure>().AsNoTracking().SingleOrDefaultAsync(c => c.CashierUserId == cashierUserId && c.ShiftDate == date, ct);
+    public Task<CashierShiftClosure?> LockClosureAsync(Guid cashierUserId, DateOnly date, CancellationToken ct) =>
+        CashierShiftGuard.LockAsync(db, cashierUserId, date, ct);
+    public Task EnsureShiftOpenAsync(Guid cashierUserId, DateOnly date, CancellationToken ct) =>
+        CashierShiftGuard.EnsureOpenAsync(db, cashierUserId, date, ct);
+    public async Task SaveClosureAsync(CashierShiftClosure closure, string? clientIp, CancellationToken ct)
+    {
+        if (db.Database.CurrentTransaction is null) throw new InvalidOperationException("Cashier closure requires a transaction.");
+        db.Add(closure);
+        try { await db.SaveChangesAsync(ct); }
+        catch (DbUpdateException e) when (e.InnerException is SqlException { Number: 2601 or 2627 })
+        { throw new BillingException(BillingErrorCode.CashierShiftClosed, "Ngày thu ngân đã được chốt."); }
+        await BillingAuditWriter.WriteAsync(db, shared, new BillingAuditEntry(closure.CashierUserId, "billing.CashierShiftClosure", closure.Id, true,
+            "ShiftDate,ReceiptCount,RefundCount,ExpectedCashCollected,ExpectedCashRefunded,ActualCashCounted,ClosedAtUtc",
+            JsonSerializer.Serialize(new { closure.ShiftDate, closure.ReceiptCount, closure.RefundCount, closure.ExpectedCashCollected,
+                closure.ExpectedCashRefunded, closure.ActualCashCounted, closure.ClosedAtUtc, HasNote = !string.IsNullOrEmpty(closure.DiscrepancyNote) }),
+            "Chốt ngày thu ngân", clientIp), closure.ClosedAtUtc, ct);
+    }
+
     public const string RefundTransactionTable = "billing.RefundTransaction";
 
     public Task WriteCollectionAuditAsync(Guid staffUserId, Guid paymentTransactionId, string newValuesJson, string? clientIp,
-        CancellationToken ct) =>
+        CancellationToken ct, DateTime? timestampUtc = null) =>
         BillingAuditWriter.WriteAsync(db, shared, new BillingAuditEntry(staffUserId, "billing.PaymentTransaction", paymentTransactionId,
             IsInsert: true, "PaymentStatus,TransactionAmount,VerifiedAtUtc", newValuesJson, "Thu tiền mặt tại quầy", clientIp),
-            clock.GetUtcNow().UtcDateTime, ct);
+            timestampUtc ?? clock.GetUtcNow().UtcDateTime, ct);
 
     // Với Provider = Counter, PayerAppUserId là tài khoản tiếp tân đã nhận tiền (xem CashierService).
     public async Task<IReadOnlyList<CounterReceipt>> GetReceiptsAsync(Guid staffUserId, DateTime fromUtc, DateTime toUtc, CancellationToken ct) =>
