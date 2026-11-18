@@ -36,8 +36,8 @@ help:
 intents:
   SUGGEST_SPECIALTY: [khám khoa nào, khoa nào, chuyên khoa nào, nên khám ở đâu, nên khám gì]
   CANCEL: [hủy lịch, huỷ lịch, hủy hẹn, huỷ hẹn, hủy cái hẹn, huỷ cái hẹn, bỏ lịch, bỏ hẹn, bỏ cái hẹn, không đi khám nữa]
-  RESCHEDULE: [đổi lịch, dời lịch, chuyển lịch, đổi ngày khám, đổi bác sĩ]
-  VIEW_TICKET: [xem vé, vé khám, số thứ tự, mã lịch hẹn, mã đặt lịch]
+  RESCHEDULE: [đổi lịch, dời lịch, chuyển lịch, đổi ngày khám, đổi bác sĩ, dời buổi khám, dời ngày khám, dời giúp, hoãn lịch, sang hôm khác]
+  VIEW_TICKET: [xem vé, vé khám, số thứ tự, mã lịch hẹn, mã đặt lịch, mã để đi khám, mã đi khám, mã khám]
   VIEW_EXAM_PAYMENT: [thanh toán chưa, đã thanh toán, trạng thái thanh toán, tiền khám, phí khám đã trả, hoàn tiền]
   VIEW_APPOINTMENTS: [lịch của tôi, lịch khám của tôi, lịch hẹn của tôi, lịch của mình, xem lịch, lịch đã đặt, lịch đã hẹn, các cuộc hẹn]
   SEARCH_SLOTS: [đặt lịch, đặt khám, tìm bác sĩ, tìm lịch, lịch trống, còn suất, còn chỗ]
@@ -57,6 +57,9 @@ templates:
   specialty_fallback: "Mình chưa xác định được chuyên khoa phù hợp từ mô tả. Bạn có thể chọn một trong các chuyên khoa sau:"
   tool_pending: >-
     Chức năng này trên chatbot đang được hoàn thiện. Bạn có thể dùng mục tương ứng trên web bệnh nhân trong lúc chờ.
+  out_of_scope_free: >-
+    Mình chỉ hỗ trợ việc lịch khám: tìm lịch, xem lịch đã hẹn, xem vé, xem phí khám, hướng dẫn đổi hoặc hủy lịch và gợi ý
+    chuyên khoa, nên chưa giúp được yêu cầu này.
   not_understood: >-
     Mình chưa hiểu ý bạn. Mình giúp được: tìm lịch khám, xem lịch đã hẹn, xem vé, xem phí khám, hướng dẫn đổi hoặc hủy lịch,
     và gợi ý chuyên khoa. Bạn có thể bấm một gợi ý bên dưới.

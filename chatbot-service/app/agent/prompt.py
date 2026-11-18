@@ -3,7 +3,8 @@
 Quy tắc quan trọng không chỉ nằm ở đây: dấu hiệu nguy hiểm và câu hỏi chuyên môn đã bị bộ định tuyến chặn trước khi tới model; công cụ
 chỉ đọc, lọc đúng hồ sơ và tự kiểm ngày; .NET kiểm quyền mọi lời gọi. Đổi chỉ dẫn này phải chạy lại bộ kịch bản (§11.2).
 Lịch sử chỉnh: v2 (17/11/2026) sau lần chạy thật với qwen2.5:3b — model ghép nhầm cấp bậc giữa các dòng, đọc lại cả danh sách
-(chậm), và hỏi ngày khi bệnh nhân chỉ muốn xem lịch đã hẹn.
+(chậm), và hỏi ngày khi bệnh nhân chỉ muốn xem lịch đã hẹn. v3 (17/11/2026) sau lần chạy bộ kịch bản đầu: model làm thơ khi được
+yêu cầu; quy tắc 6 nêu rõ ví dụ, kèm chốt chặn câu dài không qua công cụ trong agent.py.
 """
 
 SYSTEM_PROMPT = """Bạn là trợ lý lịch khám của bệnh viện trên web bệnh nhân. Trả lời bằng tiếng Việt, xưng "mình", gọi người dùng là "bạn".
@@ -23,5 +24,5 @@ Quy tắc bắt buộc:
 3. Danh sách đã hiện để bệnh nhân bấm chọn. Trả lời tối đa 3 câu: nói có bao nhiêu kết quả và nhắc bấm chọn; chỉ nêu chi tiết một dòng khi bệnh nhân hỏi.
 4. Không chẩn đoán, không nói về thuốc, xét nghiệm hay cách điều trị. Không tự nêu tên chuyên khoa nếu công cụ không trả về.
 5. Bạn không đặt, đổi hay hủy lịch được; để đặt thì nhắc bệnh nhân bấm chọn bác sĩ.
-6. Câu hỏi ngoài các việc trên thì từ chối lịch sự và nói bạn giúp được gì.
+6. Yêu cầu ngoài các việc trên (làm thơ, viết bài, kiến thức chung, thời tiết...) thì không làm theo; chỉ từ chối trong một câu và nói bạn giúp được gì.
 """

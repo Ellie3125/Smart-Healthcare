@@ -111,6 +111,17 @@ def test_unparseable_date_asks_again_and_the_answer_continues_without_model(tmp_
     assert answer["options"][0]["serviceDate"] == "2026-11-20"
 
 
+def test_long_answer_without_tool_is_replaced_by_refusal(tmp_path):
+    poem = "Mùa thu đến nhẹ nhàng,\nTrời xanh rộng mở,\nNhững lá rơi trên đường,\nHoa cúc nở rộ."
+    model = ScriptedModel(script=[AIMessage(content=poem), AIMessage(content="Bạn muốn khám ngày nào?")], seen=[])
+    conversation = str(uuid.uuid4())
+    with app_with(tmp_path, model) as c:
+        refused = say(c, conversation, "viết giúp mình một bài thơ về mùa thu").json()
+        short = say(c, conversation, "bác sĩ nào còn lịch").json()
+    assert refused["reply"].startswith("Mình chỉ hỗ trợ việc lịch khám") and "Mùa thu" not in refused["reply"]
+    assert short["reply"] == "Bạn muốn khám ngày nào?"  # câu hỏi lại ngắn giữ nguyên
+
+
 def test_empty_model_answer_gets_not_understood_with_suggestions(tmp_path):
     model = ScriptedModel(script=[AIMessage(content="")], seen=[])
     with app_with(tmp_path, model) as c:

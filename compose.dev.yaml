@@ -77,3 +77,13 @@ services:
     depends_on:
       migrator:
         condition: service_completed_successfully
+
+  chatbot:
+    # docker compose --env-file .env.dev -f compose.yaml -f compose.dev.yaml --profile chatbot up -d --build chatbot
+    # Model: Ollama trên máy (http://host.docker.internal:11434) hoặc Colab qua ngrok; để trống thì chatbot tạm ngưng.
+    build:
+      context: ./chatbot-service
+    image: smart-healthcare/chatbot:dev
+    # Chỉ bind loopback (OPS-01) để gọi thử API nội bộ của chatbot từ máy dev.
+    ports:
+      - "127.0.0.1:${CHATBOT_HOST_PORT:-8000}:8000"

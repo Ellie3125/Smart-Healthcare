@@ -1,0 +1,140 @@
+# Bộ kịch bản theo intent (Giải pháp kỹ thuật §11.2). Chạy lại TOÀN BỘ khi đổi tag model, system prompt, bảng intent, bảng gợi ý
+# chuyên khoa hoặc mô tả công cụ:
+#   - Không cần model (mỗi lần pytest): lượt route SHORTCUT phải đạt; lượt route MODEL phải thật sự tới model.
+#   - Có model: OLLAMA_BASE_URL=... uv run python scripts/run_scenarios.py  (ghi kết quả vào tests/scenarios/results/).
+# Dữ liệu .NET giả và ngày cố định: tests/fake_dotnet.py (hôm nay là thứ ba 17/11/2026; "thứ sáu này" = 20/11).
+#
+# Mỗi lượt: say (câu gõ) hoặc suggestion (nút gợi ý), và expect:
+#   route: SHORTCUT | MODEL          intent: intent của câu trả lời (null = không có)
+#   reply_contains / reply_contains_any / reply_not_contains: chuỗi trong câu trả lời
+#   options: số lựa chọn             options_kind: loại của mọi lựa chọn          first_option_date: ngày của lựa chọn đầu
+#   option_codes: mã chuyên khoa của các lựa chọn, đúng thứ tự
+# Luôn kiểm thêm: không có request ghi tới .NET; câu trả lời không chứa Id hay token.
+version: "2026-11-17"
+scenarios:
+  # ---------- Tìm lịch (SEARCH_SLOTS) ----------
+  - id: search-name-then-date
+    turns:
+      - say: tôi muốn khám da liễu
+        expect: {route: SHORTCUT, intent: SEARCH_SLOTS, reply_contains: [Khoa Da liễu, ngày nào], options: 0}
+      - say: thứ sáu này
+        expect: {route: SHORTCUT, intent: SEARCH_SLOTS, options: 1, options_kind: Doctor, first_option_date: "2026-11-20"}
+  - id: search-date-and-specialty-in-one-sentence
+    turns:
+      - say: đặt lịch khám da liễu thứ sáu này
+        expect: {route: SHORTCUT, intent: SEARCH_SLOTS, options: 1, options_kind: Doctor, first_option_date: "2026-11-20"}
+  - id: search-all-specialties-tomorrow
+    turns:
+      - say: đặt lịch ngày mai
+        expect: {route: SHORTCUT, intent: SEARCH_SLOTS, options: 2, options_kind: Doctor, first_option_date: "2026-11-18"}
+  - id: search-past-date-refused
+    turns:
+      - say: đặt lịch ngày 10/11/2026
+        expect: {route: SHORTCUT, intent: SEARCH_SLOTS, reply_contains: [đã qua], options: 0}
+  - id: search-cardiology-asks-date
+    turns:
+      - say: tuần sau còn ai khám tim không
+        expect: {route: SHORTCUT, intent: SEARCH_SLOTS, reply_contains: [Khoa Tim mạch, ngày nào], options: 0}
+  - id: suggest-then-search-carries-specialty
+    turns:
+      - suggestion: SUGGEST_SPECIALTY
+        expect: {route: SHORTCUT, intent: SUGGEST_SPECIALTY, options: 0}
+      - say: ngứa, nổi mẩn đỏ trên da
+        expect: {route: SHORTCUT, intent: SUGGEST_SPECIALTY, option_codes: [DA_LIEU]}
+      - suggestion: SEARCH_SLOTS
+        expect: {route: SHORTCUT, intent: SEARCH_SLOTS, reply_contains: [Khoa Da liễu], options: 0}
+      - say: 20/11
+        expect: {route: SHORTCUT, intent: SEARCH_SLOTS, options: 1, first_option_date: "2026-11-20"}
+  - id: search-free-text
+    turns:
+      - say: có bác sĩ nào rảnh vào thứ sáu này không nhỉ
+        expect: {route: MODEL, intent: SEARCH_SLOTS, options_kind: Doctor, first_option_date: "2026-11-20"}
+  - id: search-then-ask-about-second-doctor
+    turns:
+      - say: có bác sĩ nào rảnh vào thứ sáu này không nhỉ
+        expect: {route: MODEL, intent: SEARCH_SLOTS, options_kind: Doctor}
+      - say: bác sĩ thứ hai phí bao nhiêu
+        expect: {route: MODEL, reply_contains: ["300.000"]}
+
+  # ---------- Lịch của tôi, vé, phí khám ----------
+  - id: appointments-button
+    turns:
+      - suggestion: VIEW_APPOINTMENTS
+        expect: {route: SHORTCUT, intent: VIEW_APPOINTMENTS, options: 2, options_kind: Appointment, reply_not_contains: [BBBB]}
+  - id: appointments-text
+    turns:
+      - say: xem lịch của tôi
+        expect: {route: SHORTCUT, intent: VIEW_APPOINTMENTS, options: 2}
+  - id: appointments-free-text
+    turns:
+      - say: mấy cái hẹn khám của mình ra sao rồi
+        expect: {route: MODEL, intent: VIEW_APPOINTMENTS, options: 2, options_kind: Appointment}
+  - id: ticket
+    turns:
+      - say: cho tôi xem vé
+        expect: {route: SHORTCUT, intent: VIEW_TICKET, reply_contains: [LH261120-AAAA0001, check-in trước 11:00 20/11, check-in tại bệnh viện]}
+  - id: ticket-colloquial
+    turns:
+      - say: cho mình cái mã để đi khám
+        expect: {route: SHORTCUT, intent: VIEW_TICKET, reply_contains: [LH261120-AAAA0001]}
+  - id: ticket-free-text
+    turns:
+      - say: giờ check-in của mình là mấy giờ nhỉ
+        expect: {route: MODEL, intent: VIEW_TICKET, reply_contains: [check-in trước 11:00 20/11]}
+  - id: exam-payment
+    turns:
+      - say: tôi đã thanh toán chưa
+        expect: {route: SHORTCUT, intent: VIEW_EXAM_PAYMENT, reply_contains: [đã thanh toán phí khám 150.000 VND, đang chờ thanh toán, "Hoàn phí khám 150.000 VND"]}
+  - id: exam-payment-colloquial
+    turns:
+      - say: mình trả tiền khám rồi đúng không
+        expect: {route: SHORTCUT, intent: VIEW_EXAM_PAYMENT, reply_contains: [đã thanh toán phí khám]}
+
+  # ---------- Đổi, hủy (chỉ hướng dẫn; chưa có đề nghị chờ xác nhận E1) ----------
+  - id: cancel
+    turns:
+      - say: tôi muốn hủy lịch
+        expect: {route: SHORTCUT, intent: CANCEL, options: 1, options_kind: Appointment, reply_contains: [Lịch của tôi]}
+  - id: cancel-colloquial
+    turns:
+      - say: mình muốn bỏ cái hẹn hôm thứ năm
+        expect: {route: SHORTCUT, intent: CANCEL, options: 1}
+  - id: reschedule
+    turns:
+      - say: cho tôi đổi lịch
+        expect: {route: SHORTCUT, intent: RESCHEDULE, options: 1, reply_contains: [đổi lịch]}
+  - id: reschedule-colloquial
+    turns:
+      - say: dời giúp mình buổi khám sang hôm khác được không
+        expect: {route: SHORTCUT, intent: RESCHEDULE, options: 1}
+  - id: reschedule-free-text
+    turns:
+      - say: mình bận đột xuất, muốn khám vào bữa khác
+        expect: {route: MODEL, intent: RESCHEDULE, options: 1}
+
+  # ---------- Gợi ý chuyên khoa ----------
+  - id: suggest-from-symptoms
+    turns:
+      - say: tôi bị đau bụng, ợ chua mấy hôm nay
+        expect: {route: SHORTCUT, intent: SUGGEST_SPECIALTY, option_codes: [TIEU_HOA], reply_contains: [không phải chẩn đoán]}
+  - id: suggest-two-specialties
+    turns:
+      - say: con tôi bị ho, sổ mũi và đau họng
+        expect: {route: SHORTCUT, intent: SUGGEST_SPECIALTY, option_codes: [TAI_MUI_HONG, HO_HAP]}
+  - id: suggest-fallback-list
+    turns:
+      - suggestion: SUGGEST_SPECIALTY
+        expect: {route: SHORTCUT, intent: SUGGEST_SPECIALTY}
+      - say: người cứ thấy không ổn
+        expect: {route: SHORTCUT, intent: SUGGEST_SPECIALTY, options: 7, options_kind: Specialty}
+
+  # ---------- Chào hỏi, ngoài phạm vi ----------
+  - id: help
+    turns:
+      - say: xin chào
+        expect: {route: SHORTCUT, intent: HELP, reply_contains: [tìm và đặt lịch]}
+  - id: out-of-scope-free-text
+    turns:
+      - say: viết giúp mình một bài thơ về mùa thu
+        # Điều phải kiểm là không làm theo (không có bài thơ); câu từ chối có nhắc việc chatbot làm được hay không thì tùy model.
+        expect: {route: MODEL, intent: null, options: 0, reply_not_contains: ["\n\n", Mùa thu đến, lá rơi]}

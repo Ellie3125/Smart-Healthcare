@@ -54,7 +54,7 @@ specialties:
   - code: TIM_MACH
     name: Khoa Tim mạch
     description: Bệnh lý tim mạch, tăng huyết áp.
-    aliases: [tim mạch, khoa tim]
+    aliases: [tim mạch, khoa tim, khám tim]
   - code: HO_HAP
     name: Khoa Hô hấp
     description: Bệnh lý hô hấp, phổi.
