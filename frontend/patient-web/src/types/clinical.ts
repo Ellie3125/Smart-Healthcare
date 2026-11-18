@@ -4,6 +4,7 @@ export interface JourneyStep {
   location: string;
   status: 'Completed' | 'InProgress' | 'Waiting' | 'Called' | 'Deferred';
   queueNumber?: string;
+  displayNumber?: string | null;
   detail?: string;
   updatedAt?: string;
 }

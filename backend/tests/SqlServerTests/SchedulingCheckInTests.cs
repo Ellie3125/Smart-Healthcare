@@ -23,6 +23,24 @@ namespace SqlServerTests;
 public sealed partial class SchedulingHoldTests
 {
     [Fact]
+    public async Task CheckIn_missing_specialty_rejects_without_creating_encounter_or_ticket()
+    {
+        var clock = new BoundaryDbClock(AtIct(8, 0));
+        await using var services = AttendanceServices(clock, specialtyExists: false);
+        var day = await SeedBoundaryDayAsync(services, clock);
+        try
+        {
+            var a = await BookedAsync(services, day);
+            var error = await Assert.ThrowsAsync<SchedulingException>(() => CheckInAsync(services, a.AppointmentId));
+            Assert.Equal(SchedulingErrorCode.InvalidAppointmentState, error.Code);
+            await AssertAppointmentAsync(services, a.AppointmentId, AppointmentStatus.Scheduled, true);
+            Assert.Equal(0, await CountAsync($"SELECT COUNT(*) FROM clinical.Encounter WHERE AppointmentId='{a.AppointmentId}'"));
+            Assert.Equal(0, await CountAsync($"SELECT COUNT(*) FROM scheduling.QueueTicket WHERE TicketNumber LIKE '{day.Id:N}-%'"));
+        }
+        finally { await CleanupAttendanceAsync(day); }
+    }
+
+    [Fact]
     public async Task CheckIn_active_encounter_conflicts_without_changing_appointment_or_issuing_ticket()
     {
         var clock = new BoundaryDbClock(AtIct(8, 0));
@@ -57,6 +75,9 @@ public sealed partial class SchedulingHoldTests
             Assert.All(results, r => Assert.Equal("P101-001", r.DisplayNumber));
             Assert.Equal(results[0].QueueTicketId, results[1].QueueTicketId);
             Assert.Equal(results[0].EncounterId, results[1].EncounterId);
+            await using var scope = services.CreateAsyncScope();
+            Assert.Equal("Nội tổng quát", (await scope.ServiceProvider.GetRequiredService<IClinicalModule>()
+                .GetEncounterByIdAsync(results[0].EncounterId, Ct))!.SpecialtySnapshot);
             Assert.Equal(1, await CountAsync($"SELECT COUNT(*) FROM clinical.Encounter WHERE AppointmentId = '{a.AppointmentId}'"));
             Assert.Equal(1, await CountAsync($"SELECT COUNT(*) FROM shared.OutboxMessage WHERE EventType = 'TicketCheckedIn' AND AggregateId = '{results[0].QueueTicketId}'"));
         }
@@ -309,9 +330,13 @@ public sealed partial class SchedulingHoldTests
         finally { await CleanupAttendanceAsync(day); }
     }
 
-    private static ServiceProvider AttendanceServices(BoundaryDbClock clock)
+    private static readonly Guid AttendanceSpecialtyId = Guid.NewGuid();
+
+    private static ServiceProvider AttendanceServices(BoundaryDbClock clock, bool specialtyExists = true)
     {
         var cs = TestDatabase.RequiredConnectionString();
+        var identity = DispatchProxy.Create<IIdentityPatientsModule, AttendanceIdentity>();
+        ((AttendanceIdentity)(object)identity).SpecialtyExists = specialtyExists;
         return new ServiceCollection().AddSharedInfrastructure(cs).AddSchedulingInfrastructure(cs)
             .AddNotificationsInfrastructure(cs).AddClinicalInfrastructure(cs)
             .AddUnitOfWorkParticipant<SchedulingDbContext>().AddUnitOfWorkParticipant<WorkflowDbContext>()
@@ -319,7 +344,7 @@ public sealed partial class SchedulingHoldTests
             .AddSingleton<Billing.Contracts.IBillingModule>(new FixedFeeBilling())
             .AddSingleton<Billing.Contracts.IPaymentRefunds>(new RecordingRefunds())
             .AddSingleton<IDbClock>(clock)
-            .AddSingleton(DispatchProxy.Create<IIdentityPatientsModule, AttendanceIdentity>())
+            .AddSingleton(identity)
             .BuildServiceProvider(validateScopes: true);
     }
 
@@ -349,11 +374,14 @@ public sealed partial class SchedulingHoldTests
     public class AttendanceIdentity : DispatchProxy
     {
         public Guid DisplayRoom { get; set; }
-        protected override object? Invoke(MethodInfo? method, object?[]? args) => method?.Name == "GetRoomsAsync"
-            ? Task.FromResult<IReadOnlyList<RoomDto>>([new(DisplayRoom, "P101", "Test", "Clinical", true)])
-            : method?.Name == "GetDoctorAsync"
-            ? Task.FromResult<DoctorDto?>(new((Guid)args![0]!, "BS Test", Guid.NewGuid(), "TEST", Guid.NewGuid(), "BS", true))
-            : throw new NotSupportedException(method?.Name);
+        public bool SpecialtyExists { get; set; } = true;
+        protected override object? Invoke(MethodInfo? method, object?[]? args) => method?.Name switch
+        {
+            "GetRoomsAsync" => Task.FromResult<IReadOnlyList<RoomDto>>([new(DisplayRoom, "P101", "Test", "Clinical", true)]),
+            "GetDoctorAsync" => Task.FromResult<DoctorDto?>(new((Guid)args![0]!, "BS Test", AttendanceSpecialtyId, "TEST", Guid.NewGuid(), "BS", true)),
+            "GetSpecialtiesAsync" => Task.FromResult<IReadOnlyList<SpecialtyDto>>(SpecialtyExists ? [new(AttendanceSpecialtyId, "TEST", "Nội tổng quát")] : []),
+            _ => throw new NotSupportedException(method?.Name)
+        };
     }
 
     // Gọi StartEncounterAsync thật (ghi Encounter) rồi ném lỗi; method khác chuyển thẳng cho module thật.

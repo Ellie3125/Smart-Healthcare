@@ -1,7 +1,7 @@
 import React from 'react';
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { useQuery } from '@tanstack/react-query';
 import { useNavigate } from 'react-router-dom';
-import { PhoneCall, Stethoscope } from 'lucide-react';
+import { Stethoscope } from 'lucide-react';
 import { clinicalStaffApi } from '../../api/clinicalStaffApi';
 import {
   Button,
@@ -11,28 +11,17 @@ import {
   ErrorState,
   Skeleton,
   StatusPill,
-  useToast,
 } from '../../shared/ui';
 import { extractFriendlyError } from '../../shared/lib/errors';
 
 export const NurseQueuePage: React.FC = () => {
   const navigate = useNavigate();
-  const queryClient = useQueryClient();
-  const { pushToast } = useToast();
 
   const query = useQuery({
     queryKey: ['staff', 'nurse-queue'],
     queryFn: () => clinicalStaffApi.listNurseQueue(),
   });
 
-  const callMutation = useMutation({
-    mutationFn: () => clinicalStaffApi.callNursePatient(),
-    onSuccess: (res) => {
-      pushToast(`Đã gọi vé ${res.ticketNumber} vào bàn sinh hiệu.`, 'success');
-      queryClient.invalidateQueries({ queryKey: ['staff', 'nurse-queue'] });
-    },
-    onError: (err) => pushToast(extractFriendlyError(err).message, 'danger'),
-  });
 
   return (
     <div className="space-y-5">
@@ -42,7 +31,7 @@ export const NurseQueuePage: React.FC = () => {
             Hàng chờ đo sinh hiệu Điều dưỡng (NU01)
           </h1>
           <p className="text-sm text-on-surface-variant">
-            Gọi bệnh nhân vào bàn đo sinh hiệu và mở biểu mẫu ghi nhận trước khi vào phòng bác sĩ.
+            Chọn bệnh nhân trong hàng chờ để đo sinh hiệu trước khi vào phòng bác sĩ; bác sĩ gọi số khám.
           </p>
         </div>
         <div className="flex items-center gap-2.5">
@@ -50,15 +39,6 @@ export const NurseQueuePage: React.FC = () => {
             <span className="h-2 w-2 rounded-full bg-primary" />
             {(query.data ?? []).length} bệnh nhân trong hàng chờ
           </span>
-          <Button
-            variant="secondary"
-            size="sm"
-            leftIcon={<PhoneCall className="h-3.5 w-3.5" />}
-            loading={callMutation.isPending}
-            onClick={() => callMutation.mutate()}
-          >
-            Gọi người tiếp theo
-          </Button>
           <Button variant="outline" size="sm" onClick={() => query.refetch()}>
             Làm mới hàng chờ
           </Button>

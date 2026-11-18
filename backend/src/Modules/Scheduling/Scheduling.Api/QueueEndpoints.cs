@@ -57,7 +57,7 @@ internal static class QueueEndpoints
                 extensions: new Dictionary<string, object?> { ["code"] = e.Code.ToString() }); }
         });
         staff.MapPost("/rooms/{roomId:guid}/call-next", CallNextAsync)
-            .WithSummary("Gọi người tiếp theo của phòng (Doctor, Nurse, RoomAccount)")
+            .WithSummary("Gọi người tiếp theo của phòng (Doctor, RoomAccount)")
             .Produces<QueueTicketResponse>().Produces(StatusCodes.Status204NoContent)
             .ProducesProblem(400).ProducesProblem(403).ProducesProblem(404).ProducesProblem(409);
         staff.MapPost("/tickets/{ticketId:guid}/start", (Guid ticketId, ClaimsPrincipal user, [FromServices] QueueService queue,
@@ -121,13 +121,13 @@ internal static class QueueEndpoints
     {
         userId = Guid.Empty;
         return user.HasClaim(AppClaims.Channel, Channels.Staff)
-            && (user.IsInRole(Roles.Doctor) || user.IsInRole(Roles.Nurse) || user.IsInRole(Roles.RoomAccount))
+            && (user.IsInRole(Roles.Doctor) || user.IsInRole(Roles.RoomAccount))
             && Guid.TryParse(user.FindFirstValue(ClaimTypes.NameIdentifier) ?? user.FindFirstValue("sub"), out userId)
             && userId != Guid.Empty;
     }
 
     /// <summary>
-    /// Phòng người gọi được thao tác: RoomAccount theo claim, bác sĩ theo phiên hôm nay, điều dưỡng không giới hạn (null).
+    /// Phòng người gọi được thao tác: RoomAccount theo claim, bác sĩ theo phiên hôm nay.
     /// Guid.Empty: không có phòng hợp lệ.
     /// </summary>
     private static async Task<Guid?> AllowedRoomAsync(ClaimsPrincipal user, IQueueStore store, CancellationToken ct)
@@ -137,7 +137,7 @@ internal static class QueueEndpoints
         if (user.IsInRole(Roles.Doctor))
             return Guid.TryParse(user.FindFirstValue(AppClaims.DoctorId), out var doctor)
                 ? await store.GetDoctorRoomTodayAsync(doctor, ct) ?? Guid.Empty : Guid.Empty;
-        return null;
+        return Guid.Empty;
     }
 
     private static async Task<IResult> ToResultAsync(QueueOutcome outcome, IIdentityPatientsModule identity, CancellationToken ct)

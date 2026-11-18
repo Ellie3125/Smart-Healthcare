@@ -16,6 +16,21 @@ public class ClinicalModuleTests
     private ClinicalModule CreateModule() =>
         new(_encounterStore, _serviceOrderStore, _prescriptionStore, _clock);
 
+    [Theory]
+    [InlineData(EncounterClinicalRecordStatus.Draft, 0)]
+    [InlineData(EncounterClinicalRecordStatus.Published, 1)]
+    public async Task Published_diagnosis_reader_filters_draft_and_missing_records(EncounterClinicalRecordStatus status, int count)
+    {
+        var id = AddEncounter(Guid.NewGuid());
+        _encounterStore.Records.Add(new() { EncounterId = id, Status = status });
+        _encounterStore.Diagnoses.Add(new() { EncounterId = id, DiagnosisName = "Test", ICD10Code = "K29.7", DiagnosisType = DiagnosisType.Final });
+        var ct = TestContext.Current.CancellationToken;
+        Assert.Equal(count, (await CreateModule().GetPublishedDiagnosesAsync(id, ct)).Count);
+        Assert.Empty(await CreateModule().GetPublishedDiagnosesAsync(Guid.NewGuid(), ct));
+        var error = await Assert.ThrowsAsync<ClinicalException>(() => CreateModule().GetPublishedDiagnosesAsync(Guid.Empty, ct));
+        Assert.Equal(ClinicalErrorCode.InvalidRequest, error.Code);
+    }
+
     [Fact]
     public async Task StartEncounterAsync_creates_encounter_and_draft_clinical_record()
     {

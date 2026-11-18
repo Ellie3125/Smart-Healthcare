@@ -134,11 +134,14 @@ export const EncounterHistoryPage: React.FC = () => {
                     </div>
 
                     <div className="flex flex-wrap gap-2">
-                      <Link to={`/records/${enc.id}`}>
-                        <Button variant="primary" size="sm" leftIcon={<FileText className="h-4 w-4" />}>
-                          Xem chi tiết
-                        </Button>
-                      </Link>
+                      {/* Bệnh án chưa phát hành: backend không trả chi tiết (404). */}
+                      {enc.isPublished ? (
+                        <Link to={`/records/${enc.id}`}>
+                          <Button variant="primary" size="sm" leftIcon={<FileText className="h-4 w-4" />}>
+                            Xem chi tiết
+                          </Button>
+                        </Link>
+                      ) : null}
                       {enc.hasPrescription ? (
                         <Link to={`/records/${enc.id}/prescription`}>
                           <Button variant="secondary" size="sm" leftIcon={<Pill className="h-4 w-4" />}>
