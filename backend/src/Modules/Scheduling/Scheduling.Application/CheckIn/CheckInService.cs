@@ -23,10 +23,13 @@ public sealed class CheckInService(ICheckInStore store, IUnitOfWork uow, IIntegr
                         .Single(x => x.AppointmentId == appointment.AppointmentId).Id;
                 var doctor = await identity.GetDoctorAsync(appointment.DoctorId, token)
                     ?? throw new SchedulingException(SchedulingErrorCode.InvalidAppointmentState, "Không tìm thấy bác sĩ của phiên.");
+                var specialty = (await identity.GetSpecialtiesAsync(token)).SingleOrDefault(s => s.Id == doctor.SpecialtyId);
+                if (specialty is null || string.IsNullOrWhiteSpace(specialty.Name))
+                    throw new SchedulingException(SchedulingErrorCode.InvalidAppointmentState, "Không tìm thấy tên chuyên khoa của bác sĩ.");
                 try
                 {
                     return (await clinical.StartEncounterAsync(new StartEncounterCommand(appointment.AppointmentId,
-                        appointment.PatientId, appointment.DoctorId, appointment.AssignedRoomId, doctor.SpecialtyCode, doctor.RankName), token)).Id;
+                        appointment.PatientId, appointment.DoctorId, appointment.AssignedRoomId, specialty.Name, doctor.RankName), token)).Id;
                 }
                 catch (ClinicalException e) when (e.Code == ClinicalErrorCode.ActiveEncounterAlreadyExists)
                 {

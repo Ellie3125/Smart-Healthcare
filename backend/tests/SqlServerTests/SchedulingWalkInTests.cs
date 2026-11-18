@@ -118,6 +118,9 @@ public sealed partial class SchedulingHoldTests
             Assert.Equal((PaymentExamFee, "VND", false), (result.Receipt!.Amount, result.Receipt.Currency, result.Receipt.AlreadyCollected));
             Assert.Equal(1, result.CheckIn!.SequenceNumber);
             Assert.False(result.CheckIn.AlreadyCheckedIn);
+            await using (var encounterScope = services.CreateAsyncScope())
+                Assert.Equal("Nội tổng quát", (await encounterScope.ServiceProvider.GetRequiredService<Clinical.Contracts.IClinicalModule>()
+                    .GetEncounterByIdAsync(result.CheckIn.EncounterId, Ct))!.SpecialtySnapshot);
             Assert.Equal(result, await RegisterWalkInAsync(services, request));
             Assert.Equal(WalkInResult.IdempotencyConflict, (await RegisterWalkInAsync(services, request with { PatientId = Guid.NewGuid() })).Result);
             Assert.Equal(1, await CountAsync($"SELECT COUNT(*) FROM billing.PaymentIntent WHERE BookingAttemptId = '{result.BookingAttemptId}' AND Provider = 'Counter' AND Status = 'Succeeded'"));
@@ -193,9 +196,12 @@ public sealed partial class SchedulingHoldTests
     }
     public class WalkInIdentity : DispatchProxy
     {
-        protected override object? Invoke(MethodInfo? method, object?[]? args) => method?.Name == "GetDoctorAsync"
-            ? Task.FromResult<DoctorDto?>(new((Guid)args![0]!, $"Walkin-{(Guid)args[0]!:N}", Guid.NewGuid(), "TEST", Guid.NewGuid(), "BS", true))
-            : throw new NotSupportedException(method?.Name);
+        protected override object? Invoke(MethodInfo? method, object?[]? args) => method?.Name switch
+        {
+            "GetDoctorAsync" => Task.FromResult<DoctorDto?>(new((Guid)args![0]!, $"Walkin-{(Guid)args[0]!:N}", AttendanceSpecialtyId, "TEST", Guid.NewGuid(), "BS", true)),
+            "GetSpecialtiesAsync" => Task.FromResult<IReadOnlyList<SpecialtyDto>>([new(AttendanceSpecialtyId, "TEST", "Nội tổng quát")]),
+            _ => throw new NotSupportedException(method?.Name)
+        };
     }
 
     private static async Task<string> SeedWalkInPriceAsync(DoctorDayQuota day)
