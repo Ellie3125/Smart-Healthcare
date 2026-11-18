@@ -325,6 +325,59 @@ public sealed class BookingProgressEndpointTests
     }
 
     [Fact]
+    public async Task Receptionist_cancels_at_counter_with_trimmed_reason_and_counter_refund()
+    {
+        var state = new State();
+        var appointment = state.AddAppointment();
+        await using var app = await StartAsync(state);
+        using var client = OwnerClient(app, state);
+        var route = $"/api/scheduling/staff/appointments/{appointment.AppointmentId:D}/cancel";
+
+        using var patient = await PostAsync(client, route, new { reason = "x" }, "s1");
+        Assert.Equal(HttpStatusCode.Forbidden, patient.StatusCode);
+        SchedulingEndpointTestSetup.Authorize(client, app.Configuration, Roles.Receptionist, Guid.NewGuid());
+        using var noKey = await PostAsync(client, route, new { reason = "x" }, null);
+        Assert.Equal(HttpStatusCode.BadRequest, noKey.StatusCode);
+
+        using var cancelled = await PostAsync(client, route, new { reason = "  Bệnh nhân xin nghỉ  " }, "s1");
+        Assert.Equal(HttpStatusCode.OK, cancelled.StatusCode);
+        using var body = JsonDocument.Parse(await cancelled.Content.ReadAsStringAsync(Ct));
+        Assert.Equal(("Full", 150000m), (body.RootElement.GetProperty("refund").GetString(), body.RootElement.GetProperty("refundAmount").GetDecimal()));
+        Assert.Equal((CancellationInitiator.Receptionist, (Guid?)null, "Bệnh nhân xin nghỉ"),
+            (state.LastCancel!.CancelledBy, state.LastCancel.PatientId, state.LastCancel.Reason));
+    }
+
+    [Fact]
+    public async Task Cancellation_preview_follows_the_0500_cutoff_and_hides_other_appointments()
+    {
+        var state = new State();
+        var appointment = state.AddAppointment();
+        state.Appointments[0] = appointment with { RescheduleCutoffTimeUtc = state.NowUtc.AddHours(1) };
+        await using var app = await StartAsync(state);
+        using var client = OwnerClient(app, state);
+        var route = $"/api/scheduling/patient/appointments/{appointment.AppointmentId:D}/cancellation-preview";
+
+        using (var before = JsonDocument.Parse(await client.GetStringAsync(route, Ct)))
+        {
+            Assert.Equal(("Full", 150000m, "Counter"), (before.RootElement.GetProperty("refund").GetString(),
+                before.RootElement.GetProperty("refundAmount").GetDecimal(), before.RootElement.GetProperty("refundMethod").GetString()));
+        }
+
+        state.NowUtc = state.NowUtc.AddHours(1); // đúng 05:00 ngày D
+        using (var after = JsonDocument.Parse(await client.GetStringAsync(route, Ct)))
+        {
+            Assert.Equal(("None", 0m), (after.RootElement.GetProperty("refund").GetString(), after.RootElement.GetProperty("refundAmount").GetDecimal()));
+        }
+
+        state.Appointments[0] = state.Appointments[0] with { Status = AppointmentStatus.CheckedIn };
+        using var checkedIn = await client.GetAsync(route, Ct);
+        Assert.Equal(HttpStatusCode.Conflict, checkedIn.StatusCode);
+        SchedulingEndpointTestSetup.Authorize(client, app.Configuration, Roles.Patient, Guid.NewGuid());
+        using var other = await client.GetAsync(route, Ct);
+        Assert.Equal(HttpStatusCode.NotFound, other.StatusCode);
+    }
+
+    [Fact]
     public async Task Patient_reschedule_uses_server_side_rank_and_returns_the_new_appointment()
     {
         var state = new State();
@@ -452,7 +505,7 @@ public sealed class BookingProgressEndpointTests
             CancelCalls++;
             LastCancel = request;
             return Task.FromResult(new ChangeOutcome(ChangeResult.Cancelled, new CancelledInfo(AttemptId, PatientId, Doctor.DoctorId,
-                new DateOnly(2026, 11, 13), true, NowUtc, NowUtc.AddHours(1))));
+                new DateOnly(2026, 11, 13), true, NowUtc, NowUtc.AddHours(1), 150000m)));
         }
 
         public Task<ChangeOutcome> RescheduleAsync(RescheduleRequest request, decimal targetFee, CancellationToken ct)

@@ -120,6 +120,12 @@ public sealed class ClinicalClsOrdersTests
         Assert.Equal(f.PatientId, charge.PatientId);
         Assert.NotNull(charge.ServiceOrderId);
         Assert.Equal("Test service", charge.ItemNameSnapshot);
+
+        // Encounter đang WaitingCLS: khóa mới không mở đợt thứ hai, không thêm vé quay lại.
+        using var second = await f.OrderAsync(client, "second");
+        Assert.Equal(HttpStatusCode.Conflict, second.StatusCode);
+        Assert.Contains("ClsBatchInProgress", await second.Content.ReadAsStringAsync(Ct));
+        Assert.Equal((1, 1, 1, 2), await f.CountsAsync());
     }
 
     [Theory]

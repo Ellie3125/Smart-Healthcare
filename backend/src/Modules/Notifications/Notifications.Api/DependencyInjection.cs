@@ -18,6 +18,8 @@ public static class DependencyInjection
     {
         services.AddSignalR();
         services.AddSingleton<IRealtimeNotifier, SignalRRealtimeNotifier>();
+        // 10 lượt chat/phút mỗi tài khoản (contract chatbot §3.1); host bật middleware bằng UseRateLimiter.
+        services.AddRateLimiter(options => options.AddPolicy<string, PatientChatRateLimitPolicy>(PatientChatEndpoints.RateLimitPolicy));
         // WebSockets không gửi được header Authorization: client gửi token qua query access_token, chỉ nhận ở /hubs.
         services.PostConfigure<JwtBearerOptions>(JwtBearerDefaults.AuthenticationScheme, options =>
         {
@@ -59,6 +61,7 @@ public static class DependencyInjection
         app.MapHub<PublicDisplayHub>("/hubs/public-display", o => o.Transports = HttpTransportType.WebSockets);
         var group = app.MapGroup("/api/notifications").WithTags(Tag);
         group.MapPatientNotificationRoutes();
+        group.MapPatientChatRoutes();
         return group;
     }
 }

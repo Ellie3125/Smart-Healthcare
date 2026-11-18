@@ -11,7 +11,7 @@ namespace Clinical.Application.Orders;
 
 public sealed record ClsOrderRequest(IReadOnlyList<Guid>? ServiceIds);
 public sealed record OrderedClsBatch(ServiceOrderDto Order, ClsTicketsCreated Tickets);
-public enum ClsOrderError { InvalidInput, Forbidden, EncounterNotFound, EncounterClosed, MedicalServiceUnavailable, IdempotencyConflict, RequestInProgress }
+public enum ClsOrderError { InvalidInput, Forbidden, EncounterNotFound, EncounterClosed, ClsBatchInProgress, MedicalServiceUnavailable, IdempotencyConflict, RequestInProgress }
 public sealed class ClsOrderException(ClsOrderError error) : Exception(error.ToString())
 {
     public ClsOrderError Error { get; } = error;
@@ -48,6 +48,8 @@ public sealed class ClsOrderService(IClsOrderStore store, IClsServiceDirectory d
                 case IdempotencyBeginResult.Conflict: throw new ClsOrderException(ClsOrderError.IdempotencyConflict);
                 case IdempotencyBeginResult.InProgress: throw new ClsOrderException(ClsOrderError.RequestInProgress);
             }
+            // Sau idempotency để gửi lại cùng khóa vẫn trả kết quả cũ. Đợt trước chưa xong thì không mở đợt mới: tránh vé quay lại thứ hai (Phạm vi §5.6, làm hết đợt rồi mới quay lại bác sĩ).
+            if (encounter.Status == EncounterStatus.WaitingCLS) throw new ClsOrderException(ClsOrderError.ClsBatchInProgress);
             var services = await directory.GetAsync(ids, t);
             if (services.Count != ids.Length) throw new ClsOrderException(ClsOrderError.MedicalServiceUnavailable);
             var now = await clock.GetUtcNowAsync(t);

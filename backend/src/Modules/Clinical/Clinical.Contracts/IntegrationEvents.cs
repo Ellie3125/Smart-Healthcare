@@ -2,6 +2,14 @@ using Shared.Abstractions;
 
 namespace Clinical.Contracts;
 
+/// <summary>One CLS result was published; subscribers re-read current batch readiness. No clinical text in the payload.</summary>
+public sealed record ResultPublished(Guid EventId, Guid EncounterId, Guid ServiceOrderId, Guid CLSResultId,
+    Guid ServiceOrderItemId, DateTime OccurredAtUtc, Guid? OperationId) : IIntegrationEvent
+{
+    public const int CurrentVersion = 1;
+    public int Version => CurrentVersion;
+}
+
 /// <summary>
 /// Phát ra khi một lượt khám bệnh bắt đầu được tiếp nhận tại phòng khám (Encounter.InProgress).
 /// Module Scheduling lắng nghe để chuyển Appointment sang trạng thái tương ứng.
