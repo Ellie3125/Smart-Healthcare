@@ -61,6 +61,8 @@ public enum ClinicalErrorCode
 
     /// <summary>Xung đột dữ liệu đồng thời (RowVersion đã bị thay đổi bởi phiên làm việc khác).</summary>
     ConcurrencyConflict,
+    Forbidden,
+    EncounterClosed,
 }
 
 /// <summary>Lỗi nghiệp vụ Clinical trả cho client hoặc các module gọi khác.</summary>

@@ -20,6 +20,14 @@ internal static class DoctorSearchEndpoints
             .ProducesProblem(StatusCodes.Status400BadRequest)
             .Produces(StatusCodes.Status401Unauthorized)
             .Produces(StatusCodes.Status403Forbidden);
+        // Tiếp tân dùng cùng tìm kiếm và DTO cho đăng ký tại quầy (contract Q2, chốt 18/11/2026).
+        scheduling.MapGet("/staff/doctors", SearchAsync)
+            .RequireAuthorization(Policies.ReceptionistOnly)
+            .WithSummary("Tìm bác sĩ, suất trống và phí khám (Staff, tiếp tân)")
+            .Produces<DoctorSearchPage>()
+            .ProducesProblem(StatusCodes.Status400BadRequest)
+            .Produces(StatusCodes.Status401Unauthorized)
+            .Produces(StatusCodes.Status403Forbidden);
     }
 
     private static async Task<IResult> SearchAsync(string? serviceDate, string? doctorRankId, string? specialtyId,

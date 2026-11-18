@@ -10,10 +10,13 @@ using Shared.Abstractions;
 using Shared.Infrastructure.Persistence;
 using Shared.Infrastructure.Persistence.Entities;
 using Shared.Infrastructure.Persistence.Enums;
+using IdentityPatients.Contracts;
+using Workflow = Notifications.Contracts;
 
 namespace Scheduling.Infrastructure.Queues;
 
-internal sealed class SqlQueueStore(SchedulingDbContext db, IDbClock clock, AuditLogWriter audit, IIntegrationEventPublisher publisher) : IQueueStore
+internal sealed class SqlQueueStore(SchedulingDbContext db, IDbClock clock, AuditLogWriter audit, IIntegrationEventPublisher publisher,
+    RoomAuditRequest? roomAudit = null, IIdentityPatientsModule? identity = null, Workflow.IOperationTracker? operations = null) : IQueueStore
 {
     public async Task<StationLookup> ResolveStationAsync(Guid roomId, Guid? stationId, string roomName, CancellationToken ct)
     {
@@ -112,7 +115,7 @@ internal sealed class SqlQueueStore(SchedulingDbContext db, IDbClock clock, Audi
         await AuditAsync(c.TicketId, c.PerformedByUserId, QueueStatus.Waiting, QueueStatus.Called, now, ct);
         var called = await GetTicketAsync(c.TicketId, ct);
         await publisher.PublishAsync(new QueueCalled(Guid.CreateVersion7(), called.QueueTicketId, called.EncounterId, c.PatientId,
-            c.RoomId, c.StationId, called.TicketNumber, called.SequenceNumber, called.TicketType, c.PerformedByUserId, now, null), c.TicketId, ct);
+            c.RoomId, c.StationId, called.TicketNumber, called.SequenceNumber, called.TicketType, c.PerformedByUserId, now, roomAudit?.OperationId), c.TicketId, ct);
         return new(QueueResult.Called, called, StationId: c.StationId);
     }
 
@@ -185,14 +188,33 @@ internal sealed class SqlQueueStore(SchedulingDbContext db, IDbClock clock, Audi
             t.TargetRoomId, t.TargetStationId, t.EncounterId, t.CalledAtUtc))
         .SingleAsync(ct);
 
-    private Task AuditAsync(Guid ticketId, Guid userId, QueueStatus from, QueueStatus to, DateTime now, CancellationToken ct) =>
-        audit.WriteAsync(new AuditLog
+    private async Task AuditAsync(Guid ticketId, Guid userId, QueueStatus from, QueueStatus to, DateTime now, CancellationToken ct)
+    {
+        var entry = new AuditLog
         {
             Id = Guid.CreateVersion7(), PerformedByUserId = userId, TableName = "scheduling.QueueTicket", RecordId = ticketId,
             ActionType = ActionType.UPDATE, ChangedColumns = "QueueStatus",
             OldValuesJson = JsonSerializer.Serialize(new { QueueStatus = from.ToString() }),
             NewValuesJson = JsonSerializer.Serialize(new { QueueStatus = to.ToString() }), TimestampUtc = now,
-        }, ct);
+        };
+        if (roomAudit is { IsRoomAccount: true })
+        {
+            if (identity is null || operations is null) throw new InvalidOperationException("Room audit requires Identity and workflow participants.");
+            var roomId = await db.Set<QueueTicket>().Where(x => x.Id == ticketId).Select(x => x.TargetRoomId).SingleAsync(ct);
+            if (roomAudit.UserId != userId || roomAudit.RoomId != roomId) throw new RoomAuditDeniedException();
+            var context = await identity.GetRoomOperationContextAsync(userId, roomId, roomAudit.SessionToken ?? "", now, ct)
+                ?? throw new RoomAuditDeniedException();
+            var operationId = Guid.CreateVersion7();
+            await operations.StartAsync(new(operationId, userId, Workflow.OperationType.AllocateStation, Workflow.TargetEntityType.QueueTicket, ticketId, null), ct);
+            roomAudit.OperationId = operationId;
+            entry.WithRoomContext(new(context.AppUserId, context.RoomAccountId, context.RoomDeviceSessionId, context.RoomId,
+                context.DeviceId, context.StaffShiftAssignmentId, context.ShiftLeaderStaffId, context.ShiftDate, context.ShiftName, operationId));
+            entry.ClientIpAddress = roomAudit.ClientIpAddress;
+            await audit.WriteAsync(entry, ct);
+            await operations.CompleteAsync(operationId, Workflow.OperationStatus.Succeeded, null, ct);
+        }
+        else await audit.WriteAsync(entry, ct);
+    }
 
     internal static string PatientLock(Guid id) => $"scheduling:patient:{id:N}";
     internal static string StationLock(Guid id) => $"scheduling:station:{id:N}";
