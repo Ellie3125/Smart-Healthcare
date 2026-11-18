@@ -17,12 +17,19 @@ export type ChatTurnBody = { patientId: string } & ({ text: string } | { suggest
  * Chatbot theo `docs/api/chatbot.md` §3; thông báo còn `// TODO: nối contract thật`.
  */
 export const assistantApi = {
-  // TODO: nối contract thật P24 Thông báo
-  listNotifications: (params?: { unreadOnly?: boolean; page?: number; pageSize?: number }) =>
-    patientGet<{ items: PatientNotificationItem[]; unreadCount: number; hasMore: boolean }>(
+  // P24: thông báo theo hồ sơ (`patientId` bắt buộc); không truyền thì dùng hồ sơ Self, thiếu Self lấy hồ sơ đầu tiên.
+  listNotifications: async (params?: { patientId?: string; unreadOnly?: boolean; page?: number; pageSize?: number }) => {
+    let patientId = params?.patientId;
+    if (!patientId) {
+      const profiles = await patientGet<{ patientId: string; relationship: string }[]>('/api/patient/profiles');
+      patientId = (profiles.find((p) => p.relationship === 'Self') ?? profiles[0])?.patientId;
+    }
+    if (!patientId) return { items: [] as PatientNotificationItem[], unreadCount: 0, hasMore: false };
+    return patientGet<{ items: PatientNotificationItem[]; unreadCount: number; hasMore: boolean }>(
       '/api/notifications/patient/notifications',
-      { params },
-    ),
+      { params: { ...params, patientId } },
+    );
+  },
 
   markNotificationRead: (notificationId: string) =>
     patientPost<void, Record<string, never>>(

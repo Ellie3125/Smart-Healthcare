@@ -1,6 +1,6 @@
 # Contract module Scheduling
 
-- contract_version: **v0.15** (Draft, chờ trưởng nhóm duyệt; v0.4 Approved 12/11/2026)
+- contract_version: **v0.16** (Draft, chờ trưởng nhóm duyệt; v0.4 Approved 12/11/2026)
 - Trạng thái: **Approved** (H-02, trưởng nhóm duyệt 10/11/2026). Q1 đã chốt 17/11/2026; Q2–Q5 ở §6 vẫn là đề xuất cho tới khi trưởng nhóm chốt từng câu.
 - Người giữ: theo ownership.md mục 1. Task: W1-04.
 - Mã nguồn: `backend/src/Modules/Scheduling/Scheduling.Contracts/` (in-process), `Scheduling.Api/` (HTTP).
@@ -225,7 +225,7 @@ Bốn route chỉ map ở Development; policy `PatientOnly`. Thứ tự gọi c�
 
 `GET /api/scheduling/staff/my-rooms` — kênh Staff (Receptionist, Nurse, Doctor, RoomAccount)
 
-- 200 `[{ roomId, roomName }]`: phòng người gọi được xem hàng chờ hôm nay theo giờ DB, cùng luật với route hàng chờ ở trên: RoomAccount theo `RoomId` trong token, Doctor theo phân công ngày, Nurse theo ca trực, Receptionist mọi phòng có phiên. Không có phòng → `[]`. Vai trò khác hoặc kênh khác → 403.
+- 200 `[{ roomId, roomName, stations: [{ stationId, stationCode, stationName }] }]` (`stations` là vị trí phục vụ đang hoạt động; phòng có nhiều vị trí phải gửi `stationId` khi gọi số, §4.8): phòng người gọi được xem hàng chờ hôm nay theo giờ DB, cùng luật với route hàng chờ ở trên: RoomAccount theo `RoomId` trong token, Doctor theo phân công ngày, Nurse theo ca trực, Receptionist mọi phòng có phiên. Không có phòng → `[]`. Vai trò khác hoặc kênh khác → 403.
 
 `GET /api/scheduling/public/display?roomId=` — ẩn danh (màn hình chờ)
 
@@ -358,3 +358,4 @@ Chỉ route và mục đích, để UI (W2-09) mock trước. Body, mã lỗi v�
 | v0.13 | 18/11/2026 | §4.8: vé của bác sĩ/phòng CLS nối tiến trình Clinical cùng transaction; khám xong vé cuối kết thúc lượt khám (cần bệnh án đã phát hành, 409 `RecordNotPublished`) |
 | v0.14 | 18/11/2026 | §4.6 hàng chờ phòng: thêm `encounterId`, `serviceOrderItemId`, `patientName`; Nurse kiểm đúng ca/phòng và ngày hiện tại (403); màn hình chờ giữ DTO chỉ số vé. `ISchedulingModule.GetPatientJourneyAsync` (chỉ đọc, bên gọi kiểm quyền) cho hành trình bệnh nhân hôm nay |
 | v0.15 | 18/11/2026 | §4.6 thêm `GET /staff/my-rooms` để web nhân viên biết phòng làm việc hôm nay |
+| v0.16 | 18/11/2026 | §4.6 `my-rooms` trả thêm `stations` để web chọn vị trí khi phòng có nhiều vị trí (tránh 409 `StationRequired`) |

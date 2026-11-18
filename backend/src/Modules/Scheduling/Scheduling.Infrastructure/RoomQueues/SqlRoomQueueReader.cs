@@ -33,6 +33,13 @@ internal sealed class SqlRoomQueueReader(SchedulingDbContext db, IDbClock clock)
             .Select(q => q.AssignedRoomId).Distinct().ToListAsync(ct);
     }
 
+    public async Task<IReadOnlyList<RoomStation>> GetActiveStationsAsync(IReadOnlyCollection<Guid> roomIds, CancellationToken ct) =>
+        await db.Set<ServiceStation>().AsNoTracking()
+            .Where(s => s.IsActive && roomIds.Contains(s.RoomId))
+            .OrderBy(s => s.StationCode)
+            .Select(s => new RoomStation(s.RoomId, new StaffStationOption(s.Id, s.StationCode, s.StationName)))
+            .ToListAsync(ct);
+
     public async Task<PublicRoomDisplay> GetPublicAsync(Guid roomId, CancellationToken ct)
     {
         var today = DateOnly.FromDateTime((await clock.GetUtcNowAsync(ct)).AddHours(7));

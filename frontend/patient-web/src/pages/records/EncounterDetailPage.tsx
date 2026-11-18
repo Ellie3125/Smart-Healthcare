@@ -107,7 +107,7 @@ export const EncounterDetailPage: React.FC = () => {
 
       <Card
         title={`Hồ sơ khám ${d.encounterCode}`}
-        subtitle={`${d.doctorName} • ${d.specialtyName} • Ngày ${d.serviceDate}`}
+        subtitle={`${d.doctorName} • ${d.specialtyName} • Ngày ${new Date(d.serviceDate).toLocaleDateString('vi-VN', { timeZone: 'Asia/Ho_Chi_Minh' })}`}
         actions={<StatusPill status={d.status} />}
       >
         {!d.isPublished ? (
