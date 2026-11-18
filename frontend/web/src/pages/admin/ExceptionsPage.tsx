@@ -94,7 +94,7 @@ export const ExceptionsPage: React.FC = () => {
           empty={<EmptyState title="Không có ngoại lệ tồn đọng" />}
           columns={[
             { key: 'ref', header: 'Mã tham chiếu', render: (r) => <span className="font-mono font-semibold">{r.referenceCode}</span> },
-            { key: 'patient', header: 'Bệnh nhân', render: (r) => `${r.patientName} (${r.phoneMasked})` },
+            { key: 'patient', header: 'Bệnh nhân', render: (r) => r.patientName || '—' },
             { key: 'detail', header: 'Mô tả ngoại lệ', render: (r) => r.detail },
             { key: 'time', header: 'Thời điểm', render: (r) => <DateTimeText value={r.createdAt} /> },
             {
@@ -106,7 +106,7 @@ export const ExceptionsPage: React.FC = () => {
               key: 'act',
               header: 'Xử lý',
               render: (r) =>
-                r.status === 'Open' ? (
+                r.status === 'Open' && r.canRetry ? (
                   <Button size="sm" variant="primary" onClick={() => setSelected(r)}>
                     Ghi nhận xử lý
                   </Button>

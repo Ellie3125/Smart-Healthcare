@@ -18,7 +18,6 @@ import {
   useToast,
 } from '../../shared/ui';
 import { getVNDateISO, isBeforeCutoffVN } from '../../shared/lib/datetime';
-import { createIdempotencyKey } from '../../shared/lib/idempotency';
 import { extractFriendlyError } from '../../shared/lib/errors';
 import type { DoctorDayQuotaItem } from '../../types/staffWorkflow';
 
@@ -60,12 +59,11 @@ export const DoctorDayQuotasPage: React.FC = () => {
         sessionModal!.doctorId,
         serviceDate,
         { action: actionType, substituteDoctorId: substituteDoctorId || undefined, reason: reason.trim() },
-        createIdempotencyKey(`session-${sessionModal!.doctorId}`),
       ),
-    onSuccess: (res) => {
+    onSuccess: () => {
       pushToast(
         actionType === 'Cancel'
-          ? `Đã hủy phiên và đưa ${res.affectedCount} lịch vào danh sách tiếp tân cần gọi.`
+          ? 'Đã hủy phiên; các lịch bị ảnh hưởng vào danh sách tiếp tân cần gọi.'
           : 'Đã chuyển phiên sang bác sĩ thay thế.',
         'success',
       );

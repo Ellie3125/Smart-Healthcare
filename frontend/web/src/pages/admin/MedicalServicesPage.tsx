@@ -10,7 +10,6 @@ import {
   ErrorState,
   FormField,
   Input,
-  MoneyText,
   Select,
   Skeleton,
   StatusPill,
@@ -24,8 +23,9 @@ export const MedicalServicesPage: React.FC = () => {
   const [open, setOpen] = useState(false);
   const [code, setCode] = useState('');
   const [name, setName] = useState('');
-  const [category, setCategory] = useState<'Lab' | 'Imaging' | 'Functional'>('Lab');
-  const [unitPrice, setUnitPrice] = useState('150000');
+  const [category, setCategory] = useState('Laboratory');
+  const [roomId, setRoomId] = useState('');
+  const roomsQuery = useQuery({ queryKey: ['admin', 'rooms'], queryFn: () => adminOpsApi.listRooms() });
 
   const query = useQuery({
     queryKey: ['admin', 'cls-services'],
@@ -38,9 +38,7 @@ export const MedicalServicesPage: React.FC = () => {
         code: code.trim(),
         name: name.trim(),
         category,
-        unitPrice: Number(unitPrice) || 100000,
-        hasActiveRoom: true,
-        isActive: true,
+        roomId,
       }),
     onSuccess: () => {
       pushToast('Đã lưu dịch vụ cận lâm sàng.', 'success');
@@ -88,7 +86,6 @@ export const MedicalServicesPage: React.FC = () => {
                 />
               ),
             },
-            { key: 'price', header: 'Đơn giá', align: 'right', render: (r) => <MoneyText amount={r.unitPrice} /> },
           ]}
         />
       )}
@@ -100,7 +97,7 @@ export const MedicalServicesPage: React.FC = () => {
         footer={
           <>
             <Button variant="outline" onClick={() => setOpen(false)}>Hủy</Button>
-            <Button variant="primary" loading={saveMutation.isPending} disabled={!code || !name} onClick={() => saveMutation.mutate()}>
+            <Button variant="primary" loading={saveMutation.isPending} disabled={!code || !name || !roomId} onClick={() => saveMutation.mutate()}>
               Lưu dịch vụ
             </Button>
           </>
@@ -118,18 +115,28 @@ export const MedicalServicesPage: React.FC = () => {
               <Select
                 {...props}
                 value={category}
-                onChange={(e) => setCategory(e.target.value as 'Lab' | 'Imaging' | 'Functional')}
+                onChange={(e) => setCategory(e.target.value)}
                 options={[
-                  { value: 'Lab', label: 'Xét nghiệm' },
-                  { value: 'Imaging', label: 'Chẩn đoán hình ảnh' },
-                  { value: 'Functional', label: 'Thăm dò chức năng' },
+                  { value: 'Laboratory', label: 'Xét nghiệm' },
+                  { value: 'Radiology', label: 'Chẩn đoán hình ảnh' },
+                  { value: 'Ultrasound', label: 'Siêu âm' },
+                  { value: 'Endoscopy', label: 'Nội soi' },
                 ]}
               />
             )}
           </FormField>
-          <FormField label="Đơn giá (VNĐ)" required>
-            {(props) => <Input {...props} type="number" value={unitPrice} onChange={(e) => setUnitPrice(e.target.value)} />}
+          <FormField label="Phòng thực hiện mặc định" required>
+            {(props) => (
+              <Select
+                {...props}
+                value={roomId}
+                placeholder="Chọn phòng"
+                onChange={(e) => setRoomId(e.target.value)}
+                options={(roomsQuery.data ?? []).filter((r) => r.isActive).map((r) => ({ value: r.id, label: r.name }))}
+              />
+            )}
           </FormField>
+          <p className="text-xs text-on-surface-variant">Đơn giá dịch vụ CLS quản lý trong bảng giá, không nhập ở đây.</p>
         </div>
       </Dialog>
     </div>
