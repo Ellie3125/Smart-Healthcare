@@ -5,6 +5,7 @@ using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Routing;
+using Scheduling.Contracts;
 
 namespace Clinical.Api;
 
@@ -278,13 +279,28 @@ internal static class ClinicalEndpoints
 
     private static async Task<IResult> GetServiceOrdersAsync(
         Guid id,
+        ClaimsPrincipal user,
         IClinicalModule clinical,
+        [FromServices] IClsTicketReader tickets,
         CancellationToken ct)
     {
         try
         {
+            if (!TryGetUserId(user, out _)) return TypedResults.Unauthorized();
+            var doctor = user.IsInRole(Roles.Doctor);
+            if (doctor && (!Guid.TryParse(user.FindFirstValue(AppClaims.DoctorId), out var doctorId)
+                || !await clinical.IsOriginalDoctorAsync(doctorId, id, ct))) return TypedResults.Forbid();
+            Guid roomId = Guid.Empty;
+            if (user.IsInRole(Roles.RoomAccount) && (!Guid.TryParse(user.FindFirstValue(AppClaims.RoomId), out roomId) || roomId == Guid.Empty))
+                return TypedResults.Forbid();
             var orders = await clinical.GetServiceOrdersByEncounterIdAsync(id, ct);
-            return TypedResults.Ok(orders);
+            if (user.IsInRole(Roles.RoomAccount))
+            {
+                var allowed = (await tickets.GetByEncounterRoomAsync(id, roomId, ct)).Select(x => x.ServiceOrderItemId).ToHashSet();
+                orders = orders.Select(o => o with { Items = o.Items.Where(i => allowed.Contains(i.Id)).ToArray() })
+                    .Where(o => o.Items.Count > 0).ToArray();
+            }
+            return TypedResults.Ok(VisibleResults(orders, doctor));
         }
         catch (ClinicalException ex)
         {
@@ -417,13 +433,17 @@ internal static class ClinicalEndpoints
                 return ClinicalProblem(StatusCodes.Status404NotFound, "EncounterNotFound", "Không tìm thấy lượt khám.");
 
             var orders = await clinical.GetServiceOrdersByEncounterIdAsync(id, ct);
-            return TypedResults.Ok(orders);
+            return TypedResults.Ok(VisibleResults(orders, await clinical.IsPostClsConclusionPublishedAsync(id, ct)));
         }
         catch (ClinicalException ex)
         {
             return MapClinicalException(ex);
         }
     }
+
+    private static IReadOnlyList<ServiceOrderDto> VisibleResults(IReadOnlyList<ServiceOrderDto> orders, bool visible) =>
+        orders.Select(o => o with { Items = o.Items.Select(i => i with
+            { Result = visible && i.Result?.ResultStatus == "Published" ? i.Result : null }).ToArray() }).ToArray();
 
     private static async Task<IResult> GetPrescriptionsPatientAsync(
         Guid id,

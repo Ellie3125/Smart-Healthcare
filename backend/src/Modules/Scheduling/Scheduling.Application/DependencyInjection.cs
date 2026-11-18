@@ -19,5 +19,6 @@ public static class DependencyInjection
             .AddScoped(provider => ActivatorUtilities.CreateInstance<QueueService>(provider))
             .AddScoped(provider => ActivatorUtilities.CreateInstance<ClsTicketService>(provider))
             .AddScoped<ISchedulingModule>(provider => new SchedulingModule(provider.GetRequiredService<DoctorSearchService>(),
-                () => provider.GetRequiredService<CheckInService>(), () => provider.GetRequiredService<ClsTicketService>()));
+                () => provider.GetRequiredService<CheckInService>(), () => provider.GetRequiredService<ClsTicketService>(),
+                () => provider.GetRequiredService<IClsTicketReader>(), () => provider.GetRequiredService<Clinical.Contracts.IClinicalModule>()));
 }
