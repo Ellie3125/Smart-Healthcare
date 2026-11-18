@@ -1,5 +1,7 @@
 namespace IdentityPatients.Contracts;
 
+public sealed record PatientJourneyProfile(Guid PatientId, string FullName);
+
 public sealed record DoctorDto(
     Guid DoctorId,
     string FullName,
