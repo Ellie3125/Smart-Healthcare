@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Build và push 4 image (api, worker, migrator, web) cho Staging/Prod, in digest để dán vào .env.staging (OPS-02: VPS chỉ pull theo
+# Build và push 5 image (api, worker, migrator, web, chatbot) cho Staging/Prod, in digest để dán vào .env.staging (OPS-02: VPS chỉ pull theo
 # digest, không build source). Chạy trên laptop (Git Bash/Linux/macOS) ở bất kỳ thư mục nào trong repo:
 #   REGISTRY=ghcr.io/<owner> PATIENT_PORTAL_URL=https://<PUBLIC_HOST> scripts/build-images.sh
 # Cần đăng nhập registry trước (ví dụ: docker login ghcr.io). TAG mặc định là commit hiện tại; working tree phải sạch
@@ -10,8 +10,8 @@ set -euo pipefail
 : "${PATIENT_PORTAL_URL:?Đặt PATIENT_PORTAL_URL, ví dụ https://staging.smarthealthcare.io.vn (liên kết ở trang đăng nhập nhân viên)}"
 
 cd "$(git rev-parse --show-toplevel)"
-if [ -n "$(git status --porcelain -- backend frontend infrastructure)" ] && [ "${ALLOW_DIRTY:-0}" != 1 ]; then
-  echo "Có thay đổi chưa commit trong backend/, frontend/ hoặc infrastructure/; commit trước (hoặc ALLOW_DIRTY=1)." >&2
+if [ -n "$(git status --porcelain -- backend frontend infrastructure chatbot-service)" ] && [ "${ALLOW_DIRTY:-0}" != 1 ]; then
+  echo "Có thay đổi chưa commit trong backend/, frontend/, infrastructure/ hoặc chatbot-service/; commit trước (hoặc ALLOW_DIRTY=1)." >&2
   exit 1
 fi
 
@@ -22,13 +22,15 @@ for target in api worker migrator; do
   echo "== build $target"
   docker build -f infrastructure/docker/backend.Dockerfile --target "$target" -t "$PREFIX/$target:$TAG" backend
 done
+echo "== build chatbot"
+docker build -t "$PREFIX/chatbot:$TAG" chatbot-service
 echo "== build web"
 docker build -f infrastructure/docker/frontend.Dockerfile --build-context nginx=infrastructure/nginx \
   --build-arg PATIENT_PORTAL_URL="$PATIENT_PORTAL_URL" -t "$PREFIX/web:$TAG" frontend
 
 out="release-$TAG.env"
 : > "$out"
-for name in api worker migrator web; do
+for name in api worker migrator web chatbot; do
   docker push "$PREFIX/$name:$TAG"
   digest=$(docker inspect --format '{{index .RepoDigests 0}}' "$PREFIX/$name:$TAG")
   var="$(echo "$name" | tr '[:lower:]' '[:upper:]')_IMAGE"
@@ -36,5 +38,5 @@ for name in api worker migrator web; do
 done
 
 echo
-echo "Digest (đã ghi vào $out; chép 4 dòng này vào .env.staging trên VPS):"
+echo "Digest (đã ghi vào $out; chép 5 dòng này vào .env.staging trên VPS):"
 cat "$out"

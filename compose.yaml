@@ -62,6 +62,9 @@ services:
       CloudflareR2__AccessKeyId: ${R2_ACCESS_KEY_ID:-}
       CloudflareR2__SecretAccessKey: ${R2_SECRET_ACCESS_KEY:-}
       CloudflareR2__BucketName: ${R2_BUCKET_NAME:-}
+      # Chuyển tiếp chat sang service chatbot (contract chatbot §2, §3). Khóa trống thì chat báo tạm ngưng, Api vẫn chạy.
+      Chatbot__BaseUrl: http://chatbot:8000
+      Chatbot__InternalKey: ${CHATBOT_INTERNAL_KEY:-}
     depends_on:
       sqlserver:
         condition: service_healthy
@@ -91,8 +94,34 @@ services:
     logging: *default-logging
     networks: [backend]
 
+  chatbot:
+    # Chỉ chạy khi bật profile `chatbot` (COMPOSE_PROFILES=chatbot hoặc --profile chatbot), CB-09. Không publish port:
+    # chỉ Api gọi vào qua mạng backend (contract chatbot §2); chatbot gọi lại API .NET trực tiếp ở api:8080.
+    # Biến (đặt trong file env của môi trường, không commit): CHATBOT_IMAGE (Staging/Prod: digest), CHATBOT_INTERNAL_KEY
+    # (≥ 16 ký tự, Api dùng cùng giá trị), OLLAMA_BASE_URL (ngrok static domain của Colab), OLLAMA_API_KEY, OLLAMA_MODEL.
+    profiles: [chatbot]
+    image: ${CHATBOT_IMAGE:-smart-healthcare/chatbot:dev}
+    environment:
+      CHATBOT_INTERNAL_KEY: ${CHATBOT_INTERNAL_KEY:-}
+      OLLAMA_BASE_URL: ${OLLAMA_BASE_URL:-}
+      OLLAMA_API_KEY: ${OLLAMA_API_KEY:-}
+      OLLAMA_MODEL: ${OLLAMA_MODEL:-qwen2.5:3b}
+      OLLAMA_TIMEOUT_SECONDS: ${OLLAMA_TIMEOUT_SECONDS:-60}
+      DOTNET_API_BASE_URL: http://api:8080
+    volumes:
+      # SQLite của cuộc trò chuyện (Short-term Memory), giữ qua restart.
+      - chatbot-data:/data
+    depends_on:
+      api:
+        condition: service_started
+    mem_limit: 384m
+    restart: unless-stopped
+    logging: *default-logging
+    networks: [backend]
+
 networks:
   backend: {}
 
 volumes:
   sqlserver-data:
+  chatbot-data:

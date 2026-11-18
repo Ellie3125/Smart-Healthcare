@@ -5,6 +5,7 @@
 #   SEED=1 scripts/deploy-staging.sh     # seed dữ liệu giả lập (tài khoản, danh mục, bảng giá, lịch 7 ngày); chạy lại được
 #   ENV_FILE=<file> SKIP_TUNNEL=1 ...    # dùng file env khác, không bật cloudflared
 #   SKIP_PULL=1 ...                      # dùng image có sẵn trên máy, không kéo từ registry
+#   CHATBOT=1 ...                        # bật thêm service chatbot (profile chatbot, CB-09; cần CHATBOT_IMAGE, CHATBOT_INTERNAL_KEY, OLLAMA_*)
 # Thứ tự: kéo image → SQL Server, Redis → tạo DB/login (an toàn khi chạy lại) → migration → Api, Worker, nginx → cloudflared.
 set -euo pipefail
 
@@ -12,7 +13,9 @@ cd "$(dirname "$0")/.."
 ENV_FILE="${ENV_FILE:-.env.staging}"
 [ -f "$ENV_FILE" ] || { echo "Không thấy $ENV_FILE (mẫu: .env.staging.example)." >&2; exit 1; }
 
-dc() { docker compose --env-file "$ENV_FILE" -f compose.yaml -f compose.staging.yaml "$@"; }
+PROFILE_ARGS=()
+[ "${CHATBOT:-0}" = 1 ] && PROFILE_ARGS=(--profile chatbot)
+dc() { docker compose --env-file "$ENV_FILE" -f compose.yaml -f compose.staging.yaml "${PROFILE_ARGS[@]}" "$@"; }
 
 dc --profile release config --quiet
 # SKIP_PULL=1: image đã có sẵn trên máy (diễn tập bằng image build cục bộ).
@@ -28,6 +31,10 @@ echo "== migration"
 dc --profile release run --rm migrator
 echo "== Api, Worker, nginx"
 dc up -d --wait api worker web
+if [ "${CHATBOT:-0}" = 1 ]; then
+  echo "== chatbot"
+  dc up -d --wait chatbot
+fi
 # Api mới có IP mới; nginx tự phân giải lại sau tối đa 10 giây, reload để nối ngay.
 dc exec -T web nginx -s reload
 # SKIP_TUNNEL=1: chưa tạo tunnel hoặc đang diễn tập trên máy (kiểm qua `docker compose exec web`).
