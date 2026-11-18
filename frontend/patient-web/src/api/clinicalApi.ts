@@ -8,6 +8,24 @@ import type {
   TodayJourneyDto,
 } from '../types/clinical';
 import type { VnpayCheckoutResult } from '../types/booking';
+import { PatientApiError } from '../shared/lib/errors';
+
+interface ApiPrescription {
+  prescriptionCode: string;
+  generalInstructions: string;
+  issuedAtUtc: string | null;
+  publishedAtUtc: string | null;
+  items: {
+    id: string;
+    medicationNameSnapshot: string;
+    activeIngredientSnapshot: string;
+    dosage: string;
+    frequency: string;
+    durationDays: number;
+    quantity: number;
+    usageInstructions: string;
+  }[];
+}
 
 /**
  * Clinical, CLS Billing, Refunds & Records API (Patient Web).
@@ -48,6 +66,30 @@ export const clinicalApi = {
   downloadClsAttachment: (resultId: string, fileId: string) =>
     patientDownloadBlob(`/api/documents/patient/cls-results/${resultId}/files/${fileId}/download`),
 
-  getPrescription: (encounterId: string) =>
-    patientGet<PatientPrescriptionDetail>(`/api/medication/patient/encounters/${encounterId}/prescription`),
+  // Clinical trả mảng đơn đã phát hành của lượt khám; trang hiển thị đơn mới nhất.
+  getPrescription: async (encounterId: string): Promise<PatientPrescriptionDetail> => {
+    const list = await patientGet<ApiPrescription[]>(`/api/clinical/patient/encounters/${encounterId}/prescriptions`);
+    const rx = [...list].sort((x, y) => (y.issuedAtUtc ?? '').localeCompare(x.issuedAtUtc ?? ''))[0];
+    if (!rx) throw new PatientApiError(404, 'NOT_FOUND', 'Lượt khám này chưa có đơn thuốc được công bố.');
+    return {
+      encounterId,
+      encounterCode: rx.prescriptionCode,
+      patientName: '',
+      doctorName: '',
+      issuedAt: rx.issuedAtUtc ?? rx.publishedAtUtc ?? '',
+      disclaimer: 'Hệ thống bệnh viện không bán thuốc trực tuyến. Đơn thuốc chỉ có giá trị mua tại các nhà thuốc đạt chuẩn GPP.',
+      notes: rx.generalInstructions || undefined,
+      items: rx.items.map((i) => ({
+        id: i.id,
+        drugName: i.medicationNameSnapshot,
+        activeIngredient: i.activeIngredientSnapshot,
+        dosage: i.dosage,
+        frequency: i.frequency,
+        durationDays: i.durationDays,
+        quantity: i.quantity,
+        unit: '',
+        usageInstruction: i.usageInstructions,
+      })),
+    };
+  },
 };

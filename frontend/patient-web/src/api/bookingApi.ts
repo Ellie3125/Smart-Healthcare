@@ -51,6 +51,54 @@ interface ApiDoctorPage {
   items: ApiDoctorItem[];
 }
 
+// Dạng thật của lịch hẹn (`docs/api/scheduling.md` §4.5, §4.7).
+interface ApiAppointment {
+  appointmentId: string;
+  appointmentNumber: string;
+  status: 'Scheduled' | 'CheckedIn' | 'Completed' | 'Cancelled' | 'Absent' | 'Rescheduled';
+  patientId: string;
+  doctorId: string;
+  doctorName: string | null;
+  serviceDate: string;
+  assignedRoomId: string;
+  appliedConsultationFee: number;
+  currency: string;
+}
+
+const APPOINTMENT_STATUS: Record<ApiAppointment['status'], PatientAppointmentItem['status']> = {
+  Scheduled: 'Confirmed',
+  CheckedIn: 'CheckedIn',
+  Completed: 'Completed',
+  Cancelled: 'Cancelled',
+  Absent: 'NoShow',
+  Rescheduled: 'Cancelled',
+};
+
+const toAppointmentItem = (x: ApiAppointment): PatientAppointmentItem => {
+  const open = x.status === 'Scheduled';
+  return {
+    id: x.appointmentId,
+    appointmentCode: x.appointmentNumber,
+    patientProfileId: x.patientId,
+    patientName: '',
+    doctorId: x.doctorId,
+    doctorName: x.doctorName ?? '',
+    doctorRankName: '',
+    specialtyName: '',
+    roomName: '',
+    serviceDate: x.serviceDate,
+    consultationFee: x.appliedConsultationFee,
+    status: APPOINTMENT_STATUS[x.status] ?? 'Cancelled',
+    canReschedule: open,
+    canCancel: open,
+    rescheduleBlockedReason: open ? undefined : 'Lịch khám không còn ở trạng thái chờ khám.',
+    cancelBlockedReason: open ? undefined : 'Lịch khám không còn ở trạng thái chờ khám.',
+  };
+};
+
+const getAppointment = (appointmentId: string) =>
+  patientGet<ApiAppointment>(`/api/scheduling/patient/appointments/${appointmentId}`);
+
 const PAYMENT_STATES = ['Pending', 'Processing', 'Succeeded', 'Failed', 'Unknown', 'Expired', 'Cancelled'] as const;
 type PaymentStateName = (typeof PAYMENT_STATES)[number];
 
@@ -107,9 +155,9 @@ async function searchDoctors(params: {
 }
 
 export const bookingApi = {
-  // TODO: nối contract thật cho danh mục chuyên khoa & học hàm/học vị công khai phía bệnh nhân
-  listSpecialties: () => patientGet<SpecialtyOption[]>('/api/identity/public/specialties'),
-  listDoctorRanks: () => patientGet<DoctorRankOption[]>('/api/identity/public/doctor-ranks'),
+  // `docs/api/identity.md`: PatientOnly, chỉ mục đang hoạt động
+  listSpecialties: () => patientGet<SpecialtyOption[]>('/api/patient/specialties'),
+  listDoctorRanks: () => patientGet<DoctorRankOption[]>('/api/patient/doctor-ranks'),
 
   // Real W1 Contract (`docs/api/scheduling.md`)
   searchDoctors,
@@ -195,21 +243,54 @@ export const bookingApi = {
   listRecoverableAttempts: () =>
     patientGet<BookingAttemptDetail[]>('/api/scheduling/patient/booking-attempts/recoverable'),
 
-  // TODO: nối contract thật P12-P15 Lịch của tôi, Vé QR, Đổi lịch, Hủy lịch
-  listMyAppointments: (params?: { status?: string; page?: number; pageSize?: number }) =>
-    patientGet<{ items: PatientAppointmentItem[]; hasMore: boolean }>(
-      '/api/scheduling/patient/appointments',
-      { params },
-    ),
+  // `docs/api/scheduling.md` §4.7. Backend chỉ phân trang, lọc trạng thái làm phía web trong trang đã tải.
+  listMyAppointments: async (params?: { status?: string; page?: number; pageSize?: number }) => {
+    const res = await patientGet<{ items: ApiAppointment[]; hasMore: boolean }>('/api/scheduling/patient/appointments', {
+      params: { page: params?.page, pageSize: params?.pageSize },
+    });
+    const items = res.items.map(toAppointmentItem);
+    return { items: params?.status ? items.filter((a) => a.status === params.status) : items, hasMore: res.hasMore };
+  },
 
-  getAppointmentTicket: (appointmentId: string) =>
-    patientGet<AppointmentTicketDetail>(`/api/scheduling/patient/appointments/${appointmentId}/ticket`),
+  // Không có route vé riêng (scheduling.md v0.12): mã QR là appointmentNumber; tên người khám lấy từ hồ sơ của tài khoản.
+  getAppointmentTicket: async (appointmentId: string): Promise<AppointmentTicketDetail> => {
+    const [a, profiles] = await Promise.all([
+      getAppointment(appointmentId),
+      patientGet<{ patientId: string; fullName: string }[]>('/api/patient/profiles'),
+    ]);
+    const item = toAppointmentItem(a);
+    return {
+      appointmentId: item.id,
+      appointmentCode: item.appointmentCode,
+      qrPayload: item.appointmentCode,
+      patientName: profiles.find((p) => p.patientId === a.patientId)?.fullName ?? '',
+      doctorName: item.doctorName,
+      specialtyName: item.specialtyName,
+      serviceDate: item.serviceDate,
+      roomName: item.roomName,
+      status: item.status,
+      queueNumber: null,
+      checkInInstruction: 'Số thứ tự được cấp khi tiếp tân check-in tại quầy.',
+    };
+  },
 
-  listRescheduleOptions: (appointmentId: string, targetDate: string) =>
-    patientGet<RescheduleOption[]>(
-      `/api/scheduling/patient/appointments/${appointmentId}/reschedule-options`,
-      { params: { targetDate } },
-    ),
+  // Không có route reschedule-options: lấy bác sĩ ngày mới; chỉ bác sĩ cùng mức phí đổi được (server vẫn kiểm `DifferentFee`).
+  listRescheduleOptions: async (appointmentId: string, targetDate: string): Promise<RescheduleOption[]> => {
+    const [a, page] = await Promise.all([getAppointment(appointmentId), searchDoctors({ serviceDate: targetDate, pageSize: 50 })]);
+    return page.items
+      .filter((d) => d.remainingSlots > 0)
+      .map((d) => ({
+        doctorId: d.doctorId,
+        doctorName: d.fullName,
+        doctorRankName: d.doctorRankName,
+        specialtyName: d.specialtyName,
+        serviceDate: d.serviceDate,
+        roomName: d.roomName,
+        consultationFee: d.consultationFee,
+        remainingSlots: d.remainingSlots,
+        sameFeeEligible: d.consultationFee === a.appliedConsultationFee,
+      }));
+  },
 
   rescheduleAppointment: (
     appointmentId: string,
@@ -222,15 +303,37 @@ export const bookingApi = {
       { idempotencyKey },
     ),
 
-  previewCancelRefund: (appointmentId: string) =>
-    patientGet<CancelRefundPreview>(`/api/scheduling/patient/appointments/${appointmentId}/cancel-preview`),
+  // `docs/api/scheduling.md` §4.7: refund Full/None; trạng thái không hủy được trả 409 (trang hiện lỗi).
+  previewCancelRefund: async (appointmentId: string): Promise<CancelRefundPreview> => {
+    const [preview, a] = await Promise.all([
+      patientGet<{ appointmentId: string; refund: 'Full' | 'None'; refundAmount: number; refundCutoffUtc: string }>(
+        `/api/scheduling/patient/appointments/${appointmentId}/cancellation-preview`,
+      ),
+      getAppointment(appointmentId),
+    ]);
+    const cutoff = new Date(preview.refundCutoffUtc).toLocaleString('vi-VN', { timeZone: 'Asia/Ho_Chi_Minh' });
+    return {
+      appointmentId: preview.appointmentId,
+      originalAmount: a.appliedConsultationFee,
+      refundAmount: preview.refundAmount,
+      refundRatePercent: preview.refund === 'Full' ? 100 : 0,
+      policyExplanation:
+        preview.refund === 'Full'
+          ? `Hủy trước ${cutoff} được hoàn toàn bộ phí khám, nhận tiền mặt tại quầy.`
+          : `Đã qua mốc ${cutoff} nên không được hoàn phí khám.`,
+      eligibleToCancel: true,
+    };
+  },
 
-  cancelAppointment: (appointmentId: string, reason: string, idempotencyKey: string) =>
-    patientPost<{ appointmentId: string; refundAmount: number; refundRequestId?: string }, { reason: string }>(
+  // 202 khi xử lý nền thì chưa có số tiền: trả 0, danh sách lịch cập nhật sau.
+  cancelAppointment: async (appointmentId: string, reason: string, idempotencyKey: string) => {
+    const res = await patientPost<{ refundAmount?: number; operationId?: string | null }, { reason: string }>(
       `/api/scheduling/patient/appointments/${appointmentId}/cancel`,
       { reason },
       { idempotencyKey },
-    ),
+    );
+    return { appointmentId, refundAmount: res.refundAmount ?? 0, operationId: res.operationId ?? undefined };
+  },
 
   // TODO: nối contract thật TV01 màn công khai không chứa PII
   getPublicDisplayBoard: () => patientGet<PublicDisplayBoardDto>('/api/scheduling/public/display'),

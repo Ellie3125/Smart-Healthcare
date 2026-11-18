@@ -8,7 +8,7 @@ export interface DoctorRankOption {
   id: string;
   code: string;
   name: string;
-  consultationFee: number;
+  displayOrder: number;
 }
 
 export interface DoctorSearchItem {
