@@ -59,6 +59,7 @@ public static class DependencyInjection
         app.MapHub<StaffHub>("/hubs/staff", o => o.Transports = HttpTransportType.WebSockets);
         app.MapHub<PatientHub>("/hubs/patient", o => o.Transports = HttpTransportType.WebSockets);
         app.MapHub<PublicDisplayHub>("/hubs/public-display", o => o.Transports = HttpTransportType.WebSockets);
+        app.MapWorkflowExceptionRoutes();
         var group = app.MapGroup("/api/notifications").WithTags(Tag);
         group.MapPatientNotificationRoutes();
         group.MapPatientChatRoutes();
