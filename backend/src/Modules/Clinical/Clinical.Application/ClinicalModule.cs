@@ -8,8 +8,14 @@ public sealed class ClinicalModule(
     IEncounterStore encounterStore,
     IServiceOrderStore serviceOrderStore,
     IPrescriptionStore prescriptionStore,
-    TimeProvider clock) : IClinicalModule
+    TimeProvider clock,
+    Func<Results.ClsLifecycleService>? clsLifecycle = null) : IClinicalModule
 {
+    public Task StartClsServiceAsync(ClsServiceCommand command, CancellationToken ct) =>
+        (clsLifecycle ?? throw new NotSupportedException("Host chưa đăng ký Clinical CLS lifecycle."))().TransitionAsync(command, true, ct);
+    public Task FinishClsServiceAsync(ClsServiceCommand command, CancellationToken ct) =>
+        (clsLifecycle ?? throw new NotSupportedException("Host chưa đăng ký Clinical CLS lifecycle."))().TransitionAsync(command, false, ct);
+
     public async Task<EncounterDto?> GetEncounterByIdAsync(Guid encounterId, CancellationToken ct)
     {
         if (encounterId == Guid.Empty)

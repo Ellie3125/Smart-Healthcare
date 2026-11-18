@@ -18,15 +18,15 @@ public sealed class ReturnTicketActivationDeferredException(string code) : Excep
 
 public sealed class ReturnTicketActivationHandler(SchedulingDbContext db, IClinicalModule clinical, IIdentityPatientsModule identity,
     IUnitOfWork uow, IProcessedEventStore processed, IDbClock clock, IIntegrationEventPublisher publisher, AuditLogWriter audit)
-    : IIntegrationEventHandler<ClsResultsPublishedIntegrationEvent>
+    : IIntegrationEventHandler<ResultPublished>
 {
-    public Task HandleAsync(ClsResultsPublishedIntegrationEvent e, CancellationToken ct)
+    public Task HandleAsync(ResultPublished e, CancellationToken ct)
     {
         if (e.EventId == Guid.Empty || e.EncounterId == Guid.Empty || e.ServiceOrderId == Guid.Empty)
             throw new ArgumentException("Missing event, encounter or service-order identifier.");
         return uow.ExecuteAsync(async t =>
         {
-            if (!await processed.TryMarkAsync(e.EventId, "Scheduling.ClsResultsPublished.v1", t)) return;
+            if (!await processed.TryMarkAsync(e.EventId, "Scheduling.ResultPublished.v1", t)) return;
             if (db.Database.CurrentTransaction is null) throw new InvalidOperationException("Scheduling must participate in IUnitOfWork.");
             var encounter = await clinical.GetEncounterByIdAsync(e.EncounterId, t)
                 ?? throw new ReturnTicketActivationDeferredException("EncounterNotFound");

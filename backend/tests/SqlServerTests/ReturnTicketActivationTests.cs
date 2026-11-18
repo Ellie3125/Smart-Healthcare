@@ -32,7 +32,7 @@ public sealed class ReturnTicketActivationTests
             .PublishAsync(f.Event, f.Encounter, t), Ct);
         var row = await scope.ServiceProvider.GetRequiredService<SharedDbContext>().Set<OutboxMessage>().AsNoTracking().SingleAsync(x => x.Id == f.Event.EventId, Ct);
         Assert.Equal("ResultPublished", row.EventType.ToString()); Assert.Equal(f.Encounter, row.AggregateId);
-        Assert.Equal("Encounter", row.AggregateType.ToString());
+        Assert.Equal("CLSResult", row.AggregateType.ToString()); // sự kiện chuẩn của Clinical (#144) gắn với CLSResult
         var registration = Assert.Single(scope.ServiceProvider.GetServices<OutboxEventRegistration>());
         await registration.DispatchAsync(scope.ServiceProvider, row.PayloadJson, Ct);
         Assert.Equal(QueueStatus.Waiting, (await f.Ticket()).QueueStatus);
@@ -139,7 +139,7 @@ public sealed class ReturnTicketActivationTests
         public Guid Room { get; } = Guid.NewGuid(); public Guid Doctor { get; } = Guid.NewGuid(); public Guid Order { get; } = Guid.NewGuid();
         public ServiceProvider Services { get; private set; } = null!; public ClinicalData Clinical { get; private set; } = null!;
         public IdentityData Identity { get; private set; } = null!; public List<Guid> Events { get; } = [];
-        public ClsResultsPublishedIntegrationEvent Event { get; private set; } = null!;
+        public Clinical.Contracts.ResultPublished Event { get; private set; } = null!;
         public static async Task<Fixture> Create()
         {
             var f = new Fixture(); var clinical = DispatchProxy.Create<IClinicalModule, ClinicalData>(); f.Clinical = (ClinicalData)clinical;
@@ -149,15 +149,15 @@ public sealed class ReturnTicketActivationTests
             var identity = DispatchProxy.Create<IIdentityPatientsModule, IdentityData>(); f.Identity = (IdentityData)identity;
             var cs = TestDatabase.RequiredConnectionString(); f.Services = new ServiceCollection().AddSharedInfrastructure(cs).AddSchedulingInfrastructure(cs)
                 .AddUnitOfWorkParticipant<SchedulingDbContext>().AddSingleton(clinical).AddSingleton(identity)
-                .AddOutboxEvent<ClsResultsPublishedIntegrationEvent>(Shared.Infrastructure.Persistence.Enums.EventType.ResultPublished).BuildServiceProvider();
-            f.Event = new(Guid.NewGuid(), f.Encounter, f.Order, DateTime.UtcNow, null); f.Events.Add(f.Event.EventId);
+                .AddOutboxEvent<Clinical.Contracts.ResultPublished>().BuildServiceProvider();
+            f.Event = new(Guid.NewGuid(), f.Encounter, f.Order, Guid.NewGuid(), f.Clinical.Order.Items[0].Id, DateTime.UtcNow, null); f.Events.Add(f.Event.EventId);
             await using var scope = f.Services.CreateAsyncScope(); var db = scope.ServiceProvider.GetRequiredService<SchedulingDbContext>();
             db.Add(new QueueTicket { Id = f.Id, EncounterId = f.Encounter, ServiceOrderId = f.Order, TargetRoomId = f.Room, TicketNumber = $"TEST-{f.Id:N}",
                 SequenceNumber = 1, TicketType = TicketType.ReturnConsultation, QueueStatus = QueueStatus.Deferred, IssuedAtUtc = DateTime.UtcNow.AddDays(-1) });
             await db.SaveChangesAsync(Ct); return f;
         }
-        public async Task Deliver(ClsResultsPublishedIntegrationEvent e)
-        { await using var s = Services.CreateAsyncScope(); await s.ServiceProvider.GetRequiredService<IIntegrationEventHandler<ClsResultsPublishedIntegrationEvent>>().HandleAsync(e, Ct); }
+        public async Task Deliver(Clinical.Contracts.ResultPublished e)
+        { await using var s = Services.CreateAsyncScope(); await s.ServiceProvider.GetRequiredService<IIntegrationEventHandler<Clinical.Contracts.ResultPublished>>().HandleAsync(e, Ct); }
         public async Task<QueueTicket> Ticket()
         { await using var s = Services.CreateAsyncScope(); return await s.ServiceProvider.GetRequiredService<SchedulingDbContext>().Set<QueueTicket>().AsNoTracking().SingleAsync(x => x.Id == Id, Ct); }
         public async Task<int> CountAudit()

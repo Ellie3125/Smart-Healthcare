@@ -1,7 +1,11 @@
 using Billing.Contracts;
 using Billing.Infrastructure;
+using Clinical.Infrastructure;
 using Hangfire;
 using Hangfire.SqlServer;
+using IdentityPatients.Contracts;
+using IdentityPatients.Infrastructure;
+using IdentityPatients.Infrastructure.Services;
 using Microsoft.Data.SqlClient;
 using Notifications.Api;
 using Notifications.Infrastructure;
@@ -36,6 +40,13 @@ public static class WorkerServices
             .AddSharedInfrastructure(connectionString)
             .AddSchedulingInfrastructure(connectionString)
             .AddNotificationsInfrastructure(connectionString)
+            // Job cuối ngày CLS và kết thúc phiên đọc trạng thái Encounter qua IClinicalModule.
+            .AddClinicalInfrastructure(connectionString)
+            .AddUnitOfWorkParticipant<Clinical.Infrastructure.Persistence.ClinicalDbContext>()
+            // Handler vé quay lại và gọi số đọc phòng bác sĩ, người nhận thông báo qua IIdentityPatientsModule (chỉ đọc, cùng transaction).
+            .AddIdentityPatientsPersistence(connectionString)
+            .AddScoped<IIdentityPatientsModule, IdentityPatientsModule>()
+            .AddUnitOfWorkParticipant<IdentityPatients.Infrastructure.Persistence.IdentityPatientsDbContext>()
             .AddUnitOfWorkParticipant<SchedulingDbContext>()
             .AddUnitOfWorkParticipant<WorkflowDbContext>()
             // Handler PaymentVerified của Scheduling gọi IPaymentRefunds (PaidUnallocated) trong cùng transaction.
@@ -52,6 +63,14 @@ public static class WorkerServices
             .AddOutboxEvent<AppointmentCancelled>()
             // Check-in phát TicketCheckedIn; Clinical không có handler (Q1), dispatcher vẫn phải nhận để bản ghi không kẹt Pending.
             .AddOutboxEvent<TicketCheckedIn>()
+            // Gọi số (W4-02): handler Notifications đẩy QueueUpdated/DisplayBoardUpdated qua SignalR.
+            .AddOutboxEvent<QueueCalled>()
+            // Vé CLS bị hủy cuối ngày (W3-13); Billing chưa có handler, dispatcher nhận để bản ghi không kẹt Pending.
+            .AddOutboxEvent<ClsTicketCancelled>()
+            // Phòng CLS trả kết quả: Scheduling kích hoạt vé quay lại khi đủ kết quả của đợt (W3-06).
+            .AddOutboxEvent<Clinical.Contracts.ResultPublished>()
+            // Vé quay lại đã kích hoạt; chưa có handler, dispatcher nhận để bản ghi không kẹt Pending.
+            .AddOutboxEvent<ReturnTicketActivated>()
             // Handler trong Worker đẩy sự kiện SignalR qua Redis tới kết nối đang mở ở BE1/BE2 (W4-01).
             .AddNotificationsApi()
             .AddNotificationsRedisBackplane(configuration.GetConnectionString("Redis"));

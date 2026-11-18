@@ -12,9 +12,12 @@ namespace Scheduling.Api;
 
 public static class WalkInEndpoints
 {
-    // Host nối sau khi có Identity patient directory và đầy đủ Billing/Clinical participants UoW.
     public static RouteGroupBuilder MapSchedulingWalkInEndpoints(this IEndpointRouteBuilder app)
     {
+        // Tra hồ sơ trước khi đăng ký tại quầy: khớp chính xác SĐT hoặc CCCD, dữ liệu nhận dạng đã che.
+        app.MapGet("/api/scheduling/staff/reception/search", SearchAsync).WithTags(DependencyInjection.Tag)
+            .RequireAuthorization(Policies.ReceptionistOnly)
+            .Produces<IReadOnlyList<ReceptionPatientDto>>().ProducesProblem(400);
         var group = app.MapGroup("/api/scheduling/staff/walk-in").WithTags(DependencyInjection.Tag)
             .RequireAuthorization(Policies.ReceptionistOnly);
         group.MapPost("", RegisterAsync).Produces<WalkInOutcome>(201)
@@ -46,6 +49,16 @@ public static class WalkInEndpoints
         {
             return Problem(error.Code.ToString(), error.Code == BillingErrorCode.InvalidRequest ? 400 : 409);
         }
+    }
+
+    private static async Task<IResult> SearchAsync(string? keyword, [FromServices] IIdentityPatientsModule identity,
+        CancellationToken ct)
+    {
+        var key = string.Concat((keyword ?? "").Where(c => !char.IsWhiteSpace(c)));
+        if (key.Length is < 9 or > 20)
+            return TypedResults.Problem(statusCode: 400, title: "Nhập số điện thoại hoặc CCCD.",
+                extensions: new Dictionary<string, object?> { ["code"] = "InvalidInput" });
+        return TypedResults.Ok(await identity.FindPatientsForReceptionAsync(key, ct));
     }
 
     private static IResult Problem(string code, int status) => TypedResults.Problem(statusCode: status,

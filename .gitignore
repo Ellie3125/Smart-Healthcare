@@ -23,8 +23,6 @@ docs/evidence/
 .env.*
 !.env.example
 !.env.*.example
-# Digest image do scripts/build-images.sh in ra.
-release-*.env
 
 # ===== Node =====
 node_modules/

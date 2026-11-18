@@ -20,7 +20,7 @@ public sealed class QueueService(IQueueStore store, IUnitOfWork uow, IClinicalMo
             return new(QueueResult.InvalidInput);
 
         // Phòng phải tồn tại và đang hoạt động; tên phòng dùng cho station mặc định.
-        if (await identity.GetRoomAsync(command.RoomId, ct) is not { } room)
+        if (await identity.GetRoomAsync(command.RoomId, ct) is not { IsActive: true } room)
             return new(QueueResult.StationNotFound);
         var station = await store.ResolveStationAsync(command.RoomId, command.StationId, room.Name, ct);
         if (station.StationId is not { } stationId)
@@ -136,6 +136,7 @@ public enum QueueResult
     /// <summary>Vé thuộc phòng khác với phòng của tài khoản phòng (W3-08).</summary>
     WrongRoom,
     InvalidTicketState,
+    PaymentRequired,
 }
 
 public interface IQueueStore

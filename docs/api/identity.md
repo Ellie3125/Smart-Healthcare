@@ -56,6 +56,7 @@
 | `POST /auth/room/logout` | `RoomAccountOnly` | `RoomAccount` (kênh Staff) | 403 |
 | `GET /me` | `AnyChannel` | mọi vai trò, đúng kênh | 403 khi sai kênh |
 | `/api/patient/profiles/**` | `PatientOnly` | Patient (kênh Patient) | 403 |
+| `GET /api/patient/specialties`, `GET /api/patient/doctor-ranks` | `PatientOnly` | Patient (kênh Patient) | 403 |
 | `/api/staff/verifications/**`, `/api/staff/patients/**` | `ReceptionistOrAdmin` | Receptionist, Admin (kênh Staff) | 403 |
 | `/api/staff/admin/**`, `/api/staff/admin/rooms/**` | `AdminOnly` | Admin (kênh Staff) | 403 |
 | `/api/scheduling/admin/doctor-days/**` | `AdminOnly` | Admin (kênh Staff) | 403 |
@@ -130,6 +131,17 @@ Hồ sơ không thuộc tài khoản trả cùng 404 và cùng nội dung như h
 **`UpdatePatientProfileRequest`:** giống request tạo, không có `relationship`.
 
 **`PatientProfileDto`:** `patientId`, `representativeId`, `fullName`, `dateOfBirth`, `gender`, `nationalId`, `phoneNumber`, `address`, `relationship`, `verificationStatus` (`Pending`, `Verified`, `Rejected` hoặc `Revoked`), `isActive`, `rejectionReason`.
+
+## 3a. Danh mục cho bộ lọc tìm bác sĩ — `api/patient` (`PatientOnly`) — thêm 18/11/2026 (trưởng nhóm giao, OWN-10; chờ người phụ trách Identity duyệt)
+
+| Method | Path | 200 |
+|---|---|---|
+| GET | `/api/patient/specialties` | `[{ id, code, name }]`, chỉ chuyên khoa `IsActive`, theo tên |
+| GET | `/api/patient/doctor-ranks` | `[{ id, code, name, displayOrder }]`, chỉ cấp bậc `IsActive`, theo `displayOrder` |
+
+- Dùng `id` làm `specialtyId`, `doctorRankId` của `GET /api/scheduling/patient/doctors`. Không trả mô tả, `isActive` của trang quản trị.
+- Không có phí khám theo cấp bậc: phí phụ thuộc bác sĩ và bảng giá đang hiệu lực, lấy từ `examFee` của kết quả tìm bác sĩ.
+- Đăng nhập là bắt buộc (cùng kênh với tìm bác sĩ), không thêm vào danh sách route công khai.
 
 ## 4. Xác minh người đại diện và sửa hồ sơ đã xác minh — `ReceptionistOrAdmin`
 
@@ -235,4 +247,15 @@ Phòng làm việc của bác sĩ theo ngày lấy từ `StaffShiftAssignment.Ro
 - Thêm `GetAccessiblePatientsAsync(userId, patientIds, level = Booking)`: trả các PatientId trong danh sách mà người gọi được truy cập, **cùng luật** `CanAccessPatientAsync` (AppUser đang hoạt động; vai trò Patient tức không có RoomAccount, không có Staff; đại diện đang hiệu lực; Booking nhận Pending/Verified, ClinicalRecords chỉ Verified). Bản Identity chạy một truy vấn; interface có cài đặt mặc định gọi lần lượt để bản giả trong test không phải sửa.
 - `CanAccessPatientAsync` giữ chữ ký và kết quả, nay gọi bản batch với một PatientId: 1 truy vấn thay cho 4.
 - Lý do: danh sách lịch hẹn của bệnh nhân gọi kiểm quyền theo từng hồ sơ (đo 17/11: ~56 truy vấn cho 14 hồ sơ mỗi trang).
+
+## 10. Tra cứu cho tiếp tân và nhân viên đang hoạt động — thêm 17/11/2026 (trưởng nhóm giao, OWN-10; chờ người phụ trách Identity duyệt)
+
+Chỉ là contract trong tiến trình `IIdentityPatientsModule`; route HTTP do module gọi tự mở (Scheduling `GET /api/scheduling/staff/reception/search`, `ReceptionistOnly`).
+
+- `FindPatientsForReceptionAsync(keyword)` → `ReceptionPatientDto[]` `{ patientId, fullName, dateOfBirth, gender, maskedPhoneNumber, maskedNationalId?, isVerified }`. Bỏ khoảng trắng; độ dài 9–20 ký tự, ngoài khoảng trả rỗng. Khớp **chính xác** `Patient.PhoneNumber` hoặc `Patient.NationalId`, không tìm gần đúng hay theo tên để không lộ hồ sơ; tối đa 20 hồ sơ (một số điện thoại có thể dùng cho cả gia đình). SĐT, CCCD chỉ giữ 3 ký tự cuối. `isVerified` = có người đại diện đang hiệu lực đã `Verified`.
+- `PatientExistsAsync(patientId)` → `bool`: đăng ký tại quầy kiểm hồ sơ tồn tại.
+- `GetActiveStaffAsync(appUserId)` → `ActiveStaffDto?` `{ staffId, staffType, fullName }`: nhân viên của tài khoản trong JWT (`sub`), AppUser và Staff đều đang hoạt động; null nếu không phải nhân viên hoặc đã khóa. Dùng khi ghi `RecordedByStaffId` (điều dưỡng nhập sinh hiệu), người thao tác trong audit.
+- `GetDoctorShiftRoomIdsAsync(doctorId, date)` → các `RoomId` không trùng của `StaffShiftAssignment` thuộc bác sĩ (Doctor.Id → Staff) trong ngày; Scheduling dùng khi admin mở ngày trực không chọn phòng. Không thêm index (đi qua FK `StaffId`, đường quản trị ít gọi).
+- Schema: index không unique `IX_Patient_PhoneNumber` (migration Identity `PatientPhoneNumberIndex`); CCCD dùng index unique có lọc sẵn có.
+- Interface có cài đặt mặc định ném `NotSupportedException` cho ba hàm này để bản giả trong test không phải sửa; bản Identity cài đặt thật.
 

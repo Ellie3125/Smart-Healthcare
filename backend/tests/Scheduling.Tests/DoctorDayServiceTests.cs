@@ -39,6 +39,38 @@ public sealed class DoctorDayServiceTests
     }
 
     [Fact]
+    public async Task OpenWithoutRoomUsesTheDoctorsShiftRoom()
+    {
+        var shiftRoom = Guid.NewGuid();
+        var service = new DoctorDayService(new DoctorDirectory(true, true, shiftRoom), new Store(), new(new TimeOnly(11, 0)));
+
+        var (status, quota) = await service.OpenAsync(DoctorId, ServiceDate, Guid.Empty, Ct);
+
+        Assert.Equal(DoctorDayResult.Opened, status);
+        Assert.Equal(shiftRoom, quota!.AssignedRoomId);
+    }
+
+    [Fact]
+    public async Task ChosenRoomOverridesTheShiftRoom()
+    {
+        var service = new DoctorDayService(new DoctorDirectory(true, true, Guid.NewGuid()), new Store(), new(new TimeOnly(11, 0)));
+
+        Assert.Equal(RoomId, (await service.OpenAsync(DoctorId, ServiceDate, RoomId, Ct)).Quota!.AssignedRoomId);
+    }
+
+    [Fact]
+    public async Task OpenWithoutRoomRequiresExactlyOneShiftRoom()
+    {
+        var none = new DoctorDayService(new DoctorDirectory(true, true), new Store(), new(new TimeOnly(11, 0)));
+        var two = new DoctorDayService(new DoctorDirectory(true, true, Guid.NewGuid(), Guid.NewGuid()), new Store(), new(new TimeOnly(11, 0)));
+        var unknownDoctor = new DoctorDayService(new DoctorDirectory(false, true), new Store(), new(new TimeOnly(11, 0)));
+
+        Assert.Equal(DoctorDayResult.RoomRequired, (await none.OpenAsync(DoctorId, ServiceDate, Guid.Empty, Ct)).Status);
+        Assert.Equal(DoctorDayResult.RoomRequired, (await two.OpenAsync(DoctorId, ServiceDate, Guid.Empty, Ct)).Status);
+        Assert.Equal(DoctorDayResult.DoctorNotFound, (await unknownDoctor.OpenAsync(DoctorId, ServiceDate, Guid.Empty, Ct)).Status);
+    }
+
+    [Fact]
     public async Task OpenRejectsUnknownDoctor()
     {
         var service = new DoctorDayService(new DoctorDirectory(false, true), new Store(), new(new TimeOnly(11, 0)));
@@ -67,7 +99,6 @@ public sealed class DoctorDayServiceTests
 
         Assert.Equal(DoctorDayResult.InvalidInput, (await service.OpenAsync(Guid.Empty, ServiceDate, RoomId, Ct)).Status);
         Assert.Equal(DoctorDayResult.InvalidInput, (await service.OpenAsync(DoctorId, DateOnly.MinValue, RoomId, Ct)).Status);
-        Assert.Equal(DoctorDayResult.InvalidInput, (await service.OpenAsync(DoctorId, ServiceDate, Guid.Empty, Ct)).Status);
         Assert.Equal(DoctorDayResult.InvalidInput, await service.CloseAsync(Guid.Empty, ServiceDate, Ct));
         Assert.Equal(DoctorDayResult.InvalidInput, await service.CloseAsync(DoctorId, DateOnly.MinValue, Ct));
     }
@@ -121,10 +152,12 @@ public sealed class DoctorDayServiceTests
         };
     }
 
-    private sealed class DoctorDirectory(bool doctorActive, bool roomActive) : IDoctorDirectory
+    private sealed class DoctorDirectory(bool doctorActive, bool roomActive, params Guid[] shiftRooms) : IDoctorDirectory
     {
         public Task<bool> IsActiveDoctorAsync(Guid doctorId, CancellationToken ct) => Task.FromResult(doctorActive);
         public Task<bool> IsActiveClinicalRoomAsync(Guid roomId, CancellationToken ct) => Task.FromResult(roomActive);
+        public Task<IReadOnlyList<Guid>> GetShiftRoomIdsAsync(Guid doctorId, DateOnly serviceDate, CancellationToken ct) =>
+            Task.FromResult<IReadOnlyList<Guid>>(shiftRooms);
     }
 
     private sealed class Store : IDoctorDayStore

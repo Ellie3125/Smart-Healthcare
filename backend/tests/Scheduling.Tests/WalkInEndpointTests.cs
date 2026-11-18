@@ -57,4 +57,57 @@ public sealed class WalkInEndpointTests
         using var longKey = await client.PostAsJsonAsync(route, body, ct);
         Assert.Equal(HttpStatusCode.BadRequest, longKey.StatusCode);
     }
+
+    [Fact]
+    public async Task Reception_search_requires_receptionist_and_phone_or_national_id()
+    {
+        var ct = TestContext.Current.CancellationToken;
+        var builder = SchedulingEndpointTestSetup.CreateBuilder();
+        var patient = new ReceptionPatientDto(Guid.NewGuid(), "Nguyễn Văn A", new DateOnly(1990, 1, 1), "Male", "*******678", null, true);
+        builder.Services.AddSingleton(ReceptionIdentity.Create(patient));
+        await using var app = builder.Build();
+        app.MapSchedulingWalkInEndpoints();
+        await app.StartAsync(ct);
+        using var client = new HttpClient { BaseAddress = new Uri(app.Urls.Single()) };
+        const string route = "/api/scheduling/staff/reception/search?keyword=0912345678";
+
+        using var anonymous = await client.GetAsync(route, ct);
+        Assert.Equal(HttpStatusCode.Unauthorized, anonymous.StatusCode);
+        foreach (var (role, channel) in new[] { (Roles.Patient, Channels.Patient), (Roles.Nurse, Channels.Staff),
+            (Roles.Receptionist, Channels.Patient) })
+        {
+            SchedulingEndpointTestSetup.Authorize(client, app.Configuration, role, channel: channel);
+            using var forbidden = await client.GetAsync(route, ct);
+            Assert.Equal(HttpStatusCode.Forbidden, forbidden.StatusCode);
+        }
+
+        SchedulingEndpointTestSetup.Authorize(client, app.Configuration, Roles.Receptionist);
+        using var tooShort = await client.GetAsync("/api/scheduling/staff/reception/search?keyword=0912", ct);
+        Assert.Equal(HttpStatusCode.BadRequest, tooShort.StatusCode);
+        var found = await client.GetFromJsonAsync<List<ReceptionPatientDto>>(route, ct);
+        Assert.Equal(patient, Assert.Single(found!));
+        Assert.Equal("0912345678", ReceptionIdentity.LastKeyword);
+    }
+
+    /// <summary>Identity giả: chỉ trả lời tra cứu của tiếp tân.</summary>
+    public class ReceptionIdentity : DispatchProxy
+    {
+        public static string? LastKeyword;
+        private ReceptionPatientDto[] _patients = [];
+
+        public static IIdentityPatientsModule Create(params ReceptionPatientDto[] patients)
+        {
+            var proxy = DispatchProxy.Create<IIdentityPatientsModule, ReceptionIdentity>();
+            ((ReceptionIdentity)(object)proxy)._patients = patients;
+            return proxy;
+        }
+
+        protected override object? Invoke(MethodInfo? targetMethod, object?[]? args)
+        {
+            if (targetMethod?.Name != nameof(IIdentityPatientsModule.FindPatientsForReceptionAsync))
+                throw new NotSupportedException(targetMethod?.Name);
+            LastKeyword = (string?)args![0];
+            return Task.FromResult<IReadOnlyList<ReceptionPatientDto>>(_patients);
+        }
+    }
 }

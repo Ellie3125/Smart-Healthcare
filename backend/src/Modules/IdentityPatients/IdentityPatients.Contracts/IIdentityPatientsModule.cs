@@ -8,6 +8,10 @@ public enum AccessLevel
 
 public interface IIdentityPatientsModule
 {
+    /// <summary>Active doctors on duty in this CLS room at a UTC instant; includes the authoritative Staff.Id.</summary>
+    Task<IReadOnlyList<RoomReadingDoctorDto>> GetRoomReadingDoctorsAsync(Guid roomId, DateTime atUtc, CancellationToken ct = default) =>
+        throw new NotSupportedException();
+
     Task<bool> CanAccessPatientAsync(Guid userId, Guid patientId, AccessLevel level = AccessLevel.Booking, CancellationToken ct = default);
 
     /// <summary>
@@ -34,4 +38,25 @@ public interface IIdentityPatientsModule
     Task<RoomDto?> GetRoomAsync(Guid roomId, CancellationToken ct = default);
     Task<IReadOnlyList<RoomDto>> GetRoomsAsync(string? roomType = null, bool? isActive = null, CancellationToken ct = default);
     Task<StaffDutyLeaderDto?> GetRoomShiftLeaderAsync(Guid roomId, DateOnly date, string shiftName, CancellationToken ct = default);
+
+    /// <summary>Verified room session + exactly one active shift leader at UTC DB time supplied by caller, inside its IUnitOfWork.
+    /// Holds read locks to commit; invalid/missing/ambiguous context returns null. Token/hash never leaves Identity.</summary>
+    Task<RoomOperationContext?> GetRoomOperationContextAsync(Guid appUserId, Guid roomId, string roomSessionToken, DateTime atUtc,
+        CancellationToken ct = default) => throw new NotSupportedException();
+
+    // Bản mặc định ném lỗi để các bản giả trong test không phải cài lại; bản Identity cài đặt thật.
+
+    /// <summary>Tiếp tân tra hồ sơ: khớp chính xác số điện thoại hoặc CCCD (bỏ khoảng trắng), tối đa 20 hồ sơ.</summary>
+    Task<IReadOnlyList<ReceptionPatientDto>> FindPatientsForReceptionAsync(string keyword, CancellationToken ct = default) =>
+        throw new NotSupportedException();
+
+    /// <summary>Hồ sơ bệnh nhân tồn tại (tiếp tân đăng ký tại quầy cho PatientId đã tra).</summary>
+    Task<bool> PatientExistsAsync(Guid patientId, CancellationToken ct = default) => throw new NotSupportedException();
+
+    /// <summary>Nhân viên đang hoạt động của tài khoản <paramref name="appUserId"/> (sub trong JWT); null nếu không phải nhân viên hoặc đã khóa.</summary>
+    Task<ActiveStaffDto?> GetActiveStaffAsync(Guid appUserId, CancellationToken ct = default) => throw new NotSupportedException();
+
+    /// <summary>Các phòng (không trùng) bác sĩ <paramref name="doctorId"/> (Doctor.Id) có ca trực ngày <paramref name="date"/>.</summary>
+    Task<IReadOnlyList<Guid>> GetDoctorShiftRoomIdsAsync(Guid doctorId, DateOnly date, CancellationToken ct = default) =>
+        throw new NotSupportedException();
 }

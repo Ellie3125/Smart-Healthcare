@@ -35,11 +35,11 @@ help:
 # Intent → cụm từ. Thứ tự là thứ tự ưu tiên khi một câu khớp nhiều intent.
 intents:
   SUGGEST_SPECIALTY: [khám khoa nào, khoa nào, chuyên khoa nào, nên khám ở đâu, nên khám gì]
-  CANCEL: [hủy lịch, huỷ lịch, hủy hẹn, huỷ hẹn, không đi khám nữa]
+  CANCEL: [hủy lịch, huỷ lịch, hủy hẹn, huỷ hẹn, hủy cái hẹn, huỷ cái hẹn, bỏ lịch, bỏ hẹn, bỏ cái hẹn, không đi khám nữa]
   RESCHEDULE: [đổi lịch, dời lịch, chuyển lịch, đổi ngày khám, đổi bác sĩ]
   VIEW_TICKET: [xem vé, vé khám, số thứ tự, mã lịch hẹn, mã đặt lịch]
   VIEW_EXAM_PAYMENT: [thanh toán chưa, đã thanh toán, trạng thái thanh toán, tiền khám, phí khám đã trả, hoàn tiền]
-  VIEW_APPOINTMENTS: [lịch của tôi, lịch khám của tôi, lịch hẹn của tôi, xem lịch, lịch đã đặt]
+  VIEW_APPOINTMENTS: [lịch của tôi, lịch khám của tôi, lịch hẹn của tôi, lịch của mình, xem lịch, lịch đã đặt, lịch đã hẹn, các cuộc hẹn]
   SEARCH_SLOTS: [đặt lịch, đặt khám, tìm bác sĩ, tìm lịch, lịch trống, còn suất, còn chỗ]
 
 templates:
@@ -57,6 +57,9 @@ templates:
   specialty_fallback: "Mình chưa xác định được chuyên khoa phù hợp từ mô tả. Bạn có thể chọn một trong các chuyên khoa sau:"
   tool_pending: >-
     Chức năng này trên chatbot đang được hoàn thiện. Bạn có thể dùng mục tương ứng trên web bệnh nhân trong lúc chờ.
+  not_understood: >-
+    Mình chưa hiểu ý bạn. Mình giúp được: tìm lịch khám, xem lịch đã hẹn, xem vé, xem phí khám, hướng dẫn đổi hoặc hủy lịch,
+    và gợi ý chuyên khoa. Bạn có thể bấm một gợi ý bên dưới.
   backend_unavailable: >-
     Mình chưa lấy được dữ liệu lúc này. Bạn thử lại sau ít phút hoặc thao tác trực tiếp trên web bệnh nhân.
   ask_date: "Bạn muốn khám ngày nào{specialty}? Ví dụ: ngày mai, thứ sáu này, 20/11."

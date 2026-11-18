@@ -1,21 +1,31 @@
 import React from 'react';
 import { describe, expect, it, beforeEach } from 'vitest';
-import { render, screen } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import { staffApiMock } from './staffTestFixtures';
 import { ToastProvider } from '../shared/ui';
 import { SessionReplacedPage } from '../pages/common/SessionReplacedPage';
+import { DoctorDayQuotasPage } from '../pages/admin/DoctorDayQuotasPage';
+import { PaymentReconcilePage } from '../pages/admin/PaymentReconcilePage';
+import { AuditLogsPage } from '../pages/admin/AuditLogsPage';
+import { ReceptionCheckInPage } from '../pages/reception/ReceptionCheckInPage';
+import { ReceptionCashierPage } from '../pages/reception/ReceptionCashierPage';
+import { ReceptionCancelPage } from '../pages/reception/ReceptionCancelPage';
+import { ReceptionShiftReconcilePage } from '../pages/reception/ReceptionShiftReconcilePage';
+import { NursePage } from '../pages/nurse/NursePage';
+import { DoctorPage } from '../pages/doctor/DoctorPage';
+import { RoomResultUploadPage } from '../pages/room/RoomResultUploadPage';
 
 // Không còn backend giả: các màn gọi API được kiểm bằng chạy thật với Backend + seed.
-function renderStaff(ui: React.ReactElement) {
+function renderStaff(ui: React.ReactElement, initialEntries: string[] = ['/']) {
   const client = new QueryClient({
     defaultOptions: { queries: { retry: false }, mutations: { retry: false } },
   });
   return render(
     <QueryClientProvider client={client}>
       <ToastProvider>
-        <MemoryRouter>
+        <MemoryRouter initialEntries={initialEntries}>
           <Routes>
             <Route path="*" element={ui} />
           </Routes>

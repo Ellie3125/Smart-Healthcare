@@ -17,6 +17,7 @@ COPY pyproject.toml uv.lock .python-version ./
 RUN uv sync --frozen --no-dev --no-install-project
 COPY app/ ./app/
 COPY config/ ./config/
+COPY scripts/ ./scripts/
 
 FROM ${PYTHON_IMAGE} AS runtime
 RUN useradd --system --uid 10001 --home-dir /app chatbot && mkdir -p /data && chown chatbot /data

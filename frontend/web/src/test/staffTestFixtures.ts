@@ -499,10 +499,60 @@ class StaffApiMock {
       return { data: { refundAmount: 150000 } };
     }
 
-    // Check-in appointment
-    const checkinMatch = matchPath('/api/scheduling/staff/appointments/:id/checkin', pathname);
+    // Check-in appointment (hỗ trợ cả /checkin và /check-in)
+    const checkinMatch =
+      matchPath('/api/scheduling/staff/appointments/:id/checkin', pathname) ||
+      matchPath('/api/scheduling/staff/appointments/:id/check-in', pathname);
     if (checkinMatch && method === 'POST') {
-      return { data: { appointmentId: checkinMatch.id, queueNumber: 15, roomName: 'Phòng khám P201' } };
+      return {
+        data: {
+          appointmentId: checkinMatch.id,
+          patientId: 'pat-001',
+          doctorId: 'doc-001',
+          serviceDate: '2026-11-17',
+          checkedInAtUtc: new Date().toISOString(),
+          alreadyCheckedIn: false,
+          queueTicketId: 'ticket-001',
+          ticketNumber: 'A-015',
+          sequenceNumber: 15,
+          encounterId: 'enc-001',
+          queueNumber: 15,
+          roomName: 'Phòng khám P201',
+        },
+      };
+    }
+
+    // Today appointments list
+    if (pathname === '/api/scheduling/staff/appointments/today' && method === 'GET') {
+      return {
+        data: {
+          page: 1,
+          pageSize: 20,
+          hasMore: false,
+          items: [
+            {
+              appointmentId: 'apt-today-1',
+              appointmentNumber: 'SH-261117-001',
+              patientId: 'pat-001-aaaa',
+              doctorId: 'doc-001',
+              assignedRoomId: 'room-001',
+              serviceDate: '2026-11-17',
+              status: 'Confirmed',
+              checkInDeadlineUtc: new Date(Date.now() + 30 * 60 * 1000).toISOString(),
+            },
+            {
+              appointmentId: 'apt-today-2',
+              appointmentNumber: 'SH-261117-002',
+              patientId: 'pat-002-bbbb',
+              doctorId: 'doc-002',
+              assignedRoomId: 'room-002',
+              serviceDate: '2026-11-17',
+              status: 'CheckedIn',
+              checkInDeadlineUtc: new Date(Date.now() - 10 * 60 * 1000).toISOString(),
+            },
+          ],
+        },
+      };
     }
 
     // Nurse queue & vitals

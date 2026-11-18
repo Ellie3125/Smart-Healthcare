@@ -7,6 +7,8 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Routing;
 using Scheduling.Application.Appointments;
 using Scheduling.Contracts;
+using Scheduling.Domain.Enums;
+using Shared.Abstractions;
 
 namespace Scheduling.Api;
 
@@ -31,6 +33,10 @@ internal static class PatientAppointmentEndpoints
             .Produces<CancelResponse>().Produces<OperationAccepted>(StatusCodes.Status202Accepted)
             .ProducesProblem(StatusCodes.Status400BadRequest).ProducesProblem(StatusCodes.Status404NotFound)
             .ProducesProblem(StatusCodes.Status409Conflict).ProducesProblem(StatusCodes.Status415UnsupportedMediaType);
+        patient.MapGet("/{appointmentId:guid}/cancellation-preview", PreviewCancelAsync)
+            .WithSummary("Xem trước số tiền được hoàn nếu hủy ngay bây giờ (Patient)")
+            .Produces<CancellationPreview>()
+            .ProducesProblem(StatusCodes.Status404NotFound).ProducesProblem(StatusCodes.Status409Conflict);
         patient.MapPost("/{appointmentId:guid}/reschedule", RescheduleAsync)
             .WithSummary("Đổi lịch sang bác sĩ/ngày cùng mức phí trước 05:00 ngày khám cũ (Patient)")
             .Produces<AppointmentItem>().Produces<OperationAccepted>(StatusCodes.Status202Accepted)
@@ -60,6 +66,53 @@ internal static class PatientAppointmentEndpoints
                 c.CancelledAtUtc, outcome.OperationId)),
             _ => ChangeProblem(outcome),
         };
+    }
+
+    // Tiếp tân hủy tại quầy (Phạm vi §6.2): Scheduled theo cùng chính sách hoàn; CheckedIn bắt buộc lý do, chỉ khi bệnh nhân chưa vào khám.
+    public static void MapStaffCancelEndpoint(this RouteGroupBuilder scheduling) =>
+        scheduling.MapGroup("/staff/appointments").RequireAuthorization(Policies.ReceptionistOnly)
+            .MapPost("/{appointmentId:guid}/cancel", StaffCancelAsync)
+            .WithSummary("Tiếp tân hủy lịch Scheduled hoặc CheckedIn (bắt buộc lý do); hoàn tiền mặt tại quầy (Staff)")
+            .Produces<CancelResponse>().Produces<OperationAccepted>(StatusCodes.Status202Accepted)
+            .ProducesProblem(StatusCodes.Status400BadRequest).ProducesProblem(StatusCodes.Status404NotFound)
+            .ProducesProblem(StatusCodes.Status409Conflict).ProducesProblem(StatusCodes.Status415UnsupportedMediaType);
+
+    private static async Task<IResult> StaffCancelAsync(Guid appointmentId, ClaimsPrincipal user, HttpRequest request,
+        [FromServices] AppointmentChangeService changes, CancellationToken ct)
+    {
+        if (!TryGetUserId(user, out var userId))
+            return TypedResults.Unauthorized();
+        var (key, body, error) = await ReadAsync<CancelBody>(request, allowEmptyBody: true, ct);
+        if (error is not null)
+            return error;
+
+        var outcome = await changes.CancelAsync(new CancelRequest(appointmentId, userId, CancellationInitiator.Receptionist,
+            null, string.IsNullOrWhiteSpace(body?.Reason) ? null : body.Reason.Trim(), null, key!), ct);
+        return outcome switch
+        {
+            { Result: ChangeResult.Cancelled, Cancelled: { } c } => TypedResults.Ok(new CancelResponse(appointmentId,
+                "Cancelled", c.SlotReleased ? "Full" : "None", c.SlotReleased ? c.AppliedConsultationFee : 0m, "VND",
+                c.CancelledAtUtc, outcome.OperationId)),
+            _ => ChangeProblem(outcome),
+        };
+    }
+
+    // Cùng mốc với lệnh hủy: trước RescheduleCutoffTimeUtc (05:00 ngày D) theo giờ DB thì hoàn toàn bộ, nhận tiền mặt tại quầy.
+    private static async Task<IResult> PreviewCancelAsync(Guid appointmentId, ClaimsPrincipal user,
+        [FromServices] IPatientAppointmentReader reader, [FromServices] IIdentityPatientsModule identity,
+        [FromServices] IDbClock clock, CancellationToken ct)
+    {
+        if (!TryGetUserId(user, out var userId))
+            return TypedResults.Unauthorized();
+        var row = await OwnedAsync(appointmentId, userId, reader, identity, ct);
+        if (row is null)
+            return NotFound();
+        if (row.Status != AppointmentStatus.Scheduled || row.RescheduleCutoffTimeUtc is not { } cutoff)
+            return Problem(StatusCodes.Status409Conflict, nameof(ChangeResult.InvalidAppointmentState), "Lịch hẹn không hủy được.");
+
+        var full = await clock.GetUtcNowAsync(ct) < cutoff;
+        return TypedResults.Ok(new CancellationPreview(appointmentId, full ? "Full" : "None",
+            full ? row.AppliedConsultationFee : 0m, "VND", cutoff, full ? "Counter" : null));
     }
 
     private static async Task<IResult> RescheduleAsync(Guid appointmentId, ClaimsPrincipal user, HttpRequest request,
@@ -185,6 +238,8 @@ internal static class PatientAppointmentEndpoints
     private sealed record CancelBody(string? Reason);
     private sealed record RescheduleBody(Guid TargetDoctorId, DateOnly TargetServiceDate);
     private sealed record OperationAccepted(Guid OperationId);
+    private sealed record CancellationPreview(Guid AppointmentId, string Refund, decimal RefundAmount, string Currency,
+        DateTime RefundCutoffUtc, string? RefundMethod);
     private sealed record CancelResponse(Guid AppointmentId, string Status, string Refund, decimal RefundAmount, string Currency,
         DateTime CancelledAtUtc, Guid? OperationId);
 

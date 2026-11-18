@@ -4,9 +4,9 @@
 #   worker   — SmartHealthcare.Worker (Hangfire Server)
 #   migrator — 8 EF Core migration bundle, chạy một lần có kiểm soát (DB-03), không chạy trong replica
 # Image ghim phiên bản, không dùng latest (CTR-02, REL-04).
-ARG DOTNET_SDK_IMAGE=mcr.microsoft.com/dotnet/sdk:10.0.403
-ARG ASPNET_IMAGE=mcr.microsoft.com/dotnet/aspnet:10.0.14
-ARG RUNTIME_DEPS_IMAGE=mcr.microsoft.com/dotnet/runtime-deps:10.0.14
+ARG DOTNET_SDK_IMAGE=mcr.microsoft.com/dotnet/sdk:10.0.404
+ARG ASPNET_IMAGE=mcr.microsoft.com/dotnet/aspnet:10.0.15
+ARG RUNTIME_DEPS_IMAGE=mcr.microsoft.com/dotnet/runtime-deps:10.0.15
 
 FROM ${DOTNET_SDK_IMAGE} AS build
 WORKDIR /src

@@ -86,7 +86,12 @@ public sealed record ResultAttachmentDto(
     int AttachmentVersion,
     string UploadStatus,
     bool IsPublished,
-    DateTime? UploadedAtUtc);
+    DateTime? UploadedAtUtc)
+{
+    public Guid FileId => Id;
+    public string MimeType => ContentType;
+    public DateTime? UploadedAt => UploadedAtUtc;
+}
 
 // =================== CÁC DTO CHUẨN BỊ CHO TUẦN 4: GHÉP LỊCH SỬ KHÁM & BÁO CÁO ===================
 
@@ -102,7 +107,11 @@ public sealed record PatientEncounterSummaryDto(
     string? PrimaryDiagnosis,
     string Status,
     bool HasPrescription,
-    bool HasPublishedAttachments);
+    bool HasPublishedAttachments,
+    string? PatientName = null,
+    Guid? PatientProfileId = null,
+    bool? IsPublished = null,
+    bool? HasClsResults = null);
 
 /// <summary>
 /// DTO chi tiết lượt khám tổng hợp từ Clinical + Billing + Documents (FR08, GP §5.4, §8.2).
@@ -127,7 +136,8 @@ public sealed record PatientEncounterDetailDto(
     bool IsPublished,
     bool HasPrescription,
     IReadOnlyList<EncounterClsResultDto> ClsResults,
-    EncounterBillingSummaryDto? BillingSummary);
+    EncounterBillingSummaryDto? BillingSummary,
+    string? PatientName = null);
 
 public sealed record EncounterVitalsDto(
     decimal? SystolicBp,
