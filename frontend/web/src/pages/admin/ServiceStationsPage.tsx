@@ -17,7 +17,6 @@ import {
   useToast,
 } from '../../shared/ui';
 import { extractFriendlyError } from '../../shared/lib/errors';
-import type { ServiceStationItem } from '../../types/staffWorkflow';
 
 /**
  * AD03 bổ sung: Quản lý Quầy tiếp đón / Thu ngân / Sinh hiệu / Màn sảnh (ServiceStation).
@@ -28,8 +27,8 @@ export const ServiceStationsPage: React.FC = () => {
   const [open, setOpen] = useState(false);
   const [code, setCode] = useState('');
   const [name, setName] = useState('');
-  const [stationType, setStationType] = useState<ServiceStationItem['stationType']>('Reception');
-  const [floor, setFloor] = useState('Tầng 1');
+  const [roomId, setRoomId] = useState('');
+  const roomsQuery = useQuery({ queryKey: ['admin', 'rooms'], queryFn: () => adminOpsApi.listRooms() });
 
   const query = useQuery({
     queryKey: ['admin', 'stations'],
@@ -41,8 +40,7 @@ export const ServiceStationsPage: React.FC = () => {
       adminOpsApi.saveStation({
         code: code.trim(),
         name: name.trim(),
-        stationType,
-        floor: floor.trim(),
+        roomId,
         isActive: true,
       }),
     onSuccess: () => {
@@ -83,8 +81,7 @@ export const ServiceStationsPage: React.FC = () => {
           columns={[
             { key: 'code', header: 'Mã quầy', render: (r) => <span className="font-mono font-semibold">{r.code}</span> },
             { key: 'name', header: 'Tên quầy', render: (r) => r.name },
-            { key: 'type', header: 'Loại', render: (r) => r.stationType },
-            { key: 'floor', header: 'Vị trí', render: (r) => r.floor },
+            { key: 'room', header: 'Phòng', render: (r) => r.roomName || '—' },
             { key: 'status', header: 'Trạng thái', render: (r) => <StatusPill status={r.isActive ? 'Active' : 'Inactive'} /> },
           ]}
         />
@@ -100,7 +97,7 @@ export const ServiceStationsPage: React.FC = () => {
             <Button
               variant="primary"
               loading={saveMutation.isPending}
-              disabled={!code.trim() || !name.trim()}
+              disabled={!code.trim() || !name.trim() || !roomId}
               onClick={() => saveMutation.mutate()}
             >
               Lưu quầy
@@ -115,23 +112,16 @@ export const ServiceStationsPage: React.FC = () => {
           <FormField label="Tên quầy" required>
             {(props) => <Input {...props} value={name} onChange={(e) => setName(e.target.value)} placeholder="Quầy tiếp đón số 2" />}
           </FormField>
-          <FormField label="Phân loại">
+          <FormField label="Phòng" required>
             {(props) => (
               <Select
                 {...props}
-                value={stationType}
-                onChange={(e) => setStationType(e.target.value as ServiceStationItem['stationType'])}
-                options={[
-                  { value: 'Reception', label: 'Quầy tiếp đón' },
-                  { value: 'Cashier', label: 'Quầy thu ngân' },
-                  { value: 'Vitals', label: 'Bàn đo sinh hiệu' },
-                  { value: 'QueueDisplay', label: 'Màn gọi số sảnh chờ' },
-                ]}
+                value={roomId}
+                placeholder="Chọn phòng"
+                onChange={(e) => setRoomId(e.target.value)}
+                options={(roomsQuery.data ?? []).filter((r) => r.isActive).map((r) => ({ value: r.id, label: r.name }))}
               />
             )}
-          </FormField>
-          <FormField label="Tầng / Khu vực">
-            {(props) => <Input {...props} value={floor} onChange={(e) => setFloor(e.target.value)} />}
           </FormField>
         </div>
       </Dialog>

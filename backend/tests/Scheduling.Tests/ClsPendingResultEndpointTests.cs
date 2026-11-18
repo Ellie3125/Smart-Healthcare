@@ -16,6 +16,9 @@ public sealed class ClsPendingResultEndpointTests
         var ct = TestContext.Current.CancellationToken; var room = Guid.NewGuid();
         var builder = SchedulingEndpointTestSetup.CreateBuilder();
         builder.Services.AddSingleton<IClsPendingResultReader, Reader>();
+        var directory = System.Reflection.DispatchProxy.Create<IIdentityPatientsModule, RoomQueueEndpointTests.NurseDirectory>();
+        ((RoomQueueEndpointTests.NurseDirectory)(object)directory).RoomId = room;
+        builder.Services.AddSingleton(directory);
         await using var app = builder.Build(); app.MapSchedulingEndpoints(); await app.StartAsync(ct);
         using var client = new HttpClient { BaseAddress = new Uri(app.Urls.Single()) };
         var path = $"/api/scheduling/staff/rooms/{room}/pending-results";
@@ -31,11 +34,14 @@ public sealed class ClsPendingResultEndpointTests
         SchedulingEndpointTestSetup.Authorize(client, app.Configuration, Roles.RoomAccount, extra: new Claim(AppClaims.RoomId, Guid.NewGuid().ToString()));
         Assert.Equal(HttpStatusCode.Forbidden, (await client.GetAsync(path, ct)).StatusCode);
         SchedulingEndpointTestSetup.Authorize(client, app.Configuration, Roles.RoomAccount, extra: new Claim(AppClaims.RoomId, room.ToString()));
-        Assert.Equal(HttpStatusCode.OK, (await client.GetAsync(path, ct)).StatusCode);
+        using var success = await client.GetAsync(path, ct);
+        Assert.Equal(HttpStatusCode.OK, success.StatusCode);
+        using var json = System.Text.Json.JsonDocument.Parse(await success.Content.ReadAsStringAsync(ct));
+        Assert.Equal("P1-007", json.RootElement.GetProperty("items")[0].GetProperty("displayNumber").GetString());
         Assert.Equal(HttpStatusCode.BadRequest, (await client.GetAsync(path + "?pageSize=0", ct)).StatusCode);
     }
     private sealed class Reader : IClsPendingResultReader
     {
-        public Task<ClsPendingResultPage> ListAsync(Guid roomId, int page, int pageSize, CancellationToken ct) => Task.FromResult(new ClsPendingResultPage([], false));
+        public Task<ClsPendingResultPage> ListAsync(Guid roomId, int page, int pageSize, CancellationToken ct) => Task.FromResult(new ClsPendingResultPage([new(Guid.NewGuid(), "original-ticket", Guid.NewGuid(), Guid.NewGuid(), null, 7)], false));
     }
 }

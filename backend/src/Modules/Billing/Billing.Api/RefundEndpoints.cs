@@ -106,7 +106,11 @@ internal static class RefundEndpoints
         if (!TryGetUserId(user, out var staffUserId))
             return TypedResults.Unauthorized();
 
-        var (change, slip) = await refunds.DisburseCashAsync(refundRequestId, staffUserId, http.Connection.RemoteIpAddress?.ToString(), ct);
+        (RefundChange change, CashRefundSlip? slip) result;
+        try { result = await refunds.DisburseCashAsync(refundRequestId, staffUserId, http.Connection.RemoteIpAddress?.ToString(), ct); }
+        catch (BillingException e) when (e.Code is BillingErrorCode.CashierShiftClosed or BillingErrorCode.CashierShiftDateChanged)
+        { return Problem(409, e.Code.ToString(), "Ngày thu ngân đã chốt hoặc đã đổi."); }
+        var (change, slip) = result;
         return change.Outcome switch
         {
             RefundChangeOutcome.Done => TypedResults.Ok(slip),

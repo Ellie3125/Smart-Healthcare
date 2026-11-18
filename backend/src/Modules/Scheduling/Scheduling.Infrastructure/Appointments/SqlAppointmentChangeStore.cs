@@ -36,6 +36,9 @@ internal sealed class SqlAppointmentChangeStore(SchedulingDbContext db, IDbClock
 
         if (r.CancelledBy == CancellationInitiator.Patient && appointment.PatientId != r.PatientId)
             return new(ChangeResult.AppointmentNotFound);
+        if (r.CancelledBy == CancellationInitiator.Patient && await db.Set<Reservation>().AsNoTracking()
+                .AnyAsync(x => x.Id == appointment.ReservationId && x.BookingChannel == BookingChannel.Counter, ct))
+            return new(ChangeResult.CounterAppointmentRequiresReception);
         if (r.ExpectedRowVersion is { } version && !version.AsSpan().SequenceEqual(appointment.RowVersion))
             return new(ChangeResult.VersionConflict);
         var allowed = appointment.Status == AppointmentStatus.Scheduled
@@ -164,6 +167,9 @@ internal sealed class SqlAppointmentChangeStore(SchedulingDbContext db, IDbClock
 
         if (appointment.PatientId != r.PatientId)
             return new(ChangeResult.AppointmentNotFound);
+        var oldReservation = await db.Set<Reservation>().AsNoTracking().SingleAsync(x => x.Id == appointment.ReservationId, ct);
+        if (oldReservation.BookingChannel == BookingChannel.Counter)
+            return new(ChangeResult.CounterAppointmentRequiresReception);
         if (r.ExpectedRowVersion is { } version && !version.AsSpan().SequenceEqual(appointment.RowVersion))
             return new(ChangeResult.VersionConflict);
         if (appointment.Status != AppointmentStatus.Scheduled)
@@ -190,7 +196,6 @@ internal sealed class SqlAppointmentChangeStore(SchedulingDbContext db, IDbClock
         if (released != 1 || taken != 1)
             throw new InvalidOperationException("Cập nhật bộ đếm khi đổi lịch thất bại dù đang giữ khóa hai DoctorDay.");
 
-        var oldReservation = await db.Set<Reservation>().AsNoTracking().SingleAsync(x => x.Id == appointment.ReservationId, ct);
         await db.Set<Reservation>().Where(x => x.Id == oldReservation.Id)
             .ExecuteUpdateAsync(s => s.SetProperty(x => x.Status, ReservationStatus.Cancelled), ct);
         await ReleaseClaimAsync(appointment.Id, now, ct);

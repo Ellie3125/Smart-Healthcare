@@ -17,6 +17,8 @@ public static class DependencyInjection
 
         services.TryAddSingleton(TimeProvider.System);
         services.AddScoped<IEncounterStore, EfEncounterStore>();
+        services.AddScoped<Clinical.Application.StaffLists.IClinicalStaffListReader, EfClinicalStaffListReader>();
+        services.AddScoped<Clinical.Application.Reports.IClinicalReportReader, Reports.EfClinicalReportReader>();
         services.AddScoped<IServiceOrderStore, EfServiceOrderStore>();
         services.AddScoped<IPrescriptionStore, EfPrescriptionStore>();
         services.AddScoped<Clinical.Application.Vitals.IVitalsStore, EfVitalsStore>();
@@ -30,7 +32,8 @@ public static class DependencyInjection
         services.AddScoped<IClinicalModule>(sp => new ClinicalModule(sp.GetRequiredService<IEncounterStore>(),
             sp.GetRequiredService<IServiceOrderStore>(), sp.GetRequiredService<IPrescriptionStore>(), sp.GetRequiredService<TimeProvider>(),
             () => sp.GetRequiredService<Clinical.Application.Results.ClsLifecycleService>(),
-            () => sp.GetRequiredService<Clinical.Application.Encounters.EncounterProgressService>()));
+            () => sp.GetRequiredService<Clinical.Application.Encounters.EncounterProgressService>(),
+            sp.GetRequiredService<Clinical.Application.Reports.IClinicalReportReader>()));
         services.AddScoped<Clinical.Application.Encounters.IEncounterProgressStore, EfEncounterProgressStore>();
         services.AddScoped(sp => ActivatorUtilities.CreateInstance<Clinical.Application.Encounters.EncounterProgressService>(sp));
 

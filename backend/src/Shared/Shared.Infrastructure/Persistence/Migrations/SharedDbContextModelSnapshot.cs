@@ -42,8 +42,8 @@ namespace Shared.Infrastructure.Persistence.Migrations
 
                     b.Property<string>("IdempotencyKey")
                         .IsRequired()
-                        .HasMaxLength(64)
-                        .HasColumnType("nvarchar(64)");
+                        .HasMaxLength(128)
+                        .HasColumnType("nvarchar(128)");
 
                     b.Property<Guid?>("OperationId")
                         .HasColumnType("uniqueidentifier");

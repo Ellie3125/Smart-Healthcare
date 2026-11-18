@@ -90,6 +90,15 @@ scenarios:
       - say: mình trả tiền khám rồi đúng không
         expect: {route: SHORTCUT, intent: VIEW_EXAM_PAYMENT, reply_contains: [đã thanh toán phí khám]}
 
+  - id: visit-history
+    turns:
+      - say: cho mình xem lịch sử khám
+        expect: {route: SHORTCUT, intent: VIEW_VISIT_HISTORY, reply_contains: [BS Nguyễn Văn A, Hồ sơ khám]}
+  - id: visit-history-child-profile
+    turns:
+      - say: lần khám trước của con tôi thế nào
+        expect: {route: SHORTCUT, intent: VIEW_VISIT_HISTORY, reply_contains: [10/11/2026]}
+
   # ---------- Đổi, hủy (chỉ hướng dẫn; chưa có đề nghị chờ xác nhận E1) ----------
   - id: cancel
     turns:

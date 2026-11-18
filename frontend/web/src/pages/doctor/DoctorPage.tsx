@@ -1,7 +1,7 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Link } from 'react-router-dom';
-import { CheckCircle2, FilePlus2, FlaskConical, History, PhoneForwarded, Pill, Save, Send } from 'lucide-react';
+import { CheckCircle2, FilePlus2, FlaskConical, History, PhoneForwarded, Save, Send } from 'lucide-react';
 import { clinicalStaffApi } from '../../api/clinicalStaffApi';
 import {
   Banner,
@@ -24,7 +24,6 @@ import { createIdempotencyKey } from '../../shared/lib/idempotency';
 import { extractFriendlyError } from '../../shared/lib/errors';
 import type {
   DoctorEncounterWorkspaceDto,
-  DoctorPrescriptionRow,
   Icd10CodeOption,
 } from '../../types/staffWorkflow';
 
@@ -35,15 +34,18 @@ import type {
  * - Kê đơn Full-Text Search (không tồn kho, không nút mua, không tương tác thuốc giả lập).
  * - Optimistic concurrency 409 qua VersionConflictDialog.
  */
+const ICD10_PATTERN = /^[A-Z][0-9]{2}(\.[0-9A-Z]{1,4})?$/;
+
 export const DoctorPage: React.FC = () => {
   const queryClient = useQueryClient();
   const { pushToast } = useToast();
-  const [activeEncounterId, setActiveEncounterId] = useState<string>('enc-doc-1');
+  const [activeEncounterId, setActiveEncounterId] = useState<string>('');
   const [tab, setTab] = useState<'exam' | 'cls' | 'rx' | 'amend'>('exam');
   const [draft, setDraft] = useState<DoctorEncounterWorkspaceDto | null>(null);
   const [draftSavedHint, setDraftSavedHint] = useState<string>('');
+  // Chưa có danh mục ICD-10 chuẩn: nhập tay mã + tên, kiểm định dạng như backend.
   const [icdQuery, setIcdQuery] = useState('');
-  const [drugQuery, setDrugQuery] = useState('');
+  const [icdName, setIcdName] = useState('');
   const [selectedClsIds, setSelectedClsIds] = useState<string[]>([]);
   const [publishConfirmOpen, setPublishConfirmOpen] = useState(false);
   const [amendModalOpen, setAmendModalOpen] = useState(false);
@@ -64,20 +66,17 @@ export const DoctorPage: React.FC = () => {
     enabled: Boolean(activeEncounterId),
   });
 
-  const icdSearchQuery = useQuery({
-    queryKey: ['staff', 'icd10', icdQuery],
-    queryFn: () => clinicalStaffApi.searchIcd10(icdQuery),
-  });
-
-  const drugSearchQuery = useQuery({
-    queryKey: ['staff', 'drugs', drugQuery],
-    queryFn: () => clinicalStaffApi.searchDrugs(drugQuery),
-  });
 
   const clsServicesQuery = useQuery({
     queryKey: ['staff', 'doctor-cls-services'],
     queryFn: () => clinicalStaffApi.listOrderableClsServices(),
   });
+
+  // Mở lượt đang khám của phòng khi vào trang.
+  useEffect(() => {
+    const active = queuesQuery.data?.activeEncounterId;
+    if (!activeEncounterId && active) setActiveEncounterId(active);
+  }, [queuesQuery.data?.activeEncounterId, activeEncounterId]);
 
   useEffect(() => {
     if (wsQuery.data) {
@@ -97,6 +96,20 @@ export const DoctorPage: React.FC = () => {
     onError: (err) => pushToast(extractFriendlyError(err).message, 'danger'),
   });
 
+  const activeTicket = queuesQuery.data?.activeTicket;
+  const ticketMutation = useMutation({
+    mutationFn: (action: 'start' | 'finish') =>
+      action === 'start'
+        ? clinicalStaffApi.startTicket(activeTicket!.queueTicketId)
+        : clinicalStaffApi.finishTicket(activeTicket!.queueTicketId),
+    onSuccess: (_res, action) => {
+      pushToast(action === 'start' ? 'Đã bắt đầu khám.' : 'Đã xong lượt khám tại phòng.', 'success');
+      queryClient.invalidateQueries({ queryKey: ['staff', 'doctor-queues'] });
+      queryClient.invalidateQueries({ queryKey: ['staff', 'doctor-workspace', activeEncounterId] });
+    },
+    onError: (err) => pushToast(extractFriendlyError(err).message, 'danger'),
+  });
+
   const saveDraftMutation = useMutation({
     mutationFn: (payload: DoctorEncounterWorkspaceDto) =>
       clinicalStaffApi.saveDoctorDraft(payload.encounterId, {
@@ -106,11 +119,11 @@ export const DoctorPage: React.FC = () => {
         conclusion: payload.conclusion,
         followUpInstruction: payload.followUpInstruction,
         version: payload.version,
-        prescriptionItems: payload.prescriptionItems,
       }),
+    // Chỉ lấy version/trạng thái/CLS mới từ server; nội dung form giữ bản bác sĩ đang gõ.
     onSuccess: (updated) => {
-      setDraft(updated);
-      setDraftSavedHint(`Đã lưu nháp lúc ${new Date().toLocaleTimeString('vi-VN')} (v${updated.version})`);
+      setDraft((prev) => (prev ? { ...prev, version: updated.version, status: updated.status, clsOrders: updated.clsOrders } : updated));
+      setDraftSavedHint(`Đã lưu nháp lúc ${new Date().toLocaleTimeString('vi-VN')}`);
     },
     onError: (err) => {
       const parsed = extractFriendlyError(err);
@@ -181,12 +194,14 @@ export const DoctorPage: React.FC = () => {
     onError: (err) => pushToast(extractFriendlyError(err).message, 'danger'),
   });
 
-  // Auto-draft nhẹ sau khi ngừng gõ 1.8 giây
+  // Auto-draft nhẹ sau khi ngừng gõ 1.8 giây; gửi bản form mới nhất qua ref (tránh closure cũ làm mất ô vừa gõ).
+  const draftRef = useRef(draft);
+  draftRef.current = draft;
   useEffect(() => {
     if (!draft || !wsQuery.data || draft.status === 'Published') return;
     if (draft.symptoms === wsQuery.data.symptoms && draft.conclusion === wsQuery.data.conclusion) return;
     const t = window.setTimeout(() => {
-      saveDraftMutation.mutate(draft);
+      if (draftRef.current) saveDraftMutation.mutate(draftRef.current);
     }, 1800);
     return () => window.clearTimeout(t);
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -199,24 +214,6 @@ export const DoctorPage: React.FC = () => {
     setDraft((prev) => {
       if (!prev || prev.diagnoses.some((d) => d.code === codeObj.code)) return prev;
       return { ...prev, diagnoses: [...prev.diagnoses, codeObj] };
-    });
-  };
-
-  const addDrug = (d: { id: string; name: string; activeIngredient: string; defaultDosage: string; unit: string }) => {
-    setDraft((prev) => {
-      if (!prev) return prev;
-      const nextRow: DoctorPrescriptionRow = {
-        drugId: d.id,
-        drugName: d.name,
-        activeIngredient: d.activeIngredient,
-        dosage: d.defaultDosage,
-        frequency: 'Ngày 1 lần',
-        durationDays: 14,
-        quantity: 14,
-        unit: d.unit,
-        usageInstruction: d.defaultDosage,
-      };
-      return { ...prev, prescriptionItems: [...prev.prescriptionItems, nextRow] };
     });
   };
 
@@ -320,11 +317,21 @@ export const DoctorPage: React.FC = () => {
             <ErrorState message={extractFriendlyError(wsQuery.error).message} onRetry={() => wsQuery.refetch()} />
           ) : (
             <Card
-              title={`Ca đang xử lý: ${draft.ticketNumber} — ${draft.patientName} (${draft.patientGender}, ${draft.patientAge} tuổi)`}
-              subtitle={`${draft.encounterCode} • ${draft.vitalsSummary || 'Chưa có sinh hiệu'} • ${draftSavedHint || `Phiên bản v${draft.version}`}`}
+              title={activeTicket ? `Ca đang xử lý: ${activeTicket.ticketNumber} — ${activeTicket.patientName}` : `Lượt khám ${draft.encounterCode}`}
+              subtitle={`${draft.encounterCode} • ${draft.vitalsSummary || 'Chưa có sinh hiệu'}${draftSavedHint ? ` • ${draftSavedHint}` : ''}`}
               actions={
                 <div className="flex flex-wrap items-center gap-2 max-w-full">
                   <StatusPill status={draft.status} />
+                  {activeTicket?.status === 'Called' ? (
+                    <Button size="sm" variant="secondary" loading={ticketMutation.isPending} onClick={() => ticketMutation.mutate('start')}>
+                      Bắt đầu khám
+                    </Button>
+                  ) : null}
+                  {activeTicket?.status === 'InProgress' ? (
+                    <Button size="sm" variant="outline" loading={ticketMutation.isPending} onClick={() => ticketMutation.mutate('finish')}>
+                      Xong lượt tại phòng
+                    </Button>
+                  ) : null}
                   <Button
                     size="sm"
                     variant="outline"
@@ -389,29 +396,41 @@ export const DoctorPage: React.FC = () => {
               </div>
 
               <div className="space-y-2">
-                <FormField label="Tìm mã bệnh ICD-10">
-                  {(props) => (
-                    <Input
-                      {...props}
-                      disabled={isPublished}
-                      value={icdQuery}
-                      onChange={(e) => setIcdQuery(e.target.value)}
-                      placeholder="Nhập mã (I10, K29...) hoặc tên bệnh"
-                    />
-                  )}
-                </FormField>
-                <div className="flex flex-wrap gap-2">
-                  {(icdSearchQuery.data ?? []).map((item) => (
-                    <Button
-                      key={item.code}
-                      size="sm"
-                      variant="outline"
-                      disabled={isPublished}
-                      onClick={() => addIcd(item)}
-                    >
-                      + {item.code} ({item.name})
-                    </Button>
-                  ))}
+                <div className="grid gap-2 sm:grid-cols-[160px_1fr_auto] sm:items-end">
+                  <FormField label="Mã ICD-10">
+                    {(props) => (
+                      <Input
+                        {...props}
+                        disabled={isPublished}
+                        value={icdQuery}
+                        onChange={(e) => setIcdQuery(e.target.value.toUpperCase())}
+                        placeholder="VD: I10"
+                      />
+                    )}
+                  </FormField>
+                  <FormField label="Tên chẩn đoán">
+                    {(props) => (
+                      <Input
+                        {...props}
+                        disabled={isPublished}
+                        value={icdName}
+                        onChange={(e) => setIcdName(e.target.value)}
+                        placeholder="VD: Tăng huyết áp vô căn"
+                      />
+                    )}
+                  </FormField>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    disabled={isPublished || !ICD10_PATTERN.test(icdQuery.trim()) || !icdName.trim()}
+                    onClick={() => {
+                      addIcd({ code: icdQuery.trim(), name: icdName.trim() });
+                      setIcdQuery('');
+                      setIcdName('');
+                    }}
+                  >
+                    + Thêm chẩn đoán
+                  </Button>
                 </div>
                 <div className="flex flex-wrap gap-2 pt-1">
                   {draft.diagnoses.map((d) => (
@@ -480,7 +499,7 @@ export const DoctorPage: React.FC = () => {
                             }
                           />
                           <span>
-                            <strong>{svc.code}</strong> — {svc.name} ({svc.roomName})
+                            <strong>{svc.code}</strong> — {svc.name}
                           </span>
                         </div>
                         {!svc.hasActiveRoom ? <span className="text-[#ba1a1a]">Ngưng phòng</span> : null}
@@ -507,7 +526,7 @@ export const DoctorPage: React.FC = () => {
                 {draft.clsOrders.map((ord) => (
                   <div key={ord.id} className="rounded-xl bg-surface-container-low/70 p-3.5 text-xs">
                     <div className="flex items-center justify-between">
-                      <strong className="text-on-surface">{ord.serviceName} ({ord.serviceCode})</strong>
+                      <strong className="text-on-surface">{ord.serviceName}</strong>
                       <StatusPill status={ord.status} />
                     </div>
                     {ord.summaryText ? <p className="mt-1.5 text-on-surface">{ord.summaryText}</p> : null}
@@ -522,32 +541,9 @@ export const DoctorPage: React.FC = () => {
               <Banner tone="info">
                 Hệ thống chỉ lập đơn, không bán hay cấp phát thuốc — Chỉ hiển thị hoạt chất y khoa chuẩn.
               </Banner>
-              <FormField label="Tìm kiếm thuốc từ danh mục chuẩn (Full-Text Search)">
-                {(props) => (
-                  <Input
-                    {...props}
-                    disabled={isPublished}
-                    value={drugQuery}
-                    onChange={(e) => setDrugQuery(e.target.value)}
-                    placeholder="Nhập tên thuốc hoặc hoạt chất..."
-                  />
-                )}
-              </FormField>
-
-              <div className="flex flex-wrap gap-2">
-                {(drugSearchQuery.data ?? []).map((drug) => (
-                  <Button
-                    key={drug.id}
-                    size="sm"
-                    variant="outline"
-                    leftIcon={<Pill className="h-3.5 w-3.5" />}
-                    disabled={isPublished}
-                    onClick={() => addDrug(drug)}
-                  >
-                    + {drug.name}
-                  </Button>
-                ))}
-              </div>
+              <Banner tone="warning" title="Chưa lưu được đơn thuốc trên hệ thống">
+                Backend chưa có API kê đơn; mục này chỉ hiển thị đơn đã có của lượt khám.
+              </Banner>
 
               <div className="space-y-2">
                 {draft.prescriptionItems.map((line, idx) => (

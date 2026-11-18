@@ -7,7 +7,6 @@ import type {
   DoctorRankOption,
   DoctorSearchItem,
   PatientAppointmentItem,
-  RescheduleOption,
   SpecialtyOption,
 } from '../types/booking';
 import type {
@@ -62,10 +61,45 @@ export const MOCK_SPECIALTIES: SpecialtyOption[] = [
   { id: 'spec-4', code: 'DALIEU', name: 'Da liễu' },
 ];
 
+const API_STATUS: Record<string, string> = {
+  Confirmed: 'Scheduled',
+  PendingPayment: 'Scheduled',
+  CheckedIn: 'CheckedIn',
+  Completed: 'Completed',
+  Cancelled: 'Cancelled',
+  NoShow: 'Absent',
+};
+
+// Dạng Backend của lịch hẹn (scheduling.md §4.7) dựng từ dữ liệu mẫu dạng web.
+const toApiAppointment = (a: {
+  id: string;
+  appointmentCode: string;
+  patientProfileId: string;
+  doctorId: string;
+  doctorName: string;
+  serviceDate: string;
+  consultationFee: number;
+  status: string;
+}) => ({
+  appointmentId: a.id,
+  appointmentNumber: a.appointmentCode,
+  status: API_STATUS[a.status] ?? 'Cancelled',
+  patientId: a.patientProfileId,
+  doctorId: a.doctorId,
+  doctorName: a.doctorName,
+  serviceDate: a.serviceDate,
+  assignedRoomId: 'room-1',
+  appliedConsultationFee: a.consultationFee,
+  currency: 'VND',
+  confirmedAtUtc: '2026-11-12T02:00:00Z',
+  checkInDeadlineUtc: null,
+  cancelledAtUtc: null,
+});
+
 export const MOCK_RANKS: DoctorRankOption[] = [
-  { id: 'rank-1', code: 'BS', name: 'Bác sĩ CKI', consultationFee: 150000 },
-  { id: 'rank-2', code: 'THS', name: 'ThS. Bác sĩ', consultationFee: 200000 },
-  { id: 'rank-3', code: 'PGS', name: 'PGS.TS. Bác sĩ', consultationFee: 350000 },
+  { id: 'rank-1', code: 'BS', name: 'Bác sĩ CKI', displayOrder: 1 },
+  { id: 'rank-2', code: 'THS', name: 'ThS. Bác sĩ', displayOrder: 2 },
+  { id: 'rank-3', code: 'PGS', name: 'PGS.TS. Bác sĩ', displayOrder: 3 },
 ];
 
 export const MOCK_PROFILES = [
@@ -551,10 +585,6 @@ class PatientApiMock {
     }
 
     // Profiles for identity
-    if (pathname === '/api/identity/patient/profiles') {
-      return { data: MOCK_PROFILES };
-    }
-
     // PatientProfileDto for patient portal
     if (pathname === '/api/patient/profiles') {
       return {
@@ -574,10 +604,10 @@ class PatientApiMock {
     }
 
     // Public catalogs
-    if (pathname === '/api/identity/public/specialties') {
+    if (pathname === '/api/patient/specialties') {
       return { data: MOCK_SPECIALTIES };
     }
-    if (pathname === '/api/identity/public/doctor-ranks') {
+    if (pathname === '/api/patient/doctor-ranks') {
       return { data: MOCK_RANKS };
     }
 
@@ -693,47 +723,17 @@ class PatientApiMock {
       };
     }
 
-    // Reschedule options
-    const reschedOptsMatch = matchPath('/api/scheduling/patient/appointments/:id/reschedule-options', pathname);
-    if (reschedOptsMatch) {
-      const options: RescheduleOption[] = [
-        {
-          doctorId: 'doc-1',
-          doctorName: 'BS.CKI Trần Quốc Khánh',
-          doctorRankName: 'Bác sĩ CKI',
-          specialtyName: 'Nội tổng quát',
-          roomName: 'Phòng khám P201',
-          serviceDate: this.store.tomorrow,
-          consultationFee: 200000,
-          remainingSlots: 8,
-          sameFeeEligible: false,
-        },
-        {
-          doctorId: 'doc-4',
-          doctorName: 'BS.CKI Võ Ngọc Linh',
-          doctorRankName: 'Bác sĩ CKI',
-          specialtyName: 'Nhi khoa',
-          roomName: 'Phòng khám P108',
-          serviceDate: this.store.tomorrow,
-          consultationFee: 150000,
-          remainingSlots: 14,
-          sameFeeEligible: true,
-        },
-      ];
-      return { data: options };
-    }
-
     // Cancel refund preview
-    const cancelPrevMatch = matchPath('/api/scheduling/patient/appointments/:id/cancel-preview', pathname);
+    const cancelPrevMatch = matchPath('/api/scheduling/patient/appointments/:id/cancellation-preview', pathname);
     if (cancelPrevMatch) {
       return {
         data: {
           appointmentId: cancelPrevMatch.id,
-          originalAmount: 150000,
+          refund: 'Full',
           refundAmount: 150000,
-          refundRatePercent: 100,
-          policyExplanation: 'Hủy trước 12h ngày khám được hoàn 100%.',
-          eligibleToCancel: true,
+          currency: 'VND',
+          refundCutoffUtc: `${this.store.tomorrow}T05:00:00Z`,
+          refundMethod: 'Counter',
         },
       };
     }
@@ -742,7 +742,9 @@ class PatientApiMock {
     if (pathname === '/api/scheduling/patient/appointments') {
       return {
         data: {
-          items: this.store.appointments,
+          page: 1,
+          pageSize: 20,
+          items: this.store.appointments.map(toApiAppointment),
           hasMore: false,
         },
       };
@@ -751,25 +753,23 @@ class PatientApiMock {
     // Appointment detail
     const aptMatch = matchPath('/api/scheduling/patient/appointments/:id', pathname);
     if (aptMatch && method === 'GET') {
-      const apt = this.store.appointments.find((a) => a.id === aptMatch.id) || this.store.tickets[aptMatch.id];
-      if (apt) return { data: apt };
+      const apt = this.store.appointments.find((a) => a.id === aptMatch.id);
+      if (apt) return { data: toApiAppointment(apt) };
       return {
         data: {
-          id: aptMatch.id,
-          appointmentCode: 'SH-261112-008',
-          patientProfileId: 'prof-mom',
-          patientName: 'Lê Thị Hoa',
+          appointmentId: aptMatch.id,
+          appointmentNumber: 'SH-261112-008',
+          status: 'Scheduled',
+          patientId: 'prof-mom',
           doctorId: 'doc-4',
           doctorName: 'BS.CKI Võ Ngọc Linh',
-          doctorRankName: 'Bác sĩ CKI',
-          specialtyName: 'Nhi khoa',
-          roomName: 'Phòng khám P108 - Tầng 1',
           serviceDate: this.store.tomorrow,
-          consultationFee: 150000,
-          status: 'Confirmed',
-          queueNumber: null,
-          canCancel: true,
-          canReschedule: true,
+          assignedRoomId: 'room-108',
+          appliedConsultationFee: 150000,
+          currency: 'VND',
+          confirmedAtUtc: '2026-11-12T02:00:00Z',
+          checkInDeadlineUtc: null,
+          cancelledAtUtc: null,
         },
       };
     }
@@ -783,11 +783,36 @@ class PatientApiMock {
     }
 
     // Prescription detail
-    const rxMatch =
-      matchPath('/api/clinical/patient/encounters/:id/prescription', pathname) ||
-      matchPath('/api/medication/patient/encounters/:id/prescription', pathname);
+    const rxMatch = matchPath('/api/clinical/patient/encounters/:id/prescriptions', pathname);
     if (rxMatch) {
-      return { data: this.store.prescription };
+      const rx = this.store.prescription;
+      return {
+        data: [
+          {
+            id: 'rx-1',
+            encounterId: rx.encounterId,
+            prescribedByDoctorId: 'doc-2',
+            prescriptionCode: rx.encounterCode,
+            status: 'Issued',
+            generalInstructions: rx.notes ?? '',
+            issuedAtUtc: rx.issuedAt,
+            publishedAtUtc: rx.issuedAt,
+            items: rx.items.map((i) => ({
+              id: i.id,
+              prescriptionId: 'rx-1',
+              medicationId: `med-${i.id}`,
+              medicationNameSnapshot: i.drugName,
+              activeIngredientSnapshot: i.activeIngredient,
+              dosage: i.dosage,
+              route: 'Uống',
+              frequency: i.frequency,
+              durationDays: i.durationDays,
+              quantity: i.quantity,
+              usageInstructions: i.usageInstruction,
+            })),
+          },
+        ],
+      };
     }
 
     // Encounters list

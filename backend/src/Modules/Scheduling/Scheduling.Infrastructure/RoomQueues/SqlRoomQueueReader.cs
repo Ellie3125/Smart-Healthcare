@@ -21,9 +21,24 @@ internal sealed class SqlRoomQueueReader(SchedulingDbContext db, IDbClock clock)
             .OrderBy(t => t.QueuedAtUtc).ThenBy(t => t.SequenceNumber).ThenBy(t => t.Id)
             .Skip((page - 1) * pageSize).Take(pageSize + 1)
             .Select(t => new RoomQueueEntry(t.Id, t.TicketNumber, t.SequenceNumber, t.TicketType.ToString(),
-                t.QueueStatus.ToString(), t.TargetStationId, t.CalledAtUtc)).ToListAsync(ct);
+                t.QueueStatus.ToString(), t.TargetStationId, t.CalledAtUtc, t.EncounterId, t.ServiceOrderItemId)).ToListAsync(ct);
         return new(today, page, pageSize, rows.Count > pageSize, rows.Take(pageSize).ToArray());
     }
+
+    public async Task<IReadOnlyList<Guid>> GetTodayRoomIdsAsync(Guid? doctorId, CancellationToken ct)
+    {
+        var today = DateOnly.FromDateTime((await clock.GetUtcNowAsync(ct)).AddHours(7));
+        return await db.Set<DoctorDayQuota>().AsNoTracking()
+            .Where(q => q.ServiceDate == today && (doctorId == null || q.DoctorId == doctorId))
+            .Select(q => q.AssignedRoomId).Distinct().ToListAsync(ct);
+    }
+
+    public async Task<IReadOnlyList<RoomStation>> GetActiveStationsAsync(IReadOnlyCollection<Guid> roomIds, CancellationToken ct) =>
+        await db.Set<ServiceStation>().AsNoTracking()
+            .Where(s => s.IsActive && roomIds.Contains(s.RoomId))
+            .OrderBy(s => s.StationCode)
+            .Select(s => new RoomStation(s.RoomId, new StaffStationOption(s.Id, s.StationCode, s.StationName)))
+            .ToListAsync(ct);
 
     public async Task<PublicRoomDisplay> GetPublicAsync(Guid roomId, CancellationToken ct)
     {
@@ -31,7 +46,7 @@ internal sealed class SqlRoomQueueReader(SchedulingDbContext db, IDbClock clock)
         var tickets = await TodayTickets(roomId, today)
             .Where(t => t.QueueStatus == QueueStatus.Called || t.QueueStatus == QueueStatus.InProgress)
             .OrderByDescending(t => t.CalledAtUtc ?? t.ServedAtUtc ?? t.IssuedAtUtc).ThenBy(t => t.Id)
-            .Take(100).Select(t => new PublicQueueNumber(t.TicketNumber, t.SequenceNumber)).ToListAsync(ct);
+            .Take(100).Select(t => new PublicQueueNumber(t.TicketNumber, t.SequenceNumber, null) { TicketType = t.TicketType.ToString() }).ToListAsync(ct);
         return new(tickets);
     }
 

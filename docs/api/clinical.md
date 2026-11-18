@@ -1,6 +1,6 @@
 # Contract Clinical
 
-- contract_version: v0.6 Draft, 18/11/2026 (gộp v0.5 bệnh án và vòng đời/kết quả CLS với v0.3 chỉ định CLS).
+- contract_version: v0.8 Draft, 18/11/2026 (gộp v0.5 bệnh án và vòng đời/kết quả CLS với v0.3 chỉ định CLS).
 - Phạm vi bản này: nhập sinh hiệu; bệnh án bác sĩ draft/publish/amend và lịch sử (PR #141); tạo đợt chỉ định CLS; Start/Finish CLS, xác minh vé thật, draft/publish kết quả và quyền đọc nội dung CLS. Không sửa luồng tiền Billing hoặc schema.
 - Căn cứ: giao việc CLN-01 ngày 17/11/2026; ERD v2.4 với bổ sung RespiratoryRate/NurseNote qua PR #123; Phạm vi nghiệp vụ v2.12; Giải pháp kỹ thuật v2.14; conventions.md.
 - Trạng thái tích hợp: map trong `MapClinicalEndpoints`, cả Production và Development. `IdentityNurseStaffDirectory` gọi reader `GetActiveStaffAsync` đã có qua PR #126, chỉ nhận StaffType=Nurse. HTTP test có cả directory giả để cô lập transport và luồng Production với Identity/Clinical/audit/idempotency trên SQL Server thật.
@@ -269,3 +269,68 @@ Scheduling công bố IClsServiceDirectory.GetAsync(IReadOnlyList<Guid>, ct) tr�
 | Lượt khám `Abandoned` | `EncounterClosed` |
 
 Sau khi Encounter `Completed`, job kết thúc phiên (Scheduling) chuyển lịch hẹn `CheckedIn` sang `Completed` khi không còn vé mở.
+
+## 14. Staff lists — v0.7, 18/11/2026
+
+Hai GET chỉ đọc, kênh Staff. Không tạo alias cho route Scheduling đã có. Không thay schema hoặc trạng thái luồng khám.
+
+### GET `/api/clinical/staff/nurse/queue?roomId={guid}&page=1&pageSize=50`
+Policy NurseOnly; 401 ẩn danh; 403 sai role/channel, actor không hợp lệ, Nurse/AppUser/Room không active hoặc không có ca đúng phòng/ngày GMT+7 tại giờ DB, trong khoảng `[StartsAtUtc,EndsAtUtc)`. Ca hết hạn bị từ chối trước khi đọc vé/context. `roomId` bắt buộc, Guid không rỗng. `page` 1..1000, `pageSize` 1..100, ngoài giới hạn 400 InvalidInput; query không parse được là framework 400.
+Response `{items,page,pageSize,hasMore}`, không totalCount. Items là vé InitialConsultation trong ngày GMT+7 hiện tại, trạng thái Waiting/Called/InProgress/Deferred; thứ tự QueuedAtUtc, SequenceNumber, Id, trang đọc size+1. Chỉ ghép Encounter có OriginalRoomId đúng phòng. `hasMore` phản ánh trang vé Scheduling (vé chưa có Encounter bị bỏ, không tự lấy dữ liệu phòng khác).
+Item: `{encounterId,queueTicketId,ticketNumber,patientName,doctorId,specialtyName,status,encounterStatus,version,lastVitalsAtUtc?}`. `status` là trạng thái vé; Encounter giữ enum hiện có; `version` base64 rowversion, không number; `lastVitalsAtUtc` UTC ISO-8601 hoặc null nếu chưa đo. Tên bệnh nhân lấy batch Identity; thiếu contact trả chuỗi rỗng, không đoán tên. Không trả năm sinh/tên bác sĩ vì contract batch hiện tại chưa có; UI dùng doctorId và bỏ năm sinh cho tới khi có reader được chốt.
+Scheduling công bố `ISchedulingModule.GetClinicalQueueAsync(roomId,atUtc,page,pageSize,ct)` chỉ trả DTO vé, không IQueryable/entity. Clinical kiểm ca trước lời gọi. `atUtc` do server lấy từ IDbClock, không query từ client. Identity công bố `IsNurseOnDutyAsync(appUserId,roomId,atUtc,ct)` theo OWN-10 bổ sung trong phiên; default method ném NotSupportedException. Không query chéo schema, không N+1.
+
+### GET `/api/clinical/staff/doctor/records?keyword={encounterId}&page=1&pageSize=50`
+Policy DoctorOnly (Staff); 401/403 như trên, thiếu DoctorId hợp lệ 403. Chỉ Encounter.OriginalDoctorId bằng claim DoctorId, có EncounterClinicalRecord; bác sĩ khác nhận trang rỗng. Không mở quyền admin. Keyword vắng/trống: không lọc; có keyword chỉ nhận exact EncounterId GUID không rỗng, sai 400 InvalidInput. Schema không có EncounterCode và reader tên bệnh nhân để tìm toàn bộ; không tạo mã/tra cứu tên giả. Phân trang như nurse, thứ tự CheckedInAtUtc giảm dần rồi Id tăng. Mỗi dòng gồm `{id,patientId,patientName,serviceDate,diagnosis,status}`; serviceDate yyyy-MM-dd theo GMT+7, status Draft/Published/Amended; diagnosis là chẩn đoán chính đầu tiên (rồi Id), rỗng khi chưa có. Chỉ ghép tên bệnh nhân batch trên trang hiện tại.
+
+### Ánh xạ cho frontend (Hoàng)
+| Route web đang gọi | Backend thật / thay đổi web |
+|---|---|
+| GET nurse/queue | Route mới cùng prefix Clinical; thêm roomId; đọc envelope.items; version string; xem DTO ở trên |
+| POST nurse/queue/{encounterId}/call | POST `/api/scheduling/staff/rooms/{roomId}/call-next`, body `{stationId?}`; server chọn người tiếp theo, không chọn tùy ý EncounterId; response vé hoặc 204 |
+| GET doctor/queues | GET `/api/scheduling/staff/rooms/{roomId}/queue?page=1&pageSize=50`; envelope.items; phân nhóm TicketType InitialConsultation/ReturnConsultation; không có encounterId/patientName trong DTO hiện có, cần reader context được chốt riêng nếu màn hình cần những trường đó |
+| POST doctor/call-next | POST `/api/scheduling/staff/rooms/{roomId}/call-next`, body `{stationId?}`; bỏ queueKind, chính sách trộn do server chọn; response queueTicketId/ticketNumber, không encounterId |
+| GET doctor/records | Route mới cùng prefix Clinical; envelope.items; keyword chỉ exact EncounterId; dùng id thay encounterCode |
+| GET room/queue | GET `/api/scheduling/staff/rooms/{roomId}/queue`; `RoomAccount` bị 403 sai RoomId; đọc envelope.items, dùng queueTicketId |
+| POST room/queue/{orderItemId}/action | Call → rooms/{roomId}/call-next; ConfirmPresence/Start → tickets/{queueTicketId}/start; Defer → tickets/{queueTicketId}/requeue; FinishProcedure → tickets/{queueTicketId}/finish, tất cả dưới `/api/scheduling/staff`; không gửi orderItemId/version số; body theo contract Scheduling |
+
+Không tạo route thứ hai cho các command. GET doctor/room queue hiện có chưa chứa toàn bộ DTO màn hình giả; phần cần context thêm cần chốt contract, không tự suy từ client. Build/test backend không chứng minh web đã tích hợp.
+
+
+## Hành trình hôm nay — v0.8,18/11/2026
+
+GET `/api/clinical/patient/today-journey?patientProfileId=<guid>` dùng PatientOnly/Patient, Cache-Control:no-store. Query optional; nếu có phải đúng một Guid khác rỗng. Sai query400 InvalidInput; ẩn danh/actorJWT không phải Guid hợp lệ401; sai role/kênh403.
+
+Identity reader chỉ trả PatientId/FullName sau quyền ClinicalRecords hiện có: AppUser active thuộc kênh Patient (không Staff/RoomAccount), liên kết active và Verified. Explicit profile không có quyền/không tồn tại/Pending/Rejected/Revoked hoặc tài khoản inactive trả404 NotFound. Không truyền profile thì cần đúng một hồ sơ Self active/Verified; thiếu hoặc nhiềuSelf hợp lệ trả404, không tự lấy hồ sơ người thân. Không đổi schema/auth/token. Reader này được trưởng nhóm cho phép riêng trong phiên.
+
+Response200 khớp TodayJourneyDto:
+`{patientProfileId,patientName,serviceDate,appointmentId?,encounterStatus?,currentCallText?,unpaidClsCount,steps:[{id,title,location,status,queueNumber?,updatedAt?}]}`. Các field nullable trảnull khi chưa có. serviceDate yyyy-MM-dd theo DBclock GMT+7; thời điểm UTC ISO8601Z.
+
+- Chọn lượt đang mở (InProgress/WaitingCLS/ReturningDoctor) của bệnh nhân, kể cả từ hôm trước; nếu không có, lấy lượt đã kết thúc trong ngày, mới nhất CheckedInAtUtc rồiId. Không chọn lượt bắt đầu từ ngày tương lai. Khi có nhiều lượt cũ do dữ liệu lỗi, ưu tiên active mới nhất; chỉ một hành trình trong response.
+- Clinical chỉ đọc Encounter của mình. Scheduling qua ISchedulingModule đọc lịch cùng patient/ngày và các vé của lượt đã chọn có QueuedAtUtc trong ngày `[00:00,00:00 hôm sau)` GMT+7. QueuedAtUtc là COALESCE(ActivatedAtUtc,IssuedAtUtc), vì vậy vé quay lại cấp hôm trước nhưng kích hoạt hôm nay vẫn hiện. Caller Clinical kiểm quyền và cặp Encounter/Appointment trước khi gọi; Scheduling không query Clinical schema.
+- Khi chưa có lượt, chọn lịch CheckedIn trước Scheduled rồi Completed, mới nhất ConfirmedAtUtc/Id trong ngày. Lịch Scheduled chưa check-in có một bước Waiting tại phòng được phân công. Không có lịch/lượt trảstepsrỗng,không404.
+- Vé sort QueuedAtUtc,SequenceNumber,Id, bỏCancelled. Step id=QueueTicketId, queueNumber=TicketNumber; Finished→Completed, còn Waiting/Called/Deferred/InProgress giữ tên. title Khám ban đầu/Quay lại bác sĩ hoặc tên CLS snapshot từ khoản thu; thiếu snapshot dùng nhãn Cận lâm sàng. location lấy catalog phòng Identity trong một lần đọc, thiếu tên trảchuỗirỗng. updatedAt dùng timestamp trạng thái đã có, không tạo timestamp giả cho deferred.
+- currentCallText chỉ có khi có vé Called, chọn CalledAtUtc mới nhất rồiId, hiển thị số và tên phòng. Không suy trạng thái Called từ payment hoặc sự kiện Outbox.
+- unpaidClsCount đếm Charges của Billing.GetEncounterCostSummaryAsync: CLSService, Pending/PartiallyPaid và TotalAmount>PaidAmount; loạiPaid/Cancelled/Waived/giá0. Không dùng Clinical payment mirror để đoán số nợ; không sửa giá, phiếu thu/hoàn, PaymentIntent hoặc gọi VNPAY.
+- Không trả chẩn đoán, kết luận, nội dung kết quả hoặc tệp. Đây là dữ liệu logistics đọc sống, không snapshot transaction xuyên module; trạng thái có thể thay đổi giữa các query.
+
+Ví dụ dữ liệu giả:
+```json
+{"patientProfileId":"00000000-0000-0000-0000-000000000001","patientName":"Bệnh nhân thử","serviceDate":"2087-02-04","appointmentId":null,"encounterStatus":null,"currentCallText":null,"unpaidClsCount":0,"steps":[]}
+```
+
+## Context hàng chờ nhân viên — v0.8
+
+Không tạo `/api/clinical/staff/doctor/queues` hoặc `/api/clinical/staff/room/queue`. Dùng GET `/api/scheduling/staff/rooms/{roomId}/queue?page=&pageSize=` hiện có; giữ envelope và thứ tự/ngày/trạng thái trước đây. Mỗi items thêm `encounterId`, `serviceOrderItemId` (nullable, vé CLS) và `patientName`. QueueTicketId vẫn dùng cho start/requeue/finish; ServiceOrderItemId dùng đọc/ghi kết quả Clinical. Các field QueueStatus/TicketType giữ enum backend, không tự đổi sang queueKind/status/version số của DTO web.
+
+Reader Scheduling lấy ID trong schema mình; IClinicalModule.GetQueuePatientContextsAsync batch tối đa100lượt→PatientId, rồi IIdentityPatientsModule.GetPatientContactsAsync batch tên. Không N+1 hoặc join chéo schema; thiếu context/tên trảchuỗirỗng, không đoán tên. Phạm vi: giữ role staff đang được route cho phép; RoomAccount chỉ room_id của phiên, Doctor cần doctor_id/phòng của quota hôm nay; Nurse cần AppUserId và ca trực đang hoạt động đúng phòng/ngày theo DBclock, sai ca/phòng403. Nếu ngày đổi giữa đọc queue và kiểmca, Nurse403 và tải lại. Receptionist giữ quyền đọc route như trước. Admin/Patient không truy cập route staff này.
+
+Public display vẫn dùng PublicQueueNumber riêng, chỉ TicketNumber/SequenceNumber, không thêmEncounterId/tên bệnh nhân. Nurse queue và doctor records từ#155 được giữ nguyên. Các method I<M>Module mới có default throw NotSupportedException; constructor/DI queue/report không thay, tương thích rebase#161.
+
+| Web gọi | Route backend / khác biệt |
+|---|---|
+| GET /api/clinical/patient/today-journey | Cùng route/query/TodayJourneyDto; profile bỏ trống dùngSelf đúng quyền, chưa cólượt trả200stepsrỗng |
+| GET /api/clinical/staff/doctor/queues | GET /api/scheduling/staff/rooms/{roomId}/queue; thêmencounterId/patientName; TicketType InitialConsultation/ReturnConsultation, trạng thái backend và envelope |
+| GET /api/clinical/staff/room/queue | Cùng routeScheduling; thêmencounterId/patientName/serviceOrderItemId, phân véCLS; chưa đủserviceCode/resultStatus/readingDoctorName/version củaDTOweb |
+
+Yêu cầu owner cập nhật contract lõi `docs/api/scheduling.md`: các field staff queue mới, Nurse room/shift403 và giữ publicDTO chỉsố. Không sửa file lõi trong PR này; không cần schema/migration/Bootstrapper. UI/E2E/device thật chưa kiểm.

@@ -32,7 +32,7 @@ export const ReceptionSearchPage: React.FC = () => {
           Tìm kiếm hợp nhất Bệnh nhân &amp; Lịch khám (RC01)
         </h1>
         <p className="text-sm text-on-surface-variant">
-          Tra cứu nhanh theo họ tên, số điện thoại hoặc mã lịch hẹn để điều phối check-in / thu ngân / hủy.
+          Tra cứu nhanh theo số điện thoại, CCCD (khớp chính xác) hoặc mã lịch hẹn để điều phối check-in / thu ngân / hủy.
         </p>
       </div>
 
@@ -45,7 +45,7 @@ export const ReceptionSearchPage: React.FC = () => {
                   {...props}
                   value={keyword}
                   onChange={(e) => setKeyword(e.target.value)}
-                  placeholder="Nhập tên, SĐT (0901...), hoặc mã lịch (SH-...)"
+                  placeholder="Nhập SĐT, CCCD hoặc mã lịch (SH-...)"
                 />
               )}
             </FormField>

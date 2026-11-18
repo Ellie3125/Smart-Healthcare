@@ -14,6 +14,14 @@ internal sealed class EfEncounterStore(ClinicalDbContext db) : IEncounterStore
         EncounterStatus.ReturningDoctor
     ];
 
+    public Task<Encounter?> GetForPatientDayAsync(Guid patientId, DateTime fromUtc, DateTime untilUtc, CancellationToken ct) =>
+        db.Set<Encounter>().AsNoTracking().Where(e => e.PatientId == patientId && e.CheckedInAtUtc < untilUtc
+                && (ActiveStatuses.Contains(e.Status) || e.CheckedInAtUtc >= fromUtc))
+            .OrderBy(e => ActiveStatuses.Contains(e.Status) ? 0 : 1).ThenByDescending(e => e.CheckedInAtUtc).ThenBy(e => e.Id).FirstOrDefaultAsync(ct);
+
+    public async Task<IReadOnlyList<Encounter>> GetByIdsAsync(IReadOnlyCollection<Guid> ids, CancellationToken ct) =>
+        await db.Set<Encounter>().AsNoTracking().Where(e => ids.Contains(e.Id)).ToListAsync(ct);
+
     public Task<Encounter?> GetByIdAsync(Guid encounterId, CancellationToken ct) =>
         db.Set<Encounter>().FirstOrDefaultAsync(e => e.Id == encounterId, ct);
 

@@ -11,7 +11,7 @@ from __future__ import annotations
 from datetime import date, datetime
 from decimal import Decimal
 
-from app.backend import BackendError, SessionExpired
+from app.backend import BackendError, BackendNotFound, SessionExpired
 from app.config_tables import Tables
 from app.router import Routed
 from app.schemas import ChatContext, ChatState, TurnOption, TurnResponse
@@ -20,7 +20,7 @@ from app.tools.models import AppointmentOut
 from app.tools.read_tools import ReadTools
 
 MAX_OPTIONS = 5
-TOOL_INTENTS = frozenset({"SEARCH_SLOTS", "BOOK", "VIEW_APPOINTMENTS", "RESCHEDULE", "CANCEL", "VIEW_TICKET", "VIEW_EXAM_PAYMENT"})
+TOOL_INTENTS = frozenset({"SEARCH_SLOTS", "BOOK", "VIEW_APPOINTMENTS", "RESCHEDULE", "CANCEL", "VIEW_TICKET", "VIEW_EXAM_PAYMENT", "VIEW_VISIT_HISTORY"})
 
 
 class ToolIntentHandler:
@@ -39,6 +39,8 @@ class ToolIntentHandler:
                     return await self._ticket(ctx, today)
                 case "VIEW_EXAM_PAYMENT":
                     return await self._payments(ctx, today)
+                case "VIEW_VISIT_HISTORY":
+                    return await self._visits(ctx)
                 case "CANCEL":
                     return await self._change(ctx, today, "CANCEL", "hủy lịch")
                 case "RESCHEDULE":
@@ -144,6 +146,24 @@ class ToolIntentHandler:
             return TurnResponse(reply=self._t.template("payments_none"), intent="VIEW_EXAM_PAYMENT"), _done("VIEW_EXAM_PAYMENT")
         reply = "\n".join([self._t.template("payments_header"), *lines])
         return TurnResponse(reply=reply, intent="VIEW_EXAM_PAYMENT"), _done("VIEW_EXAM_PAYMENT")
+
+    async def _visits(self, ctx: ChatContext) -> tuple[TurnResponse, ChatState]:
+        try:
+            visits = await self._tools.list_visit_history(ctx, MAX_OPTIONS)
+        except BackendNotFound:
+            # .NET chỉ mở bệnh án cho hồ sơ đã xác minh danh tính; không đoán, không thử hồ sơ khác.
+            return TurnResponse(reply=self._t.template("visits_not_verified"), intent="VIEW_VISIT_HISTORY"), _done("VIEW_VISIT_HISTORY")
+        if not visits:
+            return TurnResponse(reply=self._t.template("visits_none"), intent="VIEW_VISIT_HISTORY"), _done("VIEW_VISIT_HISTORY")
+        labels = self._t.routing.visit_status_labels
+        lines = []
+        for v in sorted(visits, key=lambda v: v.checked_in_at_utc, reverse=True):
+            parts = [v.doctor_name or "bác sĩ phụ trách", v.specialty_name, labels.get(v.status, v.status)]
+            if v.has_prescription:
+                parts.append("có đơn thuốc")
+            lines.append(f"• {v.checked_in_at_utc.astimezone(VIETNAM).strftime('%d/%m/%Y')}: {', '.join(p for p in parts if p)}.")
+        reply = "\n".join([self._t.template("visits_header"), *lines, self._t.template("visits_hint")])
+        return TurnResponse(reply=reply, intent="VIEW_VISIT_HISTORY"), _done("VIEW_VISIT_HISTORY")
 
     async def _change(self, ctx: ChatContext, today: date, intent: str, action: str) -> tuple[TurnResponse, ChatState]:
         changeable = [a for a in _upcoming(await self._tools.list_my_appointments(ctx), today) if a.changeable]

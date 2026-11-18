@@ -91,11 +91,11 @@ export const documentsApi = {
    * (Chỉ tài khoản phòng xem được tệp Draft của chính phòng mình, không xem lại tệp Published)
    */
   getTicketFiles: (queueTicketId: string): Promise<ResultAttachmentDto[]> =>
-    apiGet<ResultAttachmentDto[]>(`/api/documents/staff/room/tickets/${queueTicketId}/files`),
+    apiGet<ResultAttachmentDto[]>(`/api/documents/staff/room/results/${queueTicketId}/files`),
 
   /**
    * Xóa tệp nháp của phòng trước khi phát hành kết quả
    */
-  deleteDraftFile: (fileId: string): Promise<boolean> =>
-    apiDelete<boolean>(`/api/documents/staff/room/files/${fileId}`),
+  deleteDraftFile: async (queueTicketId: string, fileId: string): Promise<boolean> =>
+    (await apiDelete<{ success: boolean }>(`/api/documents/staff/room/results/${queueTicketId}/files/${fileId}`)).success,
 };

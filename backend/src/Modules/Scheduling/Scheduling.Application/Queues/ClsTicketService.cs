@@ -27,7 +27,13 @@ public sealed class ClsTicketService(IClsTicketStore store, IUnitOfWork uow, IId
                 ?? throw new SchedulingException(SchedulingErrorCode.MedicalServiceUnavailable,
                     "Dịch vụ không tồn tại, ngừng hoạt động hoặc không còn phòng thực hiện.");
 
-        return await uow.ExecuteAsync(t => store.CreateAsync(command, rooms, t), ct);
+        var result = await uow.ExecuteAsync(t => store.CreateAsync(command, rooms, t), ct);
+        var roomNumbers = (await identity.GetRoomsAsync(ct: ct)).ToDictionary(r => r.Id, r => r.Code);
+        QueueTicketDto Display(QueueTicketDto ticket) => ticket with
+        {
+            DisplayNumber = TicketDisplayNumber.Format(roomNumbers.GetValueOrDefault(ticket.TargetRoomId), ticket.Kind.ToString(), ticket.SequenceNumber)
+        };
+        return new(result.ClsTickets.Select(Display).ToArray(), Display(result.ReturnTicket));
     }
 
     private async Task<Guid?> PickRoomAsync(Guid medicalServiceId, CancellationToken ct)

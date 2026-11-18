@@ -52,7 +52,8 @@ public sealed record CheckInResult(
     Guid QueueTicketId,
     string TicketNumber,
     int SequenceNumber,
-    Guid EncounterId);
+    Guid EncounterId,
+    string? DisplayNumber = null);
 
 // ---------- Vé CLS và vé quay lại ----------
 
@@ -83,7 +84,8 @@ public sealed record QueueTicketDto(
     Guid TargetRoomId,
     string TicketNumber,
     int SequenceNumber,
-    DateTime IssuedAtUtc);
+    DateTime IssuedAtUtc,
+    string? DisplayNumber = null);
 
 /// <param name="ClsTickets">Mỗi dòng của lệnh một vé, theo thứ tự Lines.</param>
 /// <param name="ReturnTicket">Vé quay lại của đợt chỉ định, chưa kích hoạt.</param>

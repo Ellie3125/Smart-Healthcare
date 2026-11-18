@@ -1,6 +1,6 @@
 # Contract IdentityPatients — HTTP
 
-- Phiên bản: v0.2 Draft (10/11/2026). Claude Code viết theo yêu cầu trưởng nhóm (CLA-FIX-012, sửa ở CLA-FIX-013). Người phụ trách IdentityPatients rà soát; trưởng nhóm duyệt rồi mới chuyển sang Approved.
+- Phiên bản: v0.3 Draft (18/11/2026). Claude Code viết theo yêu cầu trưởng nhóm (CLA-FIX-012, sửa ở CLA-FIX-013). Người phụ trách IdentityPatients rà soát; trưởng nhóm duyệt rồi mới chuyển sang Approved.
 - Nguồn: Phạm vi nghiệp vụ v2.12 (mục 2.1 ý 7, 2.3); Giải pháp kỹ thuật v2.14 (§8.6, "Kênh và vai trò"); ERD v2.4 schema `identity`; DB-05; code trong `IdentityPatients.Api/Controllers`.
 - JSON camelCase. Thời gian UTC ISO 8601 (`...Z`). Ngày dạng `yyyy-MM-dd`. Enum truyền dạng chuỗi.
 - Lỗi do module trả là `application/problem+json`, gồm `title` (tiếng Việt), `status`, `detail` và extension **`code`** (PascalCase, `docs/conventions.md` §4). Frontend và chatbot rẽ nhánh theo `code`. Khi không có mã riêng thì `code` theo status: 400 `InvalidInput`, 403 `Forbidden`, 404 `NotFound`, 409 `Conflict`. 401/403 do middleware xác thực trả thì không có thân.
@@ -258,4 +258,36 @@ Chỉ là contract trong tiến trình `IIdentityPatientsModule`; route HTTP do 
 - `GetDoctorShiftRoomIdsAsync(doctorId, date)` → các `RoomId` không trùng của `StaffShiftAssignment` thuộc bác sĩ (Doctor.Id → Staff) trong ngày; Scheduling dùng khi admin mở ngày trực không chọn phòng. Không thêm index (đi qua FK `StaffId`, đường quản trị ít gọi).
 - Schema: index không unique `IX_Patient_PhoneNumber` (migration Identity `PatientPhoneNumberIndex`); CCCD dùng index unique có lọc sẵn có.
 - Interface có cài đặt mặc định ném `NotSupportedException` cho ba hàm này để bản giả trong test không phải sửa; bản Identity cài đặt thật.
+
+
+
+## Quản trị chỉ đọc — bổ sung v0.3
+
+`GET /api/identity/admin/permissions-matrix` và `GET /api/identity/admin/audit-logs` dùng AdminOnly, kênh Staff. Middleware trả401 khi ẩn danh,403 nếu sai role/kênh. Response có Cache-Control: no-store. Không thay đăng nhập, token, xác minh hay thiết bị.
+
+### Ma trận quyền
+
+Response là `RolePermissionMatrixRow[]`: `{ role, capabilities: string[], restrictedNote }`. Role/channel suy từ Policies.RoleOf/ChannelOf; capabilities là chuỗi `METHOD /route-pattern` của endpoint đã map và có policy mà role đó thỏa. Đọc cả policy đặt tên, authorize data phối hợp và policy object trên endpoint; bỏ AllowAnonymous. Không hard-code danh sách chức năng. Matrix chỉ mô tả policy khai báo: guard hồ sơ, phòng, ca, phiên thiết bị và trạng thái nghiệp vụ trong handler vẫn áp dụng; restrictedNote ghi rõ điều này. Các quyền cần claim ngoài role/channel không được suy đoán là có.
+
+### Audit log
+
+Query: `keyword` optional, trim tối đa100 ký tự; `page` integer từ1 đến1000, mặc định1. Tham số lặp hoặc không hợp lệ trả400 InvalidInput. Page size cố định50; đọc51 để tính hasMore; sắp TimestampUtc DESC, Id DESC theo SQL Server. Keyword chỉ tìm chuỗi literal trên TableName, ChangedColumns, ChangeReason; không tìm payload/PII, actor name hoặc dữ liệu bệnh nhân. `Contains` được EF parameter hóa, không ghép SQL từ input. Phân trang theo page có thể dịch khi log mới đến; không hứa snapshot giữa hai request.
+
+Response `{ items: AuditLogEntry[], hasMore }`, mỗi item:
+`{id,occurredAt,actorName,actorRole,action,entityType,entityId,beforeJson,afterJson}`. occurredAt UTC ISO8601Z; action là INSERT/UPDATE/DELETE/CANCEL/REFUND/PUBLISH, entityType=TableName. Shared.Infrastructure sở hữu query AuditLog; Identity.Infrastructure chỉ batch directory trong schema identity để ghép tên và role, không query shared trực tiếp. Không N+1. actorRole là vai trò suy từ directory hiện tại bằng AccountRoles.RoleFor, không phải snapshot lịch sử. Không có actor: System/role rỗng; ID đã mất directory: tên là Guid, role rỗng. Staff dùng FullName, các actor khác dùng UserName.
+
+beforeJson/afterJson là object hoặc null: che NationalId/PhoneNumber ở mọi cấp bằng SensitiveDataMasker (giữ ba ký tự cuối), redact key chứa password/token/secret/apikey. JSON legacy sai hoặc không phải object trảnull. Payload thuộc clinical.* và documents.* trảnull, vì quyền audit admin không cấp quyền bệnh án/kết quả CLS. patientCccd/patientPhone optional không trả riêng. Không trả client IP, device metadata, nguyên văn note hoặc connection/token.
+
+Index thời gian chưa có trong model hiện tại. **Yêu cầu sửa lõi:** owner thêm index shared.AuditLog(TimestampUtc DESC, Id DESC) bằng migration riêng. Route vẫn hoạt động với schema hiện tại; chưa đo tải production và deep page có thể tốn sort/scan.
+
+### Ánh xạ cho frontend
+
+| Web gọi | Backend / khác biệt |
+|---|---|
+| GET /api/identity/admin/permissions-matrix | Cùng route; capabilities là method+route từ policy thực tế, restrictedNote nêu giới hạn guard runtime |
+| GET /api/identity/admin/audit-logs?keyword=&page= | Cùng route/envelope; page size50, JSON object/null đã che, role theo directory hiện tại |
+| GET /api/identity/public/specialties | GET /api/patient/specialties; PatientOnly, không anonymous; mảng {id,code,name}, chỉ mục active, không phân trang |
+| GET /api/identity/public/doctor-ranks | GET /api/patient/doctor-ranks; PatientOnly, không anonymous; mảng {id,code,name,displayOrder}, chỉ mục active, không phân trang |
+
+Thiết bị và miễn phí CLS bỏ khỏi MVP theo quyết định18/11/2026; không còn yêu cầu schema cho các màn hình đó trong đợt2. ICD-10 chờ danh mục chuẩn, giữ nhập tay. Các quyết định này không đổi lịch sử PR đợt1.
 

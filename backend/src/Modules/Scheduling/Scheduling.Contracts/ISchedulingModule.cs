@@ -7,6 +7,10 @@ namespace Scheduling.Contracts;
 /// </summary>
 public interface ISchedulingModule
 {
+    /// <summary>Clinical context only: today's initial-consultation queue in one room; caller checks staff duty.</summary>
+    Task<ClinicalQueuePage> GetClinicalQueueAsync(Guid roomId, DateTime atUtc, int page, int pageSize, CancellationToken ct = default) =>
+        throw new NotSupportedException();
+
     /// <summary>
     /// Tìm bác sĩ có phiên còn nhận đặt trong ngày D, kèm suất trống và phí khám, phân trang theo DoctorId.
     /// Chỉ trả phiên IsOpen = true, SessionStatus Scheduled/InProgress và giờ DB &lt; BookingCutoffTimeUtc (09:30 ngày D);
@@ -57,4 +61,12 @@ public interface ISchedulingModule
     /// Dùng cho module DocumentsReporting kiểm tra vé khi phòng CLS tải tệp kết quả.
     /// </summary>
     Task<ClsQueueTicketValidationDto?> ValidateClsTicketForRoomAsync(Guid queueTicketId, Guid roomId, CancellationToken ct = default);
+
+    /// <summary>Caller validates patient access and the encounter/appointment pair via Clinical; Scheduling reads only its own day/queue data.</summary>
+    Task<PatientJourneySnapshot> GetPatientJourneyAsync(Guid patientId, Guid? appointmentId, Guid? encounterId, DateTime atUtc, CancellationToken ct = default) =>
+        throw new NotSupportedException();
+
+    /// <summary>Read-only daily totals in GMT+7 for a caller-validated UTC interval [from,until), at most31 days.</summary>
+    Task<IReadOnlyList<SchedulingDailyReport>> GetDailyReportAsync(DateTime fromUtc, DateTime untilUtc, CancellationToken ct = default) =>
+        throw new NotSupportedException();
 }

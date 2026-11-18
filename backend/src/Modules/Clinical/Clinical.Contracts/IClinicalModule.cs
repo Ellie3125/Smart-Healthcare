@@ -6,6 +6,14 @@ namespace Clinical.Contracts;
 /// </summary>
 public interface IClinicalModule
 {
+    /// <summary>Read-only diagnoses of the current Published clinical record, in diagnosis time/ID order; Draft or missing record returns empty.</summary>
+    Task<IReadOnlyList<EncounterDiagnosisDto>> GetPublishedDiagnosesAsync(Guid encounterId, CancellationToken ct = default) =>
+        throw new NotSupportedException();
+
+    /// <summary>Read-only encounter check-ins grouped in GMT+7; caller validates UTC interval [from,until), at most31 days.</summary>
+    Task<IReadOnlyList<ClinicalDailyReport>> GetDailyReportAsync(DateTime fromUtc, DateTime untilUtc, CancellationToken ct = default) =>
+        throw new NotSupportedException();
+
     /// <summary>Scheduling calls after its paid-ticket transition to InProgress, inside the caller's IUnitOfWork.
     /// Verifies ticket room/item and an open encounter; Ordered → InProgress, replay InProgress is a no-op.
     /// Errors: InvalidRequest, OrderItemNotFound, InvalidStatusTransition, EncounterClosed, Forbidden. Never commits the caller's transaction.</summary>
@@ -48,5 +56,9 @@ public interface IClinicalModule
 
     /// <summary>Bác sĩ ban đầu đã phát hành kết luận sau CLS; trước đó bệnh nhân và người đại diện chưa xem được kết quả (GP §6.5).</summary>
     Task<bool> IsPostClsConclusionPublishedAsync(Guid encounterId, CancellationToken ct);
+
+    /// <summary>Caller has authorized the staff room queue; at most100 encounter IDs, one batch, no medical content.</summary>
+    Task<IReadOnlyList<QueuePatientContext>> GetQueuePatientContextsAsync(IReadOnlyCollection<Guid> encounterIds, CancellationToken ct = default) =>
+        throw new NotSupportedException();
 }
 

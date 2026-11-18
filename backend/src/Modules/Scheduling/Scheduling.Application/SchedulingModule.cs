@@ -9,8 +9,19 @@ namespace Scheduling.Application;
 /// <summary>Hiện thực ISchedulingModule (docs/api/scheduling.md §2). Check in thuộc W3-02, vé CLS thuộc W3-04.</summary>
 public sealed class SchedulingModule(DoctorSearchService doctorSearch, Func<CheckInService> checkIn,
     Func<ClsTicketService>? clsTickets = null, Func<IClsTicketReader>? clsTicketReader = null,
-    Func<IClinicalModule>? clinical = null) : ISchedulingModule
+    Func<IClinicalModule>? clinical = null,
+    Func<RoomQueues.IClinicalQueueReader>? clinicalQueue = null,
+    Func<Reports.ISchedulingReportReader>? reports = null) : ISchedulingModule
 {
+    public Task<ClinicalQueuePage> GetClinicalQueueAsync(Guid roomId, DateTime atUtc, int page, int pageSize, CancellationToken ct = default)
+    {
+        if (roomId == Guid.Empty || atUtc.Kind != DateTimeKind.Utc || page is < 1 or > 1000 || pageSize is < 1 or > 100)
+            throw new SchedulingException(SchedulingErrorCode.InvalidInput, "Phòng hoặc phân trang không hợp lệ.");
+        return (clinicalQueue ?? throw new NotSupportedException())().ReadAsync(roomId, atUtc, page, pageSize, ct);
+    }
+    public Task<IReadOnlyList<SchedulingDailyReport>> GetDailyReportAsync(DateTime fromUtc, DateTime untilUtc, CancellationToken ct = default) =>
+        (reports ?? throw new NotSupportedException())().ReadAsync(fromUtc, untilUtc, ct);
+
     public Task<DoctorSearchPage> SearchDoctorsAsync(DoctorSearchQuery query, CancellationToken ct)
     {
         if (query is null
@@ -45,5 +56,12 @@ public sealed class SchedulingModule(DoctorSearchService doctorSearch, Func<Chec
         if (item?.Result is not { } result || result.ServiceOrderItemId != item.Id) return null;
         return new(queueTicketId, roomId, ticket.EncounterId, encounter.PatientId, item.Id, result.Id, ticket.TicketNumber, null, null,
             ticket.QueueStatus == "Finished" && item.ItemStatus is "ServiceFinished" or "Completed", result.ResultStatus == "Published");
+    }
+
+    public Task<PatientJourneySnapshot> GetPatientJourneyAsync(Guid patientId, Guid? appointmentId, Guid? encounterId, DateTime atUtc, CancellationToken ct = default)
+    {
+        if (patientId == Guid.Empty || appointmentId == Guid.Empty || encounterId == Guid.Empty || atUtc.Kind != DateTimeKind.Utc)
+            throw new SchedulingException(SchedulingErrorCode.InvalidInput, "Hồ sơ hoặc thời điểm không hợp lệ.");
+        return (clinicalQueue ?? throw new NotSupportedException())().ReadPatientJourneyAsync(patientId, appointmentId, encounterId, atUtc, ct);
     }
 }

@@ -31,6 +31,15 @@ def appointment(patient, number, service_date, status="Scheduled", doctor="BS Ng
     }
 
 
+def encounter(checked_in_utc, doctor, specialty, status, prescription=False):
+    return {
+        "id": str(uuid.uuid4()), "encounterCode": "PK-1A2B3C4D", "serviceDate": checked_in_utc, "doctorName": doctor,
+        "specialtyName": specialty, "primaryDiagnosis": "Viêm họng cấp", "status": status, "hasPrescription": prescription,
+        "hasPublishedAttachments": False, "patientName": None, "patientProfileId": PATIENT, "isPublished": status == "Completed",
+        "hasClsResults": False,
+    }
+
+
 def _model_offline(request: httpx.Request) -> httpx.Response:
     return httpx.Response(404, text="offline")  # model tắt: mọi thứ phải chạy không cần model
 
@@ -91,4 +100,10 @@ class FakeDotnet:
             assert request.url.params["patientId"] == PATIENT  # lấy từ context, không từ câu chat
             return httpx.Response(200, json=[{"refundRequestId": str(uuid.uuid4()), "status": "Approved", "amount": 150000,
                                               "currency": "VND", "appointmentId": None}])
+        if path == "/api/documents/patient/encounters":
+            assert request.url.params["patientProfileId"] == PATIENT  # hồ sơ của cuộc trò chuyện, không từ câu chat
+            return httpx.Response(200, json={"totalCount": 2, "page": 1, "pageSize": 5, "hasMore": False, "items": [
+                encounter("2026-11-10T02:15:00Z", "BS Nguyễn Văn A", "Khoa Nội", "Completed", prescription=True),
+                encounter("2026-10-02T03:00:00Z", "BS Trần Thị Da", "Khoa Da liễu", "WaitingCLS"),
+            ]})
         return httpx.Response(404, json={"code": "NotFound"})

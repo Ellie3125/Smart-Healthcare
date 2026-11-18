@@ -16,7 +16,6 @@ import {
   StatusPill,
   useToast,
 } from '../../shared/ui';
-import { createIdempotencyKey } from '../../shared/lib/idempotency';
 import { extractFriendlyError } from '../../shared/lib/errors';
 
 /**
@@ -35,7 +34,7 @@ export const PaymentReconcilePage: React.FC = () => {
 
   const queryDrMutation = useMutation({
     mutationFn: (txnRef: string) =>
-      adminOpsApi.queryVnpayDr(txnRef, createIdempotencyKey(`qdr-${txnRef}`)),
+      adminOpsApi.queryVnpayDr(txnRef),
     onSuccess: (res) => {
       pushToast(`Đã tra cứu cổng VNPAY cho ${res.vnpTxnRef}: ${res.gatewayStatus}`, 'success');
       setManualTxnRef('');

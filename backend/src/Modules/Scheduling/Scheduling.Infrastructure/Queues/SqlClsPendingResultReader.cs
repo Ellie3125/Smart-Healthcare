@@ -16,7 +16,7 @@ internal sealed class SqlClsPendingResultReader(SchedulingDbContext db, IClinica
         var tickets = db.Set<QueueTicket>().AsNoTracking().Where(t => t.TargetRoomId == roomId && t.TicketType == TicketType.CLS
             && t.QueueStatus == QueueStatus.Finished && t.ServiceOrderItemId != null)
             .OrderBy(t => t.TicketNumber).ThenBy(t => t.Id)
-            .Select(t => new ClsPendingResult(t.Id, t.TicketNumber, t.ServiceOrderItemId!.Value, t.EncounterId, t.CompletedAtUtc));
+            .Select(t => new ClsPendingResult(t.Id, t.TicketNumber, t.ServiceOrderItemId!.Value, t.EncounterId, t.CompletedAtUtc, t.SequenceNumber, null));
         var orders = new Dictionary<Guid, IReadOnlyList<ServiceOrderDto>>(); var items = new List<ClsPendingResult>();
         var skip = (page - 1) * pageSize;
         // shortcut: Clinical exposes orders per encounter only; use a batch pending-results contract when room history grows.

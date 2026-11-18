@@ -31,9 +31,6 @@ import { RefundApprovalsPage } from './pages/admin/RefundApprovalsPage';
 import { PaymentReconcilePage } from './pages/admin/PaymentReconcilePage';
 import { ReportsPage } from './pages/admin/ReportsPage';
 import { AuditLogsPage } from './pages/admin/AuditLogsPage';
-import { ClsWaiversPage } from './pages/admin/ClsWaiversPage';
-import { ChatbotConfigPage } from './pages/admin/ChatbotConfigPage';
-import { StaffNotificationsPage } from './pages/common/StaffNotificationsPage';
 import { SessionReplacedPage } from './pages/common/SessionReplacedPage';
 import { StaffOutletChrome } from './pages/common/StaffOutletChrome';
 import { StyleguidePage } from './pages/dev/StyleguidePage';
@@ -70,7 +67,6 @@ export const App: React.FC = () => {
       {/* Mỗi khu vực chỉ cho đúng một vai trò (Giải pháp v2.14 §8.6). Chặn ở đây chỉ để không bấm nhầm; quyền thật do Backend kiểm. */}
       <Route element={<StaffLayout />}>
         <Route element={<StaffOutletChrome />}>
-          <Route path="/notifications" element={<StaffNotificationsPage />} />
 
           {/* Reception */}
           <Route path="/reception/search" element={<RequireRole allow={['Receptionist']}><ReceptionSearchPage /></RequireRole>} />
@@ -135,8 +131,6 @@ export const App: React.FC = () => {
           <Route path="/admin/reconcile" element={<RequireRole allow={['Admin']}><PaymentReconcilePage /></RequireRole>} />
           <Route path="/admin/reports" element={<RequireRole allow={['Admin']}><ReportsPage /></RequireRole>} />
           <Route path="/admin/audit-logs" element={<RequireRole allow={['Admin']}><AuditLogsPage /></RequireRole>} />
-          <Route path="/admin/cls-waivers" element={<RequireRole allow={['Admin']}><ClsWaiversPage /></RequireRole>} />
-          <Route path="/admin/chatbot-config" element={<RequireRole allow={['Admin']}><ChatbotConfigPage /></RequireRole>} />
           <Route
             path="/admin/*"
             element={

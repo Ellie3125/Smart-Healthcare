@@ -44,6 +44,8 @@ public static class DependencyInjection
             .AddScoped<CheckInDeadlineJob>()
             .AddScoped<IWalkInStore, SqlWalkInStore>()
             .AddScoped<IRoomQueueReader, SqlRoomQueueReader>()
+            .AddScoped<IClinicalQueueReader, SqlClinicalQueueReader>()
+            .AddScoped<Scheduling.Application.Reports.ISchedulingReportReader, Reports.SqlSchedulingReportReader>()
             .AddScoped<Scheduling.Application.Queues.IQueueStore, Queues.SqlQueueStore>()
             .AddScoped<Scheduling.Application.Queues.RoomAuditRequest>()
             .AddScoped<Scheduling.Application.Queues.IClsTicketStore, Queues.SqlClsTicketStore>()

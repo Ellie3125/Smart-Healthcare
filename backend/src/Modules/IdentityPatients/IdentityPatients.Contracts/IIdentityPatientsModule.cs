@@ -8,6 +8,14 @@ public enum AccessLevel
 
 public interface IIdentityPatientsModule
 {
+    /// <summary>Verified ClinicalRecords access; omitted patientId selects exactly one active Self profile. No arbitrary relative fallback.</summary>
+    Task<PatientJourneyProfile?> GetJourneyPatientAsync(Guid appUserId, Guid? patientId, CancellationToken ct = default) =>
+        throw new NotSupportedException();
+
+    /// <summary>Active nurse, account and room, assigned in the current local-day shift [start,end).</summary>
+    Task<bool> IsNurseOnDutyAsync(Guid appUserId, Guid roomId, DateTime atUtc, CancellationToken ct = default) =>
+        throw new NotSupportedException();
+
     /// <summary>Active patient-channel accounts with Booking access to this patient; missing patient returns empty.</summary>
     Task<IReadOnlyList<Guid>> GetPatientAppUserIdsAsync(Guid patientId, CancellationToken ct = default) =>
         throw new NotSupportedException();
@@ -17,6 +25,11 @@ public interface IIdentityPatientsModule
         throw new NotSupportedException();
 
     Task<bool> CanAccessPatientAsync(Guid userId, Guid patientId, AccessLevel level = AccessLevel.Booking, CancellationToken ct = default);
+
+    /// <summary>Mọi PatientId mà <paramref name="userId"/> được truy cập ở mức <paramref name="level"/> (cùng luật
+    /// <see cref="GetAccessiblePatientsAsync"/>); một tài khoản chỉ có vài hồ sơ nên dùng để lọc theo index PatientId.</summary>
+    Task<IReadOnlyList<Guid>> ListAccessiblePatientsAsync(Guid userId, AccessLevel level = AccessLevel.Booking, CancellationToken ct = default) =>
+        throw new NotSupportedException();
 
     /// <summary>
     /// Các PatientId trong <paramref name="patientIds"/> mà <paramref name="userId"/> được truy cập ở mức <paramref name="level"/>

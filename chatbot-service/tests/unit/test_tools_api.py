@@ -79,6 +79,28 @@ def test_exam_payment_combines_appointments_pending_booking_and_refund(tmp_path,
     assert reply.count("Lượt đặt lịch") == 1  # không lấy lượt của hồ sơ khác
 
 
+def test_visit_history_is_summary_only_for_this_profile(tmp_path, conversation):
+    fake = FakeDotnet()
+    with client(tmp_path, fake) as c:
+        response = say(c, conversation, text="xem lịch sử khám của tôi").json()
+    reply = response["reply"]
+    assert response["intent"] == "VIEW_VISIT_HISTORY"
+    assert "10/11/2026: BS Nguyễn Văn A, Khoa Nội, đã khám xong, có đơn thuốc." in reply
+    assert "02/10/2026: BS Trần Thị Da, Khoa Da liễu, đang chờ kết quả cận lâm sàng." in reply
+    assert reply.index("10/11/2026") < reply.index("02/10/2026")  # mới nhất trước
+    assert "Hồ sơ khám" in reply
+    # Chỉ tóm tắt: không nhắc chẩn đoán, không lộ mã nội bộ.
+    assert "Viêm họng" not in reply and "PK-" not in reply
+    assert [r.url.path for r in fake.requests] == ["/api/documents/patient/encounters"]
+
+
+def test_visit_history_of_unverified_profile_explains_instead_of_guessing(tmp_path, conversation):
+    with client(tmp_path, FakeDotnet(fail={"/api/documents/patient/encounters": 403})) as c:
+        response = say(c, conversation, text="lịch sử khám").json()
+    assert "chưa được xác minh" in response["reply"]
+    assert "Bác sĩ" not in response["reply"]
+
+
 def test_cancel_lists_changeable_appointments_and_never_calls_change_api(tmp_path, conversation):
     fake = FakeDotnet()
     with client(tmp_path, fake) as c:

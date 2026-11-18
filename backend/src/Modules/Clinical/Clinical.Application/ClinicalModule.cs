@@ -10,8 +10,21 @@ public sealed class ClinicalModule(
     IPrescriptionStore prescriptionStore,
     TimeProvider clock,
     Func<Results.ClsLifecycleService>? clsLifecycle = null,
-    Func<Encounters.EncounterProgressService>? encounterProgress = null) : IClinicalModule
+    Func<Encounters.EncounterProgressService>? encounterProgress = null, Reports.IClinicalReportReader? reports = null) : IClinicalModule
 {
+    public async Task<IReadOnlyList<EncounterDiagnosisDto>> GetPublishedDiagnosesAsync(Guid encounterId, CancellationToken ct = default)
+    {
+        if (encounterId == Guid.Empty)
+            throw new ClinicalException(ClinicalErrorCode.InvalidRequest, "EncounterId không được rỗng.");
+        var record = await encounterStore.GetRecordByEncounterIdAsync(encounterId, ct);
+        if (record is not { Status: EncounterClinicalRecordStatus.Published }) return [];
+        return (await encounterStore.GetDiagnosesByEncounterIdAsync(encounterId, ct))
+            .OrderBy(d => d.DiagnosedAtUtc).ThenBy(d => d.Id).Select(ClinicalMappers.ToDto).ToArray();
+    }
+
+    public Task<IReadOnlyList<ClinicalDailyReport>> GetDailyReportAsync(DateTime fromUtc, DateTime untilUtc, CancellationToken ct = default) =>
+        (reports ?? throw new NotSupportedException()).ReadAsync(fromUtc, untilUtc, ct);
+
     public Task StartReturnVisitAsync(Guid encounterId, Guid performedByUserId, CancellationToken ct) =>
         (encounterProgress ?? throw new NotSupportedException("Host chưa đăng ký tiến trình lượt khám."))().StartReturnVisitAsync(encounterId, performedByUserId, ct);
     public Task FinishConsultationAsync(Guid encounterId, Guid performedByUserId, CancellationToken ct) =>
@@ -187,6 +200,14 @@ public sealed class ClinicalModule(
             itemGroups.TryGetValue(p.Id, out var items);
             return ClinicalMappers.ToDto(p, items ?? []);
         }).ToList();
+    }
+
+    public async Task<IReadOnlyList<QueuePatientContext>> GetQueuePatientContextsAsync(IReadOnlyCollection<Guid> encounterIds, CancellationToken ct = default)
+    {
+        if (encounterIds.Count > 100 || encounterIds.Contains(Guid.Empty))
+            throw new ClinicalException(ClinicalErrorCode.InvalidRequest, "Danh sách lượt khám không hợp lệ.");
+        if (encounterIds.Count == 0) return [];
+        return (await encounterStore.GetByIdsAsync(encounterIds, ct)).Select(e => new QueuePatientContext(e.Id, e.PatientId)).ToArray();
     }
 }
 

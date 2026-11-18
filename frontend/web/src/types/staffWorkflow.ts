@@ -12,8 +12,8 @@ export interface ServiceStationItem {
   id: string;
   code: string;
   name: string;
-  stationType: 'Reception' | 'Cashier' | 'Vitals' | 'QueueDisplay';
-  floor: string;
+  roomId: string;
+  roomName: string;
   isActive: boolean;
 }
 
@@ -38,7 +38,8 @@ export interface MedicalServiceCatalogItem {
   id: string;
   code: string;
   name: string;
-  category: 'Lab' | 'Imaging' | 'Functional';
+  // Laboratory | Radiology | Ultrasound | Endoscopy (Scheduling)
+  category: string;
   roomId: string;
   roomName: string;
   hasActiveRoom: boolean;
@@ -81,6 +82,7 @@ export interface OperationalExceptionItem {
   detail: string;
   status: 'Open' | 'Resolved';
   createdAt: string;
+  canRetry?: boolean;
 }
 
 export interface AdminRefundItem {
@@ -288,7 +290,8 @@ export interface DoctorEncounterWorkspaceDto {
   patientAge: number;
   patientGender: string;
   status: 'InProgress' | 'AwaitingCls' | 'ClsCompleted' | 'Published' | 'Amended';
-  version: number;
+  // RowVersion base64 của bệnh án; rỗng khi chưa có bản hiện hành.
+  version: string;
   vitalsSummary?: string;
   symptoms: string;
   clinicalNotes: string;
@@ -303,6 +306,7 @@ export interface DoctorEncounterWorkspaceDto {
 // CLS Room DTOs
 export interface ClsRoomQueueItem {
   orderItemId: string;
+  queueTicketId?: string;
   ticketNumber: string;
   patientName: string;
   serviceCode: string;
@@ -325,6 +329,9 @@ export interface ClsRoomResultDraftDto {
   technicalConclusion: string;
   readingDoctorName: string;
   availableShiftDoctors: string[];
-  version: number;
+  readingDoctors?: { doctorId: string; fullName: string }[];
+  queueTicketId?: string;
+  // RowVersion base64 của kết quả nháp.
+  version: string;
   draftFiles: { fileId: string; fileName: string; mimeType: string; sizeBytes: number }[];
 }
