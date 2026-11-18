@@ -28,6 +28,10 @@ from app.turns import ChatbotUnavailable
 log = logging.getLogger("chatbot.agent")
 
 MAX_OPTIONS = 5
+# Không gọi công cụ thì model chỉ được hỏi lại, từ chối, hoặc trả lời ngắn về kết quả đã có. Câu dài hơn ngưỡng này (thơ, bài viết,
+# kiến thức chung) là đã ra ngoài phạm vi: thay bằng câu từ chối cố định. Chỉnh ngưỡng theo bộ kịch bản (§11.2).
+MAX_FREE_REPLY_CHARS = 280
+MAX_FREE_REPLY_LINES = 3
 
 
 class AgentChatState(AgentState):
@@ -42,10 +46,11 @@ class AgentChatState(AgentState):
 
 class LangChainAgent:
     def __init__(self, model: BaseChatModel, tools: list, checkpointer: BaseCheckpointSaver, timeout_seconds: float,
-                 max_messages: int, fallback_reply: str) -> None:
+                 max_messages: int, fallback_reply: str, off_topic_reply: str) -> None:
         self._checkpointer = checkpointer
         self._timeout = timeout_seconds
         self._fallback = fallback_reply
+        self._off_topic = off_topic_reply
         self._graph = create_agent(
             model=model,
             tools=tools,
@@ -78,7 +83,11 @@ class LangChainAgent:
 
         # Công cụ return_direct: bệnh nhân nhận câu mẫu của công cụ (không qua model lần hai). Không gọi công cụ: lời của model.
         # Model trả rỗng (model nhỏ không hiểu câu): câu "chưa hiểu" kèm gợi ý, không đoán.
-        reply = "\n".join(turn.replies) or _last_ai_text(result["messages"]) or self._fallback
+        free_text = "" if turn.replies else _last_ai_text(result["messages"])
+        if free_text and (len(free_text) > MAX_FREE_REPLY_CHARS or free_text.count("\n") >= MAX_FREE_REPLY_LINES):
+            log.info("Thay câu trả lời dài không qua công cụ (%d ký tự) bằng câu từ chối", len(free_text))
+            free_text = self._off_topic
+        reply = "\n".join(turn.replies) or free_text or self._fallback
         intent = turn.intents[-1] if turn.intents else None
         suggestions = [] if turn.replies else ["SEARCH_SLOTS", "VIEW_APPOINTMENTS", "SUGGEST_SPECIALTY"]
         response = TurnResponse(reply=reply, intent=intent, options=turn.options[:MAX_OPTIONS],

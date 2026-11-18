@@ -90,6 +90,7 @@ def create_app(settings: Settings | None = None, agent: FreeTextAgent | None = N
                     settings.ollama_timeout_seconds,
                     settings.agent_max_messages,
                     tables.template("not_understood"),
+                    tables.template("out_of_scope_free"),
                 )
 
             app.state.store = store
