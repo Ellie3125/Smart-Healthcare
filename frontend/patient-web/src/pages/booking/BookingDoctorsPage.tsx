@@ -157,7 +157,7 @@ export const BookingDoctorsPage: React.FC = () => {
                     }}
                     options={(ranksQuery.data ?? []).map((r) => ({
                       value: r.id,
-                      label: `${r.name} (${r.consultationFee.toLocaleString('vi-VN')} ₫)`,
+                      label: r.name,
                     }))}
                   />
                 )}

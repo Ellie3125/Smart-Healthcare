@@ -35,7 +35,11 @@ export const EncounterHistoryPage: React.FC = () => {
 
   const profilesQuery = useQuery({
     queryKey: ['patient', 'profiles'],
-    queryFn: () => patientGet<ProfileOption[]>('/api/identity/patient/profiles'),
+    queryFn: async () =>
+      (await patientGet<(Omit<ProfileOption, 'id'> & { patientId: string })[]>('/api/patient/profiles')).map((p) => ({
+        ...p,
+        id: p.patientId,
+      })),
   });
 
   const profiles = profilesQuery.data ?? [];
