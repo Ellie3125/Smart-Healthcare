@@ -1,5 +1,10 @@
 using System.Reflection;
+using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.DependencyInjection;
 using Shared.Abstractions;
+using Shared.Infrastructure.Outbox;
+using Shared.Infrastructure.Persistence;
+using Shared.Infrastructure.Persistence.Entities;
 using Shared.Infrastructure.Persistence.Enums;
 using Xunit;
 
@@ -9,6 +14,20 @@ namespace ArchitectureTests;
 // mỗi sự kiện có CurrentVersion và Version trả đúng hằng đó (MSG-03).
 public class IntegrationEventContractTests
 {
+    [Fact]
+    public void Every_event_type_fits_its_storage_column()
+    {
+        using var db = new SharedDbContext(new DbContextOptionsBuilder<SharedDbContext>().UseSqlServer("Server=model-only;Database=none").Options);
+        var max = db.Model.FindEntityType(typeof(OutboxMessage))!.FindProperty(nameof(OutboxMessage.EventType))!.GetMaxLength()!.Value;
+        Assert.All(Enum.GetNames<EventType>(), name => Assert.InRange(name.Length, 1, max));
+    }
+
+    [Fact]
+    public void Clinical_alias_registration_rejects_an_undefined_wire_type()
+    {
+        Assert.Throws<ArgumentException>(() => new ServiceCollection()
+            .AddOutboxEvent<Clinical.Contracts.ClsResultsPublishedIntegrationEvent>((EventType)int.MaxValue));
+    }
     public static TheoryData<string> ContractAssemblies => new() { "Billing.Contracts", "Scheduling.Contracts" };
 
     [Theory]
@@ -39,7 +58,7 @@ public class IntegrationEventContractTests
     [Fact]
     public void Scheduling_publishes_the_planned_events()
     {
-        Assert.Equal(["AppointmentCancelled", "AppointmentConfirmed", "AppointmentDoctorChanged", "ClsTicketCancelled", "QueueCalled", "TicketCheckedIn"],
+        Assert.Equal(["AppointmentCancelled", "AppointmentConfirmed", "AppointmentDoctorChanged", "ClsTicketCancelled", "QueueCalled", "ReturnTicketActivated", "TicketCheckedIn"],
             Events("Scheduling.Contracts").Select(t => t.Name).Order().ToArray());
     }
 

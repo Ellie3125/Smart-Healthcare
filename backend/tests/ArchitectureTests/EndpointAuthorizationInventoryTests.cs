@@ -162,14 +162,20 @@ public sealed class EndpointAuthorizationInventoryTests
 
         Assert.Contains("api/notifications/patient/notifications", routes);
         Assert.Contains("api/notifications/patient/notifications/{id}/read", routes);
+        foreach (var action in new[] { "draft", "publish", "amend" })
+            Assert.Contains("api/clinical/staff/doctor/encounters/{encounterId}/" + action, routes);
+        Assert.Contains("api/clinical/staff/room/results/{orderItemId}", routes);
+        Assert.Contains("api/clinical/staff/room/results/{orderItemId}/publish", routes);
+        Assert.Contains("api/clinical/staff/doctor/encounters/{encounterId}/cls-orders", routes);
         Assert.Contains("api/scheduling/staff/call-list", routes);
         Assert.Contains("api/scheduling/admin/doctor-days/{doctorId}/{serviceDate}/replace-doctor", routes);
         Assert.Contains("api/scheduling/admin/doctor-days/{doctorId}/{serviceDate}/cancel-session", routes);
         Assert.Contains("api/scheduling/admin/rooms/{roomId}/disable", routes);
         var all = string.Join(", ", routes);
+        Assert.Contains("api/scheduling/staff/rooms/{roomId}/pending-results", routes);
         foreach (var prefix in new[] { "api/staff/admin", "api/staff/verifications", "api/patient/profiles", "api/scheduling/admin/doctor-days",
             "api/scheduling/admin/medical-services", "api/scheduling/admin/service-stations", "api/scheduling/staff/medical-services",
-            "api/scheduling/patient/doctors", "api/scheduling/staff/appointments", "me" })
+            "api/scheduling/patient/doctors", "api/scheduling/staff/doctors", "api/scheduling/staff/appointments", "api/workflow/admin/exceptions", "me" })
         {
             Assert.True(routes.Any(r => r.StartsWith(prefix, StringComparison.Ordinal)), $"Thiếu {prefix} trong: {all}");
         }

@@ -16,6 +16,7 @@ public static class DependencyInjection
         services.AddScoped<OutboxWriter>();
         services.AddScoped<OutboxReader>();
         services.AddScoped<StaffCallListReader>();
+        services.AddScoped<OutboxAdministration>();
         services.AddScoped<IUnitOfWork, UnitOfWork>();
         services.AddScoped<IIntegrationEventPublisher, IntegrationEventPublisher>();
         services.AddScoped<IProcessedEventStore, ProcessedEventStore>();

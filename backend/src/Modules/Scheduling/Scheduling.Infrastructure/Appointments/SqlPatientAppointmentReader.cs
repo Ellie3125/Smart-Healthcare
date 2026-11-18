@@ -37,7 +37,7 @@ internal sealed class SqlPatientAppointmentReader(SchedulingDbContext db) : IPat
         rows.Select(x => new PatientAppointment(x.Appointment.Id, x.Appointment.AppointmentNumber, x.Appointment.Status,
             x.Appointment.PatientId, x.Quota.DoctorId, x.Quota.ServiceDate, x.Quota.AssignedRoomId,
             x.Appointment.AppliedConsultationFee, x.Appointment.ConfirmedAtUtc, x.Quota.CheckInDeadlineUtc,
-            x.Appointment.CancelledAtUtc));
+            x.Appointment.CancelledAtUtc, x.Quota.RescheduleCutoffTimeUtc));
 
     private sealed class Row
     {

@@ -33,6 +33,7 @@ public static class DependencyInjection
         group.MapDoctorSearchEndpoints();
         group.MapBookingProgressEndpoints();
         group.MapPatientAppointmentEndpoints();
+        group.MapStaffCancelEndpoint();
         group.MapRoomQueueRoutes();
         group.MapQueueEndpoints();
         return group;

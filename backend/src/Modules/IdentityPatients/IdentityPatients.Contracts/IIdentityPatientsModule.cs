@@ -8,6 +8,14 @@ public enum AccessLevel
 
 public interface IIdentityPatientsModule
 {
+    /// <summary>Active patient-channel accounts with Booking access to this patient; missing patient returns empty.</summary>
+    Task<IReadOnlyList<Guid>> GetPatientAppUserIdsAsync(Guid patientId, CancellationToken ct = default) =>
+        throw new NotSupportedException();
+
+    /// <summary>Active doctors on duty in this CLS room at a UTC instant; includes the authoritative Staff.Id.</summary>
+    Task<IReadOnlyList<RoomReadingDoctorDto>> GetRoomReadingDoctorsAsync(Guid roomId, DateTime atUtc, CancellationToken ct = default) =>
+        throw new NotSupportedException();
+
     Task<bool> CanAccessPatientAsync(Guid userId, Guid patientId, AccessLevel level = AccessLevel.Booking, CancellationToken ct = default);
 
     /// <summary>
@@ -34,6 +42,11 @@ public interface IIdentityPatientsModule
     Task<RoomDto?> GetRoomAsync(Guid roomId, CancellationToken ct = default);
     Task<IReadOnlyList<RoomDto>> GetRoomsAsync(string? roomType = null, bool? isActive = null, CancellationToken ct = default);
     Task<StaffDutyLeaderDto?> GetRoomShiftLeaderAsync(Guid roomId, DateOnly date, string shiftName, CancellationToken ct = default);
+
+    /// <summary>Verified room session + exactly one active shift leader at UTC DB time supplied by caller, inside its IUnitOfWork.
+    /// Holds read locks to commit; invalid/missing/ambiguous context returns null. Token/hash never leaves Identity.</summary>
+    Task<RoomOperationContext?> GetRoomOperationContextAsync(Guid appUserId, Guid roomId, string roomSessionToken, DateTime atUtc,
+        CancellationToken ct = default) => throw new NotSupportedException();
 
     // Bản mặc định ném lỗi để các bản giả trong test không phải cài lại; bản Identity cài đặt thật.
 

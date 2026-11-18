@@ -233,7 +233,9 @@ public sealed partial class SessionAdministrationTests
         }
         private static ServiceProvider Build(Fixture f) => new ServiceCollection()
             .AddSharedInfrastructure(TestDatabase.RequiredConnectionString()).AddSchedulingInfrastructure(TestDatabase.RequiredConnectionString())
-            .AddUnitOfWorkParticipant<SchedulingDbContext>().AddSingleton<IDbClock>(f.Clock).AddSingleton<IIdentityPatientsModule>(f.Directory).BuildServiceProvider();
+            .AddUnitOfWorkParticipant<SchedulingDbContext>().AddSingleton<IDbClock>(f.Clock).AddSingleton<IIdentityPatientsModule>(f.Directory)
+            // Hàng đợi kiểm phí CLS qua Billing; test này không chạy vé CLS nên Billing không được gọi.
+            .AddSingleton(System.Reflection.DispatchProxy.Create<Billing.Contracts.IBillingModule, NoBilling>()).BuildServiceProvider();
         public async Task ReplaceAsync(Guid replacement)
         {
             await using var scope = Services.CreateAsyncScope();

@@ -45,10 +45,16 @@ public static class DependencyInjection
             .AddScoped<IWalkInStore, SqlWalkInStore>()
             .AddScoped<IRoomQueueReader, SqlRoomQueueReader>()
             .AddScoped<Scheduling.Application.Queues.IQueueStore, Queues.SqlQueueStore>()
+            .AddScoped<Scheduling.Application.Queues.RoomAuditRequest>()
             .AddScoped<Scheduling.Application.Queues.IClsTicketStore, Queues.SqlClsTicketStore>()
+            .AddScoped<Scheduling.Application.Queues.IClsPendingResultReader>(provider => ActivatorUtilities.CreateInstance<Queues.SqlClsPendingResultReader>(provider))
+            .AddScoped<Scheduling.Contracts.IClsServiceDirectory, Queues.SqlClsServiceDirectory>()
+            .AddScoped<Scheduling.Contracts.IClsTicketReader, Queues.SqlClsTicketReader>()
             .AddScoped(provider => ActivatorUtilities.CreateInstance<Queues.ClsDayEndJob>(provider))
             .AddScoped<Scheduling.Contracts.ICoordinationExceptionReader>(provider => ActivatorUtilities.CreateInstance<Coordination.CoordinationExceptionReader>(provider))
             .AddScoped(provider => ActivatorUtilities.CreateInstance<Sessions.SessionCompletionJob>(provider))
+            .AddScoped<IIntegrationEventHandler<Clinical.Contracts.ResultPublished>>(provider =>
+                ActivatorUtilities.CreateInstance<Queues.ReturnTicketActivationHandler>(provider))
             // Các service cần IUnitOfWork/IIdempotencyStore (Shared.Infrastructure) và IOperationTracker (Notifications.Infrastructure)
             // nên đăng ký cùng store, không ở AddSchedulingApplication (host test endpoint chỉ có Application).
             .AddScoped<HoldService>()

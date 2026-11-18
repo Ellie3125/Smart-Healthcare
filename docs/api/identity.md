@@ -56,6 +56,7 @@
 | `POST /auth/room/logout` | `RoomAccountOnly` | `RoomAccount` (kênh Staff) | 403 |
 | `GET /me` | `AnyChannel` | mọi vai trò, đúng kênh | 403 khi sai kênh |
 | `/api/patient/profiles/**` | `PatientOnly` | Patient (kênh Patient) | 403 |
+| `GET /api/patient/specialties`, `GET /api/patient/doctor-ranks` | `PatientOnly` | Patient (kênh Patient) | 403 |
 | `/api/staff/verifications/**`, `/api/staff/patients/**` | `ReceptionistOrAdmin` | Receptionist, Admin (kênh Staff) | 403 |
 | `/api/staff/admin/**`, `/api/staff/admin/rooms/**` | `AdminOnly` | Admin (kênh Staff) | 403 |
 | `/api/scheduling/admin/doctor-days/**` | `AdminOnly` | Admin (kênh Staff) | 403 |
@@ -130,6 +131,17 @@ Hồ sơ không thuộc tài khoản trả cùng 404 và cùng nội dung như h
 **`UpdatePatientProfileRequest`:** giống request tạo, không có `relationship`.
 
 **`PatientProfileDto`:** `patientId`, `representativeId`, `fullName`, `dateOfBirth`, `gender`, `nationalId`, `phoneNumber`, `address`, `relationship`, `verificationStatus` (`Pending`, `Verified`, `Rejected` hoặc `Revoked`), `isActive`, `rejectionReason`.
+
+## 3a. Danh mục cho bộ lọc tìm bác sĩ — `api/patient` (`PatientOnly`) — thêm 18/11/2026 (trưởng nhóm giao, OWN-10; chờ người phụ trách Identity duyệt)
+
+| Method | Path | 200 |
+|---|---|---|
+| GET | `/api/patient/specialties` | `[{ id, code, name }]`, chỉ chuyên khoa `IsActive`, theo tên |
+| GET | `/api/patient/doctor-ranks` | `[{ id, code, name, displayOrder }]`, chỉ cấp bậc `IsActive`, theo `displayOrder` |
+
+- Dùng `id` làm `specialtyId`, `doctorRankId` của `GET /api/scheduling/patient/doctors`. Không trả mô tả, `isActive` của trang quản trị.
+- Không có phí khám theo cấp bậc: phí phụ thuộc bác sĩ và bảng giá đang hiệu lực, lấy từ `examFee` của kết quả tìm bác sĩ.
+- Đăng nhập là bắt buộc (cùng kênh với tìm bác sĩ), không thêm vào danh sách route công khai.
 
 ## 4. Xác minh người đại diện và sửa hồ sơ đã xác minh — `ReceptionistOrAdmin`
 
