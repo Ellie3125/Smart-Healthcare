@@ -113,11 +113,11 @@ describe('Staff Web', () => {
     expect(await screen.findByText(/Xung đột phiên bản dữ liệu \(409\)/i)).toBeInTheDocument();
   });
 
-  it('NU01: lists the nurse room queue and calls the next patient through the room', async () => {
+  it('NU01: lists the nurse room queue read-only without calling numbers', async () => {
     renderStaff(<NurseQueuePage />);
-    expect(await screen.findByText(/bệnh nhân trong hàng chờ/i)).toBeInTheDocument();
-    fireEvent.click(screen.getByRole('button', { name: /Gọi người tiếp theo/i }));
-    expect(await screen.findByText(/Đã gọi vé .* vào bàn sinh hiệu/i)).toBeInTheDocument();
+    expect(await screen.findByText(/^\d+ bệnh nhân trong hàng chờ$/)).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /Gọi người tiếp theo/i })).not.toBeInTheDocument();
+    expect((await screen.findAllByRole('button', { name: /Đo sinh hiệu/i })).length).toBeGreaterThan(0);
   });
 
   it('DR01, DR06, DR07, DR10: dual queues with single Call Next buttons, no drug stock UI, 409 conflict dialog', async () => {

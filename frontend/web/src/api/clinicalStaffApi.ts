@@ -14,9 +14,15 @@ import type {
   VitalsRecordDto,
 } from '../types/staffWorkflow';
 
-interface ApiRoomQueueItem {
-  queueTicketId: string;
+// Số vé hiển thị: backend trả displayNumber dạng "PK01-001"/"PK01-R001"; bản cũ chưa có thì dùng ticketNumber.
+interface ApiTicketNumber {
   ticketNumber: string;
+  displayNumber?: string | null;
+}
+const shown = (t: ApiTicketNumber) => t.displayNumber || t.ticketNumber;
+
+interface ApiRoomQueueItem extends ApiTicketNumber {
+  queueTicketId: string;
   sequenceNumber: number;
   ticketType: 'InitialConsultation' | 'ReturnConsultation' | 'ClsService' | string;
   queueStatus: string;
@@ -26,9 +32,8 @@ interface ApiRoomQueueItem {
   patientName: string;
 }
 
-interface ApiCalledTicket {
+interface ApiCalledTicket extends ApiTicketNumber {
   queueTicketId: string;
-  ticketNumber: string;
 }
 
 /**
@@ -205,19 +210,18 @@ const queueStatus = (s: string) => (s === 'Finished' ? 'Completed' : s);
 export const clinicalStaffApi = {
   // NU01 + NU02 Nurse
   // TODO: nối contract thật hàng chờ điều dưỡng & lưu sinh hiệu
-  // NU01: hàng chờ phòng điều dưỡng đang trực (ClinicalStaffListEndpoints), gọi lượt bằng call-next của phòng.
+  // NU01: hàng chờ phòng điều dưỡng đang trực (ClinicalStaffListEndpoints), chỉ đọc; bác sĩ/phòng gọi số.
   listNurseQueue: async (): Promise<NurseQueueItem[]> => {
     const roomId = await myRoomId();
-    const page = await apiGet<{ items: {
+    const page = await apiGet<{ items: (ApiTicketNumber & {
       encounterId: string;
-      ticketNumber: string;
       patientName: string;
       specialtyName: string | null;
       queueStatus: string;
-    }[] }>('/api/clinical/staff/nurse/queue', { params: { roomId, pageSize: 100 } });
+    })[] }>('/api/clinical/staff/nurse/queue', { params: { roomId, pageSize: 100 } });
     return page.items.map((x) => ({
       encounterId: x.encounterId,
-      ticketNumber: x.ticketNumber,
+      ticketNumber: shown(x),
       patientName: x.patientName,
       yearOfBirth: 0,
       doctorName: '',
@@ -226,7 +230,6 @@ export const clinicalStaffApi = {
       version: 0,
     }));
   },
-  callNursePatient: async () => callNext(await myRoomId()),
   // NU02: sinh hiệu chỉ ghi thêm, không có route đọc form; vé/tên lấy từ hàng chờ điều dưỡng.
   getVitalsForm: async (encounterId: string): Promise<VitalsRecordDto> => {
     const row = (await clinicalStaffApi.listNurseQueue()).find((q) => q.encounterId === encounterId);
@@ -274,7 +277,7 @@ export const clinicalStaffApi = {
     const items = (await roomQueue(await myRoomId())).filter((t) => t.encounterId);
     const entry = (t: ApiRoomQueueItem): DoctorQueueEntry => ({
       encounterId: t.encounterId!,
-      ticketNumber: t.ticketNumber,
+      ticketNumber: shown(t),
       patientName: t.patientName,
       queueKind: t.ticketType === 'ReturnConsultation' ? 'ClsReturn' : 'Initial',
       status: t.queueStatus === 'Waiting' || t.queueStatus === 'Deferred' ? 'Waiting' : 'InService',
@@ -287,7 +290,7 @@ export const clinicalStaffApi = {
       activeEncounterId: active?.encounterId ?? undefined,
       // Vé đang ở bàn bác sĩ: Called → bắt đầu khám, InProgress → xong lượt (giải phóng bệnh nhân sang CLS hoặc kết thúc).
       activeTicket: active
-        ? { queueTicketId: active.queueTicketId, ticketNumber: active.ticketNumber, patientName: active.patientName, status: active.queueStatus }
+        ? { queueTicketId: active.queueTicketId, ticketNumber: shown(active), patientName: active.patientName, status: active.queueStatus }
         : undefined,
     };
   },
@@ -298,7 +301,7 @@ export const clinicalStaffApi = {
     const roomId = await myRoomId();
     const called = await callNext(roomId);
     const ticket = (await roomQueue(roomId)).find((t) => t.queueTicketId === called.queueTicketId);
-    return { encounterId: ticket?.encounterId ?? '', ticketNumber: called.ticketNumber };
+    return { encounterId: ticket?.encounterId ?? '', ticketNumber: shown(called) };
   },
   getDoctorWorkspace,
   // Danh mục thuốc đang hoạt động (Medication #160), tối đa 20 mục.
@@ -419,7 +422,7 @@ export const clinicalStaffApi = {
     const roomId = await myRoomId();
     const [queue, pending] = await Promise.all([
       roomQueue(roomId),
-      apiGet<{ items: { queueTicketId: string; ticketNumber: string; serviceOrderItemId: string; completedAtUtc: string | null }[] }>(
+      apiGet<{ items: (ApiTicketNumber & { queueTicketId: string; serviceOrderItemId: string; completedAtUtc: string | null })[] }>(
         `/api/scheduling/staff/rooms/${roomId}/pending-results`,
         { params: { pageSize: 100 } },
       ),
@@ -440,8 +443,8 @@ export const clinicalStaffApi = {
     });
     return [
       ...queue.filter((t) => t.serviceOrderItemId).map((t) =>
-        row(t.queueTicketId, t.ticketNumber, t.serviceOrderItemId!, t.queueStatus, t.patientName, 'NotStarted', t.calledAtUtc ?? '')),
-      ...pending.items.map((p) => row(p.queueTicketId, p.ticketNumber, p.serviceOrderItemId, 'Completed', '', 'Draft', p.completedAtUtc ?? '')),
+        row(t.queueTicketId, shown(t), t.serviceOrderItemId!, t.queueStatus, t.patientName, 'NotStarted', t.calledAtUtc ?? '')),
+      ...pending.items.map((p) => row(p.queueTicketId, shown(p), p.serviceOrderItemId, 'Completed', '', 'Draft', p.completedAtUtc ?? '')),
     ];
   },
   // Call: server gọi lượt kế tiếp của phòng; các thao tác khác theo vé (Scheduling §4.8).
@@ -474,9 +477,9 @@ export const clinicalStaffApi = {
     });
     // Envelope không có tên bệnh nhân (contract §7); số vé lấy từ danh sách chờ kết quả của phòng để đối chiếu.
     const ticketNumber = await myRoomId()
-      .then((roomId) => apiGet<{ items: { queueTicketId: string; ticketNumber: string }[] }>(
+      .then((roomId) => apiGet<{ items: (ApiTicketNumber & { queueTicketId: string })[] }>(
         `/api/scheduling/staff/rooms/${roomId}/pending-results`, { params: { pageSize: 100 } }))
-      .then((p) => p.items.find((i) => i.queueTicketId === d.queueTicketId)?.ticketNumber ?? '')
+      .then((p) => { const t = p.items.find((i) => i.queueTicketId === d.queueTicketId); return t ? shown(t) : ''; })
       .catch(() => '');
     return {
       orderItemId: d.orderItemId,

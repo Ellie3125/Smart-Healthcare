@@ -147,6 +147,7 @@ const checkIn = (appointmentId: string) =>
     alreadyCheckedIn: boolean;
     queueTicketId: string;
     ticketNumber: string;
+    displayNumber?: string | null;
     sequenceNumber: number;
     encounterId: string;
   }, Record<string, never>>(`/api/scheduling/staff/appointments/${appointmentId}/check-in`, {});
@@ -180,12 +181,12 @@ export const receptionApi = {
   registerWalkIn: async (body: { patientId: string; doctorId: string }, idempotencyKey: string) => {
     const res = await apiPost<{
       appointmentNumber: string | null;
-      checkIn: { ticketNumber: string; sequenceNumber: number } | null;
+      checkIn: { ticketNumber: string; displayNumber?: string | null; sequenceNumber: number } | null;
       receipt: { receiptNumber: string; amount: number } | null;
     }, typeof body>('/api/scheduling/staff/walk-in', body, { idempotencyKey });
     return {
       appointmentCode: res.appointmentNumber ?? '',
-      ticketNumber: res.checkIn?.ticketNumber ?? '',
+      ticketNumber: res.checkIn?.displayNumber || res.checkIn?.ticketNumber || '',
       queueNumber: res.checkIn?.sequenceNumber ?? 0,
       receiptNumber: res.receipt?.receiptNumber ?? '',
     };
@@ -198,7 +199,7 @@ export const receptionApi = {
   // RC03: tiếp tân đối chiếu giấy tờ ngoài hệ thống; API không nhận body, idempotent theo lịch hẹn.
   checkInAppointment: async (appointmentId: string) => {
     const res = await checkIn(appointmentId);
-    return { appointmentId: res.appointmentId, queueNumber: res.ticketNumber, roomName: '' };
+    return { appointmentId: res.appointmentId, queueNumber: res.displayNumber || res.ticketNumber, roomName: '' };
   },
 
   // RC04: đợt CLS trong ngày còn phải thu; Backend không trả tên bệnh nhân, lọc theo nội dung phía web.
