@@ -29,7 +29,7 @@ internal sealed class SqlAppointmentChangeStore(SchedulingDbContext db, IDbClock
         if (day is null)
             return new(ChangeResult.AppointmentNotFound);
 
-        var quota = await db.LockQuotaAsync(day.DoctorId, day.ServiceDate, ct)
+        var quota = await db.LockQuotaByIdAsync(day.QuotaId, ct)
             ?? throw new InvalidOperationException("Không thấy DoctorDayQuota của lịch hẹn.");
         var appointment = await LockAppointmentAsync(r.AppointmentId, ct);
         var now = await dbClock.GetUtcNowAsync(ct); // sau khi nhận khóa
@@ -98,7 +98,7 @@ internal sealed class SqlAppointmentChangeStore(SchedulingDbContext db, IDbClock
             }, ct);
         }
 
-        return new(ChangeResult.Cancelled, new CancelledInfo(attemptId, appointment.PatientId, day.DoctorId, day.ServiceDate,
+        return new(ChangeResult.Cancelled, new CancelledInfo(attemptId, appointment.PatientId, quota.DoctorId, quota.ServiceDate,
             slotReleased, now, quota.RescheduleCutoffTimeUtc, appointment.AppliedConsultationFee));
     }
 
@@ -153,10 +153,9 @@ internal sealed class SqlAppointmentChangeStore(SchedulingDbContext db, IDbClock
 
         // Hai DoctorDay khóa theo Id tăng dần để hai lệnh đổi chéo nhau không deadlock (Giải pháp §1.2).
         DoctorDayQuota? oldQuota = null, target = null;
-        foreach (var (id, doctorId, date) in new[] { (day.QuotaId, day.DoctorId, day.ServiceDate), (targetId.Value, r.TargetDoctorId, r.TargetServiceDate) }
-                     .OrderBy(x => x.Item1))
+        foreach (var id in new[] { day.QuotaId, targetId.Value }.Order())
         {
-            var locked = await db.LockQuotaAsync(doctorId, date, ct);
+            var locked = await db.LockQuotaByIdAsync(id, ct);
             if (id == day.QuotaId) oldQuota = locked; else target = locked;
         }
 
@@ -173,7 +172,7 @@ internal sealed class SqlAppointmentChangeStore(SchedulingDbContext db, IDbClock
             return new(ChangeResult.RescheduleCutoffPassed);
         if (targetFee != appointment.AppliedConsultationFee)
             return new(ChangeResult.DifferentFee);
-        if (target is null || !target.IsOpen || target.SessionStatus is not (SessionStatus.Scheduled or SessionStatus.InProgress))
+        if (target is null || target.DoctorId != r.TargetDoctorId || !target.IsOpen || target.SessionStatus is not (SessionStatus.Scheduled or SessionStatus.InProgress))
             return new(ChangeResult.DayClosed);
         if (now >= target.BookingCutoffTimeUtc)
             return new(ChangeResult.CutoffPassed);
@@ -247,12 +246,12 @@ internal sealed class SqlAppointmentChangeStore(SchedulingDbContext db, IDbClock
             oldReservation.BookingAttemptId, now));
     }
 
-    private sealed record Day(Guid QuotaId, Guid DoctorId, DateOnly ServiceDate);
+    private sealed record Day(Guid QuotaId);
 
     private Task<Day?> FindDayAsync(Guid appointmentId, CancellationToken ct) =>
         db.Set<Appointment>().AsNoTracking()
             .Where(x => x.Id == appointmentId)
-            .Join(db.Set<DoctorDayQuota>(), a => a.SessionQuotaId, q => q.Id, (a, q) => new Day(q.Id, q.DoctorId, q.ServiceDate))
+            .Select(a => new Day(a.SessionQuotaId))
             .SingleOrDefaultAsync(ct);
 
     private async Task<Appointment> LockAppointmentAsync(Guid appointmentId, CancellationToken ct) =>

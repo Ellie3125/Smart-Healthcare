@@ -28,6 +28,7 @@ public static class DependencyInjection
     {
         var group = app.MapGroup("/api/scheduling").WithTags(Tag);
         group.MapMedicalServiceCatalogRoutes();
+        group.MapSessionAdministrationRoutes();
         group.MapDoctorDayEndpoints();
         group.MapDoctorSearchEndpoints();
         group.MapBookingProgressEndpoints();

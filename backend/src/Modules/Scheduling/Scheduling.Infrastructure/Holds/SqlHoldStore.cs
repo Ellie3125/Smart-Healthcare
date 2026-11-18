@@ -99,14 +99,14 @@ internal sealed class SqlHoldStore(SchedulingDbContext db, IDbClock dbClock) : I
     public async Task<bool> ExpireAsync(Guid reservationId, CancellationToken ct)
     {
         RequireTransaction();
-        var day = await db.Set<Reservation>().AsNoTracking()
+        var quotaId = await db.Set<Reservation>().AsNoTracking()
             .Where(x => x.Id == reservationId)
-            .Join(db.Set<DoctorDayQuota>(), r => r.SessionQuotaId, q => q.Id, (r, q) => new { q.DoctorId, q.ServiceDate })
+            .Select(x => (Guid?)x.SessionQuotaId)
             .SingleOrDefaultAsync(ct);
-        if (day is null)
+        if (quotaId is null)
             return false;
 
-        var quota = await db.LockQuotaAsync(day.DoctorId, day.ServiceDate, ct);
+        var quota = await db.LockQuotaByIdAsync(quotaId.Value, ct);
         var reservation = (await db.Set<Reservation>()
             .FromSql($"SELECT * FROM [scheduling].[Reservation] WITH (UPDLOCK, HOLDLOCK) WHERE [Id] = {reservationId}")
             .ToListAsync(ct)).Single();

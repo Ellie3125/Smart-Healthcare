@@ -30,7 +30,8 @@ public class WorkerHostTests
         // Mỗi sự kiện Outbox Worker nhận phải resolve được đủ handler (factory chỉ chạy khi dispatch, ValidateOnBuild không bắt được).
         Type[] events = [typeof(Billing.Contracts.PaymentVerified), typeof(Scheduling.Contracts.AppointmentConfirmed),
             typeof(Scheduling.Contracts.AppointmentCancelled), typeof(Scheduling.Contracts.TicketCheckedIn), typeof(Scheduling.Contracts.QueueCalled),
-            typeof(Scheduling.Contracts.ClsTicketCancelled), typeof(Clinical.Contracts.ResultPublished), typeof(Scheduling.Contracts.ReturnTicketActivated)];
+            typeof(Scheduling.Contracts.ClsTicketCancelled), typeof(Clinical.Contracts.ResultPublished), typeof(Scheduling.Contracts.ReturnTicketActivated),
+            typeof(Scheduling.Contracts.AppointmentDoctorChanged)];
         Assert.Equal(events.Length, scope.ServiceProvider.GetServices<OutboxEventRegistration>().Count());
         foreach (var eventType in events)
         {

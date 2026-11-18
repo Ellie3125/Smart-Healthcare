@@ -14,8 +14,8 @@ internal sealed class SqlConfirmationStore(SchedulingDbContext db, IDbClock dbCl
     {
         var row = await db.Set<Reservation>().AsNoTracking()
             .Where(x => x.BookingAttemptId == bookingAttemptId)
-            .Join(db.Set<BookingAttempt>(), r => r.BookingAttemptId, a => a.Id, (r, a) => new { r, a.SelectedDoctorRankId })
-            .Join(db.Set<DoctorDayQuota>(), x => x.r.SessionQuotaId, q => q.Id, (x, q) => new { x.r, x.SelectedDoctorRankId, q.DoctorId })
+            .Join(db.Set<BookingAttempt>(), r => r.BookingAttemptId, a => a.Id, (r, a) => new { r, a.SelectedDoctorRankId, a.SelectedDoctorId })
+            .Join(db.Set<DoctorDayQuota>(), x => x.r.SessionQuotaId, q => q.Id, (x, q) => new { x.r, x.SelectedDoctorRankId, DoctorId = x.SelectedDoctorId ?? q.DoctorId })
             .OrderByDescending(x => x.r.Status == ReservationStatus.Held)
             .ThenByDescending(x => x.r.ReservedAtUtc)
             .FirstOrDefaultAsync(ct);
@@ -30,11 +30,11 @@ internal sealed class SqlConfirmationStore(SchedulingDbContext db, IDbClock dbCl
     public async Task<ConfirmResult> ConfirmAsync(Guid reservationId, decimal appliedFee, CancellationToken ct)
     {
         RequireTransaction();
-        var day = await db.Set<Reservation>().AsNoTracking()
+        var quotaId = await db.Set<Reservation>().AsNoTracking()
             .Where(x => x.Id == reservationId)
-            .Join(db.Set<DoctorDayQuota>(), r => r.SessionQuotaId, q => q.Id, (r, q) => new { q.DoctorId, q.ServiceDate })
+            .Select(x => x.SessionQuotaId)
             .SingleAsync(ct);
-        var quota = await db.LockQuotaAsync(day.DoctorId, day.ServiceDate, ct)
+        var quota = await db.LockQuotaByIdAsync(quotaId, ct)
             ?? throw new InvalidOperationException("Không thấy DoctorDayQuota của reservation.");
         var reservation = (await db.Set<Reservation>()
             .FromSql($"SELECT * FROM [scheduling].[Reservation] WITH (UPDLOCK, HOLDLOCK) WHERE [Id] = {reservationId}")
@@ -63,7 +63,7 @@ internal sealed class SqlConfirmationStore(SchedulingDbContext db, IDbClock dbCl
             ReservationId = reservation.Id,
             SessionQuotaId = quota.Id,
             PatientId = reservation.PatientId,
-            AppointmentNumber = AppointmentNumbers.New(day.ServiceDate, appointmentId),
+            AppointmentNumber = AppointmentNumbers.New(quota.ServiceDate, appointmentId),
             AppliedConsultationFee = appliedFee,
             Status = AppointmentStatus.Scheduled,
             ConfirmedAtUtc = now,
@@ -81,8 +81,8 @@ internal sealed class SqlConfirmationStore(SchedulingDbContext db, IDbClock dbCl
                 .SetProperty(x => x.CurrentStep, CurrentStep.Finalized)
                 .SetProperty(x => x.UpdatedAtUtc, now), ct);
 
-        return new ConfirmResult.Confirmed(appointmentId, appointment.AppointmentNumber, reservation.PatientId, day.DoctorId,
-            day.ServiceDate, now);
+        return new ConfirmResult.Confirmed(appointmentId, appointment.AppointmentNumber, reservation.PatientId, quota.DoctorId,
+            quota.ServiceDate, now);
     }
 
     public async Task MarkPaidUnallocatedAsync(Guid bookingAttemptId, CancellationToken ct)

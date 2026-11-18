@@ -9,6 +9,11 @@ namespace Scheduling.Infrastructure.Persistence;
 /// </summary>
 internal static class QuotaLock
 {
+    // A substitute can change DoctorId while an existing booking waits for its quota lock.
+    public static Task<DoctorDayQuota?> LockQuotaByIdAsync(this SchedulingDbContext db, Guid quotaId, CancellationToken ct) =>
+        db.Set<DoctorDayQuota>().FromSql($"SELECT * FROM scheduling.DoctorDayQuota WITH (UPDLOCK, HOLDLOCK) WHERE Id = {quotaId}")
+            .AsNoTracking().SingleOrDefaultAsync(ct);
+
     public static Task<DoctorDayQuota?> LockQuotaAsync(this SchedulingDbContext db, Guid doctorId, DateOnly serviceDate,
         CancellationToken ct) =>
         db.Set<DoctorDayQuota>()

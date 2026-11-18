@@ -71,6 +71,8 @@ public static class WorkerServices
             .AddOutboxEvent<Clinical.Contracts.ResultPublished>()
             // Vé quay lại đã kích hoạt; chưa có handler, dispatcher nhận để bản ghi không kẹt Pending.
             .AddOutboxEvent<ReturnTicketActivated>()
+            // Admin đổi bác sĩ của phiên (W3-12); chưa có handler, dispatcher nhận để bản ghi không kẹt Pending.
+            .AddOutboxEvent<AppointmentDoctorChanged>()
             // Handler trong Worker đẩy sự kiện SignalR qua Redis tới kết nối đang mở ở BE1/BE2 (W4-01).
             .AddNotificationsApi()
             .AddNotificationsRedisBackplane(configuration.GetConnectionString("Redis"));

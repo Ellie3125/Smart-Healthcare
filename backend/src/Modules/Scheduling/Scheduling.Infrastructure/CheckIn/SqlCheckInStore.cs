@@ -112,8 +112,7 @@ internal sealed class SqlCheckInStore(SchedulingDbContext db, IDbClock clock, Au
 
     private async Task<DoctorDayQuota> LockQuotaAsync(Guid id, CancellationToken ct)
     {
-        var day = await db.Set<DoctorDayQuota>().AsNoTracking().SingleAsync(x => x.Id == id, ct);
-        return (await db.LockQuotaAsync(day.DoctorId, day.ServiceDate, ct))!;
+        return await db.LockQuotaByIdAsync(id, ct) ?? throw new InvalidOperationException("Không thấy quota của lịch hẹn.");
     }
 
     private static DateTime Deadline(DoctorDayQuota quota) => quota.CheckInDeadlineUtc
