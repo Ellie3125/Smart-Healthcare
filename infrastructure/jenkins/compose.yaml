@@ -1,0 +1,22 @@
+# Jenkins trên VPS Staging (chạy riêng, không nằm trong stack ứng dụng):
+#   DOCKER_GID=$(getent group docker | cut -d: -f3) docker compose -f infrastructure/jenkins/compose.yaml up -d --build
+# Giao diện chỉ mở ở 127.0.0.1:8081; xem từ laptop qua SSH tunnel: ssh -L 8081:127.0.0.1:8081 <user>@<VPS>.
+name: sh-jenkins
+
+services:
+  jenkins:
+    build: .
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:8081:8080"
+    # Socket Docker của host: Jenkins build image và chạy compose ngay trên host (quyền tương đương root trên VPS,
+    # nên giao diện Jenkins không được public).
+    group_add:
+      - "${DOCKER_GID:?Đặt DOCKER_GID=$(getent group docker | cut -d: -f3)}"
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      # Cùng đường dẫn trong và ngoài container: compose chạy từ workspace mount file (init-dev.sql) theo đường dẫn host.
+      - /var/jenkins_home:/var/jenkins_home
+    environment:
+      JAVA_OPTS: -Xmx512m
+    mem_limit: 1g
