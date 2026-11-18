@@ -25,6 +25,18 @@ public class WorkerHostTests
         Assert.NotNull(scope.ServiceProvider.GetRequiredService<HoldService>());
         Assert.NotNull(scope.ServiceProvider.GetRequiredService<CheckInDeadlineJob>());
         Assert.NotNull(scope.ServiceProvider.GetRequiredService<OutboxDispatcher>());
-        Assert.NotNull(host.Services.GetRequiredService<IRecurringJobManager>());
+        Assert.NotNull(host.Services.GetRequiredService<IRecurringJobManager>());
+
+        // Mỗi sự kiện Outbox Worker nhận phải resolve được đủ handler (factory chỉ chạy khi dispatch, ValidateOnBuild không bắt được).
+        Type[] events = [typeof(Billing.Contracts.PaymentVerified), typeof(Scheduling.Contracts.AppointmentConfirmed),
+            typeof(Scheduling.Contracts.AppointmentCancelled), typeof(Scheduling.Contracts.TicketCheckedIn), typeof(Scheduling.Contracts.QueueCalled),
+            typeof(Scheduling.Contracts.ClsTicketCancelled), typeof(Clinical.Contracts.ResultPublished), typeof(Scheduling.Contracts.ReturnTicketActivated)];
+        Assert.Equal(events.Length, scope.ServiceProvider.GetServices<OutboxEventRegistration>().Count());
+        foreach (var eventType in events)
+        {
+            var handlerType = typeof(Shared.Abstractions.IIntegrationEventHandler<>).MakeGenericType(eventType);
+            foreach (var handler in scope.ServiceProvider.GetServices(handlerType))
+                Assert.NotNull(handler);
+        }
     }
 }

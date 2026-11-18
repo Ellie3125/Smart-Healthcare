@@ -8,6 +8,10 @@ public enum AccessLevel
 
 public interface IIdentityPatientsModule
 {
+    /// <summary>Active patient-channel accounts with Booking access to this patient; missing patient returns empty.</summary>
+    Task<IReadOnlyList<Guid>> GetPatientAppUserIdsAsync(Guid patientId, CancellationToken ct = default) =>
+        throw new NotSupportedException();
+
     /// <summary>Active doctors on duty in this CLS room at a UTC instant; includes the authoritative Staff.Id.</summary>
     Task<IReadOnlyList<RoomReadingDoctorDto>> GetRoomReadingDoctorsAsync(Guid roomId, DateTime atUtc, CancellationToken ct = default) =>
         throw new NotSupportedException();
