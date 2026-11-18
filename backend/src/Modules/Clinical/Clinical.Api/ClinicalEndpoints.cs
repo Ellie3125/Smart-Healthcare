@@ -121,10 +121,10 @@ internal static class ClinicalEndpoints
             .Produces(StatusCodes.Status401Unauthorized)
             .Produces(StatusCodes.Status403Forbidden);
 
-        doctor.MapGet("/encounters/{id:guid}/record", GetClinicalRecordAsync)
+        doctor.MapGet("/encounters/{id:guid}/record", DoctorRecordEndpoints.ReadAsync)
             .WithName("GetClinicalRecord_Doctor")
             .WithSummary("Lấy hồ sơ bệnh án lâm sàng (Bác sĩ)")
-            .Produces<EncounterClinicalRecordDto>(StatusCodes.Status200OK)
+            .Produces<Clinical.Application.Records.ClinicalRecordState>(StatusCodes.Status200OK)
             .ProducesProblem(StatusCodes.Status404NotFound)
             .Produces(StatusCodes.Status401Unauthorized)
             .Produces(StatusCodes.Status403Forbidden);
@@ -387,7 +387,7 @@ internal static class ClinicalEndpoints
                 return ClinicalProblem(StatusCodes.Status404NotFound, "EncounterNotFound", "Không tìm thấy lượt khám.");
 
             var record = await clinical.GetClinicalRecordByEncounterIdAsync(id, ct);
-            return record is null
+            return record is not { Status: "Published" }
                 ? ClinicalProblem(StatusCodes.Status404NotFound, "ClinicalRecordNotFound", "Không tìm thấy hồ sơ bệnh án.")
                 : TypedResults.Ok(record);
         }
