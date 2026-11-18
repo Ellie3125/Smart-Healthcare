@@ -30,6 +30,7 @@ public static class DependencyInjection
         services.AddScoped<IVerificationService, VerificationService>();
         services.AddScoped<IRoomManagementService, RoomManagementService>();
         services.AddScoped<IStaffAdminService, StaffAdminService>();
+        services.AddScoped<IAdminAuditLogReader>(sp => new AdminAuditLogReader(sp.GetRequiredService<Shared.Infrastructure.AuditLogAdminReader>(), sp.GetRequiredService<IdentityPatientsDbContext>()));
         services.AddScoped<IdentityPatientsSeedService>();
         return services;
     }
@@ -44,6 +45,7 @@ public static class DependencyInjection
         services.AddScoped<IVerificationService, VerificationService>();
         services.AddScoped<IRoomManagementService, RoomManagementService>();
         services.AddScoped<IStaffAdminService, StaffAdminService>();
+        services.AddScoped<IAdminAuditLogReader>(sp => new AdminAuditLogReader(sp.GetRequiredService<Shared.Infrastructure.AuditLogAdminReader>(), sp.GetRequiredService<IdentityPatientsDbContext>()));
         services.AddScoped<IdentityPatientsSeedService>();
         return services;
     }

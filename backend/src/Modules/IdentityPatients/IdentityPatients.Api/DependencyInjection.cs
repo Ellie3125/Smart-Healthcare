@@ -60,6 +60,9 @@ public static class DependencyInjection
         return services;
     }
 
-    public static RouteGroupBuilder MapIdentityPatientsEndpoints(this IEndpointRouteBuilder app) =>
-        app.MapGroup("/api/identity-patients").WithTags(Tag);
+    public static RouteGroupBuilder MapIdentityPatientsEndpoints(this IEndpointRouteBuilder app)
+    {
+        AdminReadEndpoints.MapAdminReads(app);
+        return app.MapGroup("/api/identity-patients").WithTags(Tag);
+    }
 }
