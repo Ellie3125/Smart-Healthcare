@@ -28,6 +28,11 @@ public interface IWalkInPatientDirectory
     Task<bool> ExistsAsync(Guid patientId, CancellationToken ct);
 }
 
+public sealed class IdentityWalkInPatientDirectory(IIdentityPatientsModule identity) : IWalkInPatientDirectory
+{
+    public Task<bool> ExistsAsync(Guid patientId, CancellationToken ct) => identity.PatientExistsAsync(patientId, ct);
+}
+
 /// <summary>Tiếp tân đã chọn PatientId hợp lệ từ nghiệp vụ tiếp nhận Identity và đã nhận tiền mặt.</summary>
 public sealed class WalkInService(BookingAttemptService attempts, HoldService holds, IBookingPaymentStore heldBookings,
     IBillingModule billing, ICounterExamFeeCollector cash, IWalkInStore store,

@@ -11,10 +11,14 @@ using Shared.Abstractions;
 using Shared.Infrastructure.Persistence;
 using Shared.Infrastructure.Persistence.Entities;
 using Shared.Infrastructure.Persistence.Enums;
+using IdentityPatients.Contracts;
+using Workflow = Notifications.Contracts;
 
 namespace Scheduling.Infrastructure.Queues;
 
-internal sealed class SqlQueueStore(SchedulingDbContext db, IDbClock clock, AuditLogWriter audit, IBillingModule billing) : IQueueStore
+internal sealed class SqlQueueStore(SchedulingDbContext db, IDbClock clock, AuditLogWriter audit, IIntegrationEventPublisher publisher, IBillingModule billing,
+    RoomAuditRequest? roomAudit = null, IIdentityPatientsModule? identity = null, Workflow.IOperationTracker? operations = null,
+    Clinical.Contracts.IClinicalModule? clinical = null) : IQueueStore
 {
     public async Task<StationLookup> ResolveStationAsync(Guid roomId, Guid? stationId, string roomName, CancellationToken ct)
     {
@@ -84,6 +88,9 @@ internal sealed class SqlQueueStore(SchedulingDbContext db, IDbClock clock, Audi
         RequireTransaction();
         await LockAsync(PatientLock(c.PatientId), ct);
         await LockAsync(StationLock(c.StationId), ct);
+        if (!await db.Set<ServiceStation>().FromSql($"SELECT * FROM scheduling.ServiceStation WITH (UPDLOCK,HOLDLOCK) WHERE Id={c.StationId}")
+                .AsNoTracking().AnyAsync(s => s.RoomId == c.RoomId && s.IsActive, ct))
+            return new(QueueResult.StationNotFound);
         if (await db.Set<ActiveStationAllocation>().AnyAsync(a => a.StationId == c.StationId, ct))
             return new(QueueResult.StationBusy);
         if (await db.Set<ActivePatientEngagement>().AnyAsync(e => e.PatientId == c.PatientId, ct))
@@ -113,7 +120,10 @@ internal sealed class SqlQueueStore(SchedulingDbContext db, IDbClock clock, Audi
         });
         await db.SaveChangesAsync(ct);
         await AuditAsync(c.TicketId, c.PerformedByUserId, QueueStatus.Waiting, QueueStatus.Called, now, ct);
-        return new(QueueResult.Called, await GetTicketAsync(c.TicketId, ct), StationId: c.StationId);
+        var called = await GetTicketAsync(c.TicketId, ct);
+        await publisher.PublishAsync(new QueueCalled(Guid.CreateVersion7(), called.QueueTicketId, called.EncounterId, c.PatientId,
+            c.RoomId, c.StationId, called.TicketNumber, called.SequenceNumber, called.TicketType, c.PerformedByUserId, now, roomAudit?.OperationId), c.TicketId, ct);
+        return new(QueueResult.Called, called, StationId: c.StationId);
     }
 
     public async Task<QueueOutcome> TransitionAsync(TicketCommand c, TicketTransition transition, CancellationToken ct)
@@ -162,6 +172,14 @@ internal sealed class SqlQueueStore(SchedulingDbContext db, IDbClock clock, Audi
         if (updated == 0)
             return new(QueueResult.InvalidTicketState, await GetTicketAsync(ticket.Id, ct));
 
+        // Vé CLS: Clinical ghi mục CLS InProgress/ServiceFinished (và kết quả Draft) trong cùng transaction; lỗi thì rollback cả vé.
+        if (ticket is { TicketType: TicketType.CLS, ServiceOrderItemId: { } itemId } && transition is TicketTransition.Start or TicketTransition.Finish)
+        {
+            var lifecycle = clinical ?? throw new InvalidOperationException("Vòng đời CLS cần IClinicalModule trong host.");
+            var command = new Clinical.Contracts.ClsServiceCommand(itemId, ticket.TargetRoomId, c.PerformedByUserId);
+            await (transition == TicketTransition.Start ? lifecycle.StartClsServiceAsync(command, ct) : lifecycle.FinishClsServiceAsync(command, ct));
+        }
+
         // Khám xong hoặc trả về hàng chờ: giải phóng bệnh nhân và station trên nguồn có thẩm quyền (Giải pháp §6.3).
         if (transition != TicketTransition.Start)
         {
@@ -187,14 +205,33 @@ internal sealed class SqlQueueStore(SchedulingDbContext db, IDbClock clock, Audi
             t.TargetRoomId, t.TargetStationId, t.EncounterId, t.CalledAtUtc))
         .SingleAsync(ct);
 
-    private Task AuditAsync(Guid ticketId, Guid userId, QueueStatus from, QueueStatus to, DateTime now, CancellationToken ct) =>
-        audit.WriteAsync(new AuditLog
+    private async Task AuditAsync(Guid ticketId, Guid userId, QueueStatus from, QueueStatus to, DateTime now, CancellationToken ct)
+    {
+        var entry = new AuditLog
         {
             Id = Guid.CreateVersion7(), PerformedByUserId = userId, TableName = "scheduling.QueueTicket", RecordId = ticketId,
             ActionType = ActionType.UPDATE, ChangedColumns = "QueueStatus",
             OldValuesJson = JsonSerializer.Serialize(new { QueueStatus = from.ToString() }),
             NewValuesJson = JsonSerializer.Serialize(new { QueueStatus = to.ToString() }), TimestampUtc = now,
-        }, ct);
+        };
+        if (roomAudit is { IsRoomAccount: true })
+        {
+            if (identity is null || operations is null) throw new InvalidOperationException("Room audit requires Identity and workflow participants.");
+            var roomId = await db.Set<QueueTicket>().Where(x => x.Id == ticketId).Select(x => x.TargetRoomId).SingleAsync(ct);
+            if (roomAudit.UserId != userId || roomAudit.RoomId != roomId) throw new RoomAuditDeniedException();
+            var context = await identity.GetRoomOperationContextAsync(userId, roomId, roomAudit.SessionToken ?? "", now, ct)
+                ?? throw new RoomAuditDeniedException();
+            var operationId = Guid.CreateVersion7();
+            await operations.StartAsync(new(operationId, userId, Workflow.OperationType.AllocateStation, Workflow.TargetEntityType.QueueTicket, ticketId, null), ct);
+            roomAudit.OperationId = operationId;
+            entry.WithRoomContext(new(context.AppUserId, context.RoomAccountId, context.RoomDeviceSessionId, context.RoomId,
+                context.DeviceId, context.StaffShiftAssignmentId, context.ShiftLeaderStaffId, context.ShiftDate, context.ShiftName, operationId));
+            entry.ClientIpAddress = roomAudit.ClientIpAddress;
+            await audit.WriteAsync(entry, ct);
+            await operations.CompleteAsync(operationId, Workflow.OperationStatus.Succeeded, null, ct);
+        }
+        else await audit.WriteAsync(entry, ct);
+    }
 
     internal static string PatientLock(Guid id) => $"scheduling:patient:{id:N}";
     internal static string StationLock(Guid id) => $"scheduling:station:{id:N}";

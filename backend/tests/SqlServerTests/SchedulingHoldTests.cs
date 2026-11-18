@@ -1,3 +1,4 @@
+using Clinical.Infrastructure;
 using Microsoft.Data.SqlClient;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
@@ -403,8 +404,11 @@ public sealed partial class SchedulingHoldTests
             .AddSharedInfrastructure(cs)
             .AddSchedulingInfrastructure(cs)
             .AddNotificationsInfrastructure(cs)
+            // Hủy lịch đã check in tra Encounter qua IClinicalModule.
+            .AddClinicalInfrastructure(cs)
             .AddUnitOfWorkParticipant<SchedulingDbContext>()
             .AddUnitOfWorkParticipant<WorkflowDbContext>()
+            .AddUnitOfWorkParticipant<Clinical.Infrastructure.Persistence.ClinicalDbContext>()
             .AddSchedulingApplication()
             .AddSingleton<Billing.Contracts.IBillingModule>(new FixedFeeBilling())
             .AddSingleton<Billing.Contracts.IPaymentRefunds>(new RecordingRefunds())

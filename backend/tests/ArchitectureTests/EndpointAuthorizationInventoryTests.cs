@@ -160,9 +160,18 @@ public sealed class EndpointAuthorizationInventoryTests
         await using var app = BuildApp(environment);
         var routes = Endpoints(app).Select(e => PathOf(e)).ToList();
 
+        Assert.Contains("api/notifications/patient/notifications", routes);
+        Assert.Contains("api/notifications/patient/notifications/{id}/read", routes);
+        foreach (var action in new[] { "draft", "publish", "amend" })
+            Assert.Contains("api/clinical/staff/doctor/encounters/{encounterId}/" + action, routes);
+        Assert.Contains("api/clinical/staff/room/results/{orderItemId}", routes);
+        Assert.Contains("api/clinical/staff/room/results/{orderItemId}/publish", routes);
+        Assert.Contains("api/clinical/staff/doctor/encounters/{encounterId}/cls-orders", routes);
         var all = string.Join(", ", routes);
         Assert.Contains("api/scheduling/staff/rooms/{roomId}/pending-results", routes);
-        foreach (var prefix in new[] { "api/staff/admin", "api/staff/verifications", "api/patient/profiles", "api/scheduling/admin/doctor-days", "api/scheduling/patient/doctors", "api/scheduling/staff/appointments", "me" })
+        foreach (var prefix in new[] { "api/staff/admin", "api/staff/verifications", "api/patient/profiles", "api/scheduling/admin/doctor-days",
+            "api/scheduling/admin/medical-services", "api/scheduling/admin/service-stations", "api/scheduling/staff/medical-services",
+            "api/scheduling/patient/doctors", "api/scheduling/staff/doctors", "api/scheduling/staff/appointments", "api/workflow/admin/exceptions", "me" })
         {
             Assert.True(routes.Any(r => r.StartsWith(prefix, StringComparison.Ordinal)), $"Thiếu {prefix} trong: {all}");
         }

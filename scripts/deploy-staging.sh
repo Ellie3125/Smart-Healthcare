@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
 # Triển khai một bản lên VPS Staging (Giải pháp kỹ thuật v2.13 §8.6). Chạy trên VPS, trong bản checkout của repo (cần compose.*.yaml
-# và infrastructure/sqlserver/*.sql), sau khi đã cập nhật 4 dòng *_IMAGE trong .env.staging bằng digest từ scripts/build-images.sh:
+# và infrastructure/sqlserver/init-dev.sql), sau khi đã cập nhật 4 dòng *_IMAGE trong .env.staging bằng digest từ scripts/build-images.sh:
 #   scripts/deploy-staging.sh            # cập nhật bản mới
-#   SEED=1 scripts/deploy-staging.sh     # lần đầu: thêm dịch vụ CLS và bảng giá giả lập
+#   SEED=1 scripts/deploy-staging.sh     # seed dữ liệu giả lập (tài khoản, danh mục, bảng giá, lịch 7 ngày); chạy lại được
 #   ENV_FILE=<file> SKIP_TUNNEL=1 ...    # dùng file env khác, không bật cloudflared
 #   SKIP_PULL=1 ...                      # dùng image có sẵn trên máy, không kéo từ registry
 # Thứ tự: kéo image → SQL Server, Redis → tạo DB/login (an toàn khi chạy lại) → migration → Api, Worker, nginx → cloudflared.
@@ -14,11 +14,11 @@ ENV_FILE="${ENV_FILE:-.env.staging}"
 
 dc() { docker compose --env-file "$ENV_FILE" -f compose.yaml -f compose.staging.yaml "$@"; }
 
-dc --profile release --profile seed config --quiet
+dc --profile release config --quiet
 # SKIP_PULL=1: image đã có sẵn trên máy (diễn tập bằng image build cục bộ).
 if [ "${SKIP_PULL:-0}" != 1 ]; then
   echo "== kéo image"
-  dc --profile release --profile seed pull
+  dc --profile release pull
 fi
 echo "== SQL Server, Redis"
 dc up -d --wait sqlserver redis
@@ -37,8 +37,8 @@ if [ "${SKIP_TUNNEL:-0}" != 1 ]; then
 fi
 
 if [ "${SEED:-0}" = 1 ]; then
-  echo "== dữ liệu giả lập (chờ Api seed cấp bậc và phòng)"
-  dc --profile seed run --rm db-seed
+  echo "== dữ liệu giả lập"
+  dc run --rm --no-deps api seed
 fi
 
 dc ps

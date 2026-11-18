@@ -1,10 +1,12 @@
 using System.Text.Json;
+using Clinical.Contracts;
 using Microsoft.EntityFrameworkCore;
 using Scheduling.Application.Appointments;
 using Scheduling.Contracts;
 using Scheduling.Domain.Entities;
 using Scheduling.Domain.Enums;
 using Scheduling.Infrastructure.Persistence;
+using Scheduling.Infrastructure.Queues;
 using Shared.Abstractions;
 using Shared.Infrastructure.Persistence;
 using Shared.Infrastructure.Persistence.Entities;
@@ -14,9 +16,11 @@ namespace Scheduling.Infrastructure.Appointments;
 
 /// <summary>
 /// Hủy/đổi lịch. Thứ tự khóa: DoctorDayQuota (nhiều hàng thì theo Id tăng dần) → Appointment. Mọi điều kiện kiểm dưới khóa,
-/// sau khi đọc giờ DB, trước khi ghi; bị từ chối thì không có thay đổi nào.
+/// sau khi đọc giờ DB, trước khi ghi; bị từ chối thì không có thay đổi nào. Hủy lịch đã check in khóa thêm bệnh nhân → trạm
+/// (cùng thứ tự với hàng đợi) rồi các vé của Encounter.
 /// </summary>
-internal sealed class SqlAppointmentChangeStore(SchedulingDbContext db, IDbClock dbClock, AuditLogWriter audit) : IAppointmentChangeStore
+internal sealed class SqlAppointmentChangeStore(SchedulingDbContext db, IDbClock dbClock, AuditLogWriter audit, IClinicalModule clinical)
+    : IAppointmentChangeStore
 {
     public async Task<ChangeOutcome> CancelAsync(CancelRequest r, Guid operationId, CancellationToken ct)
     {
@@ -40,6 +44,14 @@ internal sealed class SqlAppointmentChangeStore(SchedulingDbContext db, IDbClock
             return new(ChangeResult.InvalidAppointmentState);
         if (appointment.Status == AppointmentStatus.CheckedIn && string.IsNullOrWhiteSpace(r.Reason))
             return new(ChangeResult.ReasonRequired);
+        IReadOnlyList<Guid> cancelledTickets = [];
+        if (appointment.Status == AppointmentStatus.CheckedIn)
+        {
+            var tickets = await CancelWaitingTicketsAsync(appointment, now, ct);
+            if (tickets is null)
+                return new(ChangeResult.PatientInService);
+            cancelledTickets = tickets;
+        }
 
         // Trước 05:00 ngày D trả suất; từ đúng 05:00 khóa suất, tổng chiếm suất không đổi (Giải pháp §10.2).
         var slotReleased = now < quota.RescheduleCutoffTimeUtc;
@@ -79,14 +91,51 @@ internal sealed class SqlAppointmentChangeStore(SchedulingDbContext db, IDbClock
                 ActionType = ActionType.CANCEL,
                 ChangedColumns = "Status,CancelledAtUtc,CancellationReason",
                 OldValuesJson = JsonSerializer.Serialize(new { Status = oldStatus.ToString() }),
-                NewValuesJson = JsonSerializer.Serialize(new { Status = nameof(AppointmentStatus.Cancelled), CancelledAtUtc = now, SlotReleased = slotReleased }),
+                NewValuesJson = JsonSerializer.Serialize(new { Status = nameof(AppointmentStatus.Cancelled), CancelledAtUtc = now, SlotReleased = slotReleased,
+                    CancelledQueueTicketIds = cancelledTickets }),
                 ChangeReason = r.Reason,
                 TimestampUtc = now,
             }, ct);
         }
 
         return new(ChangeResult.Cancelled, new CancelledInfo(attemptId, appointment.PatientId, day.DoctorId, day.ServiceDate,
-            slotReleased, now, quota.RescheduleCutoffTimeUtc));
+            slotReleased, now, quota.RescheduleCutoffTimeUtc, appointment.AppliedConsultationFee));
+    }
+
+    /// <summary>
+    /// Lịch đã check in chỉ hủy được khi bệnh nhân còn chờ khám đầu (Waiting, Called, Deferred) và không có vé CLS/quay lại đang mở
+    /// (Phạm vi §6.2). Hủy các vé đó và nhả trạm/bệnh nhân đang giữ. Null: bệnh nhân đã vào khám, không hủy.
+    /// shortcut: Encounter bên Clinical vẫn mở; nâng cấp khi Clinical có lệnh hủy Encounter.
+    /// </summary>
+    private async Task<IReadOnlyList<Guid>?> CancelWaitingTicketsAsync(Appointment appointment, DateTime now, CancellationToken ct)
+    {
+        var encounterId = (await clinical.GetPatientEncountersAsync(appointment.PatientId, ct))
+            .Where(e => e.AppointmentId == appointment.Id).Select(e => (Guid?)e.Id).SingleOrDefault();
+        if (encounterId is null)
+            return [];
+
+        await db.AppLockAsync(SqlQueueStore.PatientLock(appointment.PatientId), ct);
+        var stations = await db.Set<ActiveStationAllocation>().AsNoTracking()
+            .Where(a => db.Set<QueueTicket>().Any(q => q.Id == a.CurrentTicketId && q.EncounterId == encounterId))
+            .Select(a => a.StationId).OrderBy(x => x).ToListAsync(ct);
+        foreach (var station in stations)
+            await db.AppLockAsync(SqlQueueStore.StationLock(station), ct);
+        var tickets = await db.Set<QueueTicket>()
+            .FromSql($"SELECT * FROM scheduling.QueueTicket WITH (UPDLOCK, HOLDLOCK) WHERE EncounterId = {encounterId}")
+            .AsNoTracking().ToListAsync(ct);
+        var open = tickets.Where(t => t.QueueStatus is not (QueueStatus.Finished or QueueStatus.Cancelled)).ToList();
+        if (open.Any(t => t.TicketType != TicketType.InitialConsultation || t.QueueStatus == QueueStatus.InProgress)
+            || tickets.Any(t => t.TicketType == TicketType.InitialConsultation && t.QueueStatus == QueueStatus.Finished))
+            return null;
+
+        var ids = open.Select(t => t.Id).ToList();
+        if (ids.Count == 0)
+            return ids;
+        await db.Set<QueueTicket>().Where(t => ids.Contains(t.Id))
+            .ExecuteUpdateAsync(s => s.SetProperty(t => t.QueueStatus, QueueStatus.Cancelled).SetProperty(t => t.CompletedAtUtc, now), ct);
+        await db.Set<ActivePatientEngagement>().Where(e => ids.Contains(e.CurrentTicketId)).ExecuteDeleteAsync(ct);
+        await db.Set<ActiveStationAllocation>().Where(a => ids.Contains(a.CurrentTicketId)).ExecuteDeleteAsync(ct);
+        return ids;
     }
 
     public async Task<ChangeOutcome> RescheduleAsync(RescheduleRequest r, decimal targetFee, CancellationToken ct)

@@ -29,6 +29,9 @@ public static class DependencyInjection
     public static IServiceCollection AddSchedulingInfrastructure(this IServiceCollection services, string connectionString) =>
         services.AddDbContext<SchedulingDbContext>(options => options.UseSqlServer(connectionString,
             sql => sql.MigrationsHistoryTable("__EFMigrationsHistory", SchedulingDbContext.Schema)))
+            // Catalog chỉ được resolve ở Api có Identity; Worker cũng dùng AddSchedulingInfrastructure.
+            .AddScoped<Scheduling.Application.MedicalServiceAdmin.IMedicalServiceCatalog>(provider =>
+                ActivatorUtilities.CreateInstance<Scheduling.Infrastructure.MedicalServiceAdmin.SqlMedicalServiceCatalog>(provider))
             .AddScoped<IDoctorDayStore, SqlDoctorDayStore>()
             .AddScoped<IDoctorSearchQuotaReader, SqlDoctorSearchQuotaReader>()
             .AddScoped<IHoldStore, SqlHoldStore>()
@@ -40,8 +43,14 @@ public static class DependencyInjection
             .AddScoped<IWalkInStore, SqlWalkInStore>()
             .AddScoped<IRoomQueueReader, SqlRoomQueueReader>()
             .AddScoped<Scheduling.Application.Queues.IQueueStore, Queues.SqlQueueStore>()
+            .AddScoped<Scheduling.Application.Queues.RoomAuditRequest>()
             .AddScoped<Scheduling.Application.Queues.IClsTicketStore, Queues.SqlClsTicketStore>()
             .AddScoped<Scheduling.Application.Queues.IClsPendingResultReader>(provider => ActivatorUtilities.CreateInstance<Queues.SqlClsPendingResultReader>(provider))
+            .AddScoped<Scheduling.Contracts.IClsServiceDirectory, Queues.SqlClsServiceDirectory>()
+            .AddScoped<Scheduling.Contracts.IClsTicketReader, Queues.SqlClsTicketReader>()
+            .AddScoped(provider => ActivatorUtilities.CreateInstance<Queues.ClsDayEndJob>(provider))
+            .AddScoped<Scheduling.Contracts.ICoordinationExceptionReader>(provider => ActivatorUtilities.CreateInstance<Coordination.CoordinationExceptionReader>(provider))
+            .AddScoped(provider => ActivatorUtilities.CreateInstance<Sessions.SessionCompletionJob>(provider))
             // Các service cần IUnitOfWork/IIdempotencyStore (Shared.Infrastructure) và IOperationTracker (Notifications.Infrastructure)
             // nên đăng ký cùng store, không ở AddSchedulingApplication (host test endpoint chỉ có Application).
             .AddScoped<HoldService>()

@@ -78,6 +78,54 @@ namespace Clinical.Infrastructure.Persistence.Migrations
                     b.ToTable("CLSResult", "clinical");
                 });
 
+            modelBuilder.Entity("Clinical.Domain.Entities.CLSResultRevision", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid>("CLSResultId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTime>("ChangedAtUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<Guid>("ChangedByAccountId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("DetailedFindings")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("Kind")
+                        .IsRequired()
+                        .HasMaxLength(32)
+                        .HasColumnType("nvarchar(32)");
+
+                    b.Property<string>("Reason")
+                        .HasMaxLength(1000)
+                        .HasColumnType("nvarchar(1000)");
+
+                    b.Property<string>("ResultSummary")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<int>("RevisionNumber")
+                        .HasColumnType("int");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("CLSResultId", "RevisionNumber")
+                        .IsUnique();
+
+                    b.ToTable("CLSResultRevision", "clinical", t =>
+                        {
+                            t.HasCheckConstraint("CK_CLSResultRevision_Kind", "([Kind] = N'Published' AND [RevisionNumber] = 1) OR ([Kind] IN (N'Corrected', N'Withdrawn') AND [RevisionNumber] > 1 AND [Reason] IS NOT NULL AND LEN(LTRIM([Reason])) > 0)");
+
+                            t.HasCheckConstraint("CK_CLSResultRevision_RevisionNumber_Positive", "[RevisionNumber] >= 1");
+                        });
+                });
+
             modelBuilder.Entity("Clinical.Domain.Entities.Encounter", b =>
                 {
                     b.Property<Guid>("Id")
@@ -201,6 +249,76 @@ namespace Clinical.Infrastructure.Persistence.Migrations
                     b.HasIndex("UpdatedByDoctorId");
 
                     b.ToTable("EncounterClinicalRecord", "clinical");
+                });
+
+            modelBuilder.Entity("Clinical.Domain.Entities.EncounterClinicalRecordRevision", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTime>("ChangedAtUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<Guid>("ChangedByDoctorId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("ChiefComplaint")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("ClinicalExaminationNotes")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<Guid>("ClinicalRecordId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("DiagnosesJson")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("FollowUpInstructions")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("InitialClinicalImpression")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("Kind")
+                        .IsRequired()
+                        .HasMaxLength(32)
+                        .HasColumnType("nvarchar(32)");
+
+                    b.Property<string>("MedicalHistory")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("PostCLSConclusion")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("Reason")
+                        .HasMaxLength(1000)
+                        .HasColumnType("nvarchar(1000)");
+
+                    b.Property<int>("RevisionNumber")
+                        .HasColumnType("int");
+
+                    b.Property<string>("Symptoms")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("TreatmentPlan")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ClinicalRecordId", "RevisionNumber")
+                        .IsUnique();
+
+                    b.ToTable("EncounterClinicalRecordRevision", "clinical", t =>
+                        {
+                            t.HasCheckConstraint("CK_EncounterClinicalRecordRevision_DiagnosesJson", "ISJSON([DiagnosesJson]) = 1");
+
+                            t.HasCheckConstraint("CK_EncounterClinicalRecordRevision_Kind", "([Kind] = N'Published' AND [RevisionNumber] = 1) OR ([Kind] = N'Amended' AND [RevisionNumber] > 1 AND [Reason] IS NOT NULL AND LEN(LTRIM([Reason])) > 0)");
+
+                            t.HasCheckConstraint("CK_EncounterClinicalRecordRevision_RevisionNumber_Positive", "[RevisionNumber] >= 1");
+                        });
                 });
 
             modelBuilder.Entity("Clinical.Domain.Entities.EncounterDiagnosis", b =>
@@ -447,6 +565,10 @@ namespace Clinical.Infrastructure.Persistence.Migrations
                         .HasPrecision(5, 1)
                         .HasColumnType("decimal(5,1)");
 
+                    b.Property<string>("NurseNote")
+                        .HasMaxLength(1000)
+                        .HasColumnType("nvarchar(1000)");
+
                     b.Property<int?>("PulseRate")
                         .HasColumnType("int");
 
@@ -455,6 +577,9 @@ namespace Clinical.Infrastructure.Persistence.Migrations
 
                     b.Property<Guid>("RecordedByStaffId")
                         .HasColumnType("uniqueidentifier");
+
+                    b.Property<int?>("RespiratoryRate")
+                        .HasColumnType("int");
 
                     b.Property<decimal?>("SpO2")
                         .HasPrecision(5, 2)
@@ -486,11 +611,29 @@ namespace Clinical.Infrastructure.Persistence.Migrations
                         .IsRequired();
                 });
 
+            modelBuilder.Entity("Clinical.Domain.Entities.CLSResultRevision", b =>
+                {
+                    b.HasOne("Clinical.Domain.Entities.CLSResult", null)
+                        .WithMany()
+                        .HasForeignKey("CLSResultId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+                });
+
             modelBuilder.Entity("Clinical.Domain.Entities.EncounterClinicalRecord", b =>
                 {
                     b.HasOne("Clinical.Domain.Entities.Encounter", null)
                         .WithMany()
                         .HasForeignKey("EncounterId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("Clinical.Domain.Entities.EncounterClinicalRecordRevision", b =>
+                {
+                    b.HasOne("Clinical.Domain.Entities.EncounterClinicalRecord", null)
+                        .WithMany()
+                        .HasForeignKey("ClinicalRecordId")
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
                 });

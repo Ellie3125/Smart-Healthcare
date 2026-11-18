@@ -802,7 +802,7 @@ class PatientApiMock {
     }
 
     // Encounters list
-    if (pathname === '/api/clinical/patient/encounters') {
+    if (pathname === '/api/clinical/patient/encounters' || pathname === '/api/documents/patient/encounters') {
       const profileId = query.get('patientProfileId');
       if (profileId === 'prof-pending') {
         return { data: { items: [], hasMore: false, blockedPendingProfile: true } };
@@ -811,7 +811,9 @@ class PatientApiMock {
     }
 
     // Encounter detail
-    const encMatch = matchPath('/api/clinical/patient/encounters/:id', pathname);
+    const encMatch =
+      matchPath('/api/clinical/patient/encounters/:id', pathname) ||
+      matchPath('/api/documents/patient/encounters/:id', pathname);
     if (encMatch && method === 'GET') {
       const enc = this.store.encounterDetails[encMatch.id];
       if (enc) return { data: enc };

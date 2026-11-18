@@ -5,6 +5,7 @@ using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Routing;
 using Scheduling.Application.Queues;
+using Microsoft.Extensions.DependencyInjection;
 
 namespace Scheduling.Api;
 
@@ -30,6 +31,25 @@ internal static class QueueEndpoints
             .WithSummary("Vé CLS khám xong, chưa phát hành kết quả của phòng (RoomAccount)")
             .Produces<ClsPendingResultPage>().ProducesProblem(400).ProducesProblem(403);
         var staff = scheduling.MapGroup("/staff").RequireAuthorization(Policies.AnyChannel);
+        staff.AddEndpointFilter(async (context, next) =>
+        {
+            var user = context.HttpContext.User;
+            var audit = context.HttpContext.RequestServices.GetService<RoomAuditRequest>();
+            if (audit is not null && user.IsInRole(Roles.RoomAccount))
+            {
+                audit.IsRoomAccount = true;
+                Guid.TryParse(user.FindFirstValue(ClaimTypes.NameIdentifier) ?? user.FindFirstValue("sub"), out var actor);
+                Guid.TryParse(user.FindFirstValue(AppClaims.RoomId), out var room);
+                audit.UserId = actor; audit.RoomId = room;
+                audit.SessionToken = user.FindFirstValue("room_session");
+                audit.ClientIpAddress = context.HttpContext.Connection.RemoteIpAddress?.ToString();
+            }
+            try { return await next(context); }
+            catch (RoomAuditDeniedException) { return TypedResults.Forbid(); }
+            // Clinical từ chối chuyển mục CLS (đợt hủy, lượt khám đã đóng...): UoW đã rollback cả vé.
+            catch (Clinical.Contracts.ClinicalException e) { return TypedResults.Problem(statusCode: StatusCodes.Status409Conflict, title: e.Message,
+                extensions: new Dictionary<string, object?> { ["code"] = e.Code.ToString() }); }
+        });
         staff.MapPost("/rooms/{roomId:guid}/call-next", CallNextAsync)
             .WithSummary("Gọi người tiếp theo của phòng (Doctor, Nurse, RoomAccount)")
             .Produces<QueueTicketResponse>().Produces(StatusCodes.Status204NoContent)

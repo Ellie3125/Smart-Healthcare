@@ -1,5 +1,6 @@
 using Billing.Contracts;
 using Billing.Infrastructure;
+using Clinical.Infrastructure;
 using Hangfire;
 using Hangfire.SqlServer;
 using Microsoft.Data.SqlClient;
@@ -36,6 +37,9 @@ public static class WorkerServices
             .AddSharedInfrastructure(connectionString)
             .AddSchedulingInfrastructure(connectionString)
             .AddNotificationsInfrastructure(connectionString)
+            // Job cuối ngày CLS và kết thúc phiên đọc trạng thái Encounter qua IClinicalModule.
+            .AddClinicalInfrastructure(connectionString)
+            .AddUnitOfWorkParticipant<Clinical.Infrastructure.Persistence.ClinicalDbContext>()
             .AddUnitOfWorkParticipant<SchedulingDbContext>()
             .AddUnitOfWorkParticipant<WorkflowDbContext>()
             // Handler PaymentVerified của Scheduling gọi IPaymentRefunds (PaidUnallocated) trong cùng transaction.
@@ -52,6 +56,10 @@ public static class WorkerServices
             .AddOutboxEvent<AppointmentCancelled>()
             // Check-in phát TicketCheckedIn; Clinical không có handler (Q1), dispatcher vẫn phải nhận để bản ghi không kẹt Pending.
             .AddOutboxEvent<TicketCheckedIn>()
+            // Gọi số (W4-02): handler Notifications đẩy QueueUpdated/DisplayBoardUpdated qua SignalR.
+            .AddOutboxEvent<QueueCalled>()
+            // Vé CLS bị hủy cuối ngày (W3-13); Billing chưa có handler, dispatcher nhận để bản ghi không kẹt Pending.
+            .AddOutboxEvent<ClsTicketCancelled>()
             // Handler trong Worker đẩy sự kiện SignalR qua Redis tới kết nối đang mở ở BE1/BE2 (W4-01).
             .AddNotificationsApi()
             .AddNotificationsRedisBackplane(configuration.GetConnectionString("Redis"));

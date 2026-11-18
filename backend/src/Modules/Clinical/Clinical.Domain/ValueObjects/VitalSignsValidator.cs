@@ -2,6 +2,8 @@ namespace Clinical.Domain.ValueObjects;
 
 public static class VitalSignsValidator
 {
+    public const int NurseNoteMaxLength = 1000;
+
     public static void Validate(
         decimal? weightKg,
         decimal? heightCm,
@@ -9,8 +11,16 @@ public static class VitalSignsValidator
         decimal? diastolicBp,
         int? pulseRate,
         decimal? bodyTemperature,
-        decimal? spO2)
+        decimal? spO2,
+        int? respiratoryRate = null,
+        string? nurseNote = null)
     {
+        if (respiratoryRate.HasValue && respiratoryRate.Value is < 4 or > 80)
+            throw new ArgumentOutOfRangeException(nameof(respiratoryRate), "Nhịp thở phải trong khoảng từ 4 đến 80 lần/phút.");
+
+        if (nurseNote is { Length: > NurseNoteMaxLength })
+            throw new ArgumentOutOfRangeException(nameof(nurseNote), $"Ghi chú điều dưỡng tối đa {NurseNoteMaxLength} ký tự.");
+
         if (weightKg.HasValue && weightKg.Value is < 0.5m or > 500m)
             throw new ArgumentOutOfRangeException(nameof(weightKg), "Cân nặng phải trong khoảng từ 0.5 kg đến 500 kg.");
 

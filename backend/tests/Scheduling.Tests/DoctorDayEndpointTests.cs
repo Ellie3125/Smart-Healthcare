@@ -49,6 +49,7 @@ public sealed class DoctorDayEndpointTests
         SchedulingEndpointTestSetup.Authorize(client, app.Configuration, Roles.Admin);
         using var noRoom = await client.PostAsync(url, JsonContent.Create(new { }), ct);
         Assert.Equal(HttpStatusCode.BadRequest, noRoom.StatusCode);
+        Assert.Contains("\"code\":\"RoomRequired\"", await noRoom.Content.ReadAsStringAsync(ct));
         using var list = await client.GetAsync(route + "?serviceDate=2026-11-10", ct);
         Assert.Equal(HttpStatusCode.OK, list.StatusCode);
         Assert.Equal("[]", await list.Content.ReadAsStringAsync(ct));

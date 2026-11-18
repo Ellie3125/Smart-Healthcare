@@ -40,6 +40,8 @@ public sealed record VitalSignDto(
     int? PulseRate,
     decimal? BodyTemperature,
     decimal? SpO2,
+    int? RespiratoryRate,
+    string? NurseNote,
     Guid RecordedByStaffId,
     DateTime RecordedAtUtc);
 

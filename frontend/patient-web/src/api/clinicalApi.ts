@@ -34,15 +34,15 @@ export const clinicalApi = {
   getEncounterCostSummary: (encounterId: string) =>
     patientGet<EncounterCostSummary>(`/api/billing/patient/encounters/${encounterId}/cost-summary`),
 
-  // TODO: nối contract thật P20-P23 Hồ sơ bệnh án Verified-only, chi tiết, kết quả CLS & đơn thuốc
+  // Đã nối endpoint ghép lịch sử khám kênh Patient qua DocumentsReporting (A)
   listEncounters: (params?: { patientProfileId?: string; page?: number; pageSize?: number }) =>
     patientGet<{ items: PatientEncounterSummary[]; hasMore: boolean; blockedPendingProfile?: boolean }>(
-      '/api/clinical/patient/encounters',
+      '/api/documents/patient/encounters',
       { params },
     ),
 
   getEncounterDetail: (encounterId: string) =>
-    patientGet<PatientEncounterDetail>(`/api/clinical/patient/encounters/${encounterId}`),
+    patientGet<PatientEncounterDetail>(`/api/documents/patient/encounters/${encounterId}`),
 
   // Tải file CLS thông qua stream/blob của Backend, tuyệt đối không trả/render trực tiếp URL object storage
   downloadClsAttachment: (resultId: string, fileId: string) =>

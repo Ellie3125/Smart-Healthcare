@@ -1,6 +1,7 @@
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
 using Clinical.Domain.Entities;
+using Clinical.Domain.ValueObjects;
 
 namespace Clinical.Infrastructure.Persistence.Configurations;
 
@@ -17,6 +18,7 @@ internal sealed class VitalSignConfiguration : IEntityTypeConfiguration<VitalSig
         builder.Property(x => x.DiastolicBP).HasPrecision(6, 2);
         builder.Property(x => x.BodyTemperature).HasPrecision(4, 1);
         builder.Property(x => x.SpO2).HasPrecision(5, 2);
+        builder.Property(x => x.NurseNote).HasMaxLength(VitalSignsValidator.NurseNoteMaxLength);
 
         builder.HasOne<Encounter>().WithMany().HasForeignKey(x => x.EncounterId).OnDelete(DeleteBehavior.Restrict);
 

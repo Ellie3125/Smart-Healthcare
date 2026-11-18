@@ -69,6 +69,7 @@ internal static class DoctorDayEndpoints
         var (httpStatus, title) = status switch
         {
             DoctorDayResult.InvalidInput => (400, "Bác sĩ, phòng hoặc ngày phục vụ không hợp lệ."),
+            DoctorDayResult.RoomRequired => (400, "Bác sĩ chưa có ca trực ở đúng một phòng trong ngày; chọn phòng cho phiên."),
             DoctorDayResult.DoctorNotFound => (404, "Không tìm thấy bác sĩ đang hoạt động."),
             DoctorDayResult.RoomNotFound => (404, "Không tìm thấy phòng khám đang hoạt động."),
             DoctorDayResult.DayNotFound => (404, "Không tìm thấy ngày trực."),

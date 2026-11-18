@@ -32,9 +32,11 @@ public sealed class ClsRoomWorkflowTests
         f.Billing.Paid = false;
         Assert.Equal(QueueResult.PaymentRequired, (await f.Start()).Result);
         Assert.Equal(QueueStatus.Called, await f.Status());
+        Assert.Empty(f.Clinical.Lifecycle); // bị chặn vì chưa trả phí thì không gọi Clinical
         f.Billing.Paid = true;
         Assert.Equal(QueueResult.Called, (await f.Start()).Result);
         Assert.Equal(QueueStatus.InProgress, await f.Status());
+        Assert.Equal(nameof(IClinicalModule.StartClsServiceAsync), Assert.Single(f.Clinical.Lifecycle).Split(':')[0]);
     }
 
     [Fact]
@@ -126,8 +128,19 @@ public sealed class ClsRoomWorkflowTests
     public class Orders : DispatchProxy
     {
         public IReadOnlyList<ServiceOrderDto> Values { get; set; } = [];
-        protected override object? Invoke(MethodInfo? method, object?[]? args) => method?.Name == nameof(IClinicalModule.GetServiceOrdersByEncounterIdAsync)
-            ? Task.FromResult(Values) : throw new NotSupportedException(method?.Name);
+        public List<string> Lifecycle { get; } = [];
+        protected override object? Invoke(MethodInfo? method, object?[]? args)
+        {
+            switch (method?.Name)
+            {
+                case nameof(IClinicalModule.GetServiceOrdersByEncounterIdAsync): return Task.FromResult(Values);
+                // Vé CLS bắt đầu/xong phải báo Clinical trong cùng lệnh.
+                case nameof(IClinicalModule.StartClsServiceAsync) or nameof(IClinicalModule.FinishClsServiceAsync):
+                    Lifecycle.Add(method.Name + ":" + ((ClsServiceCommand)args![0]!).ServiceOrderItemId);
+                    return Task.CompletedTask;
+                default: throw new NotSupportedException(method?.Name);
+            }
+        }
     }
     public class Fees : DispatchProxy
     {

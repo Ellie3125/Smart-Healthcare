@@ -6,6 +6,8 @@
     <ProjectReference Include="..\DocumentsReporting.Application\DocumentsReporting.Application.csproj" />
     <ProjectReference Include="..\DocumentsReporting.Contracts\DocumentsReporting.Contracts.csproj" />
     <ProjectReference Include="..\..\IdentityPatients\IdentityPatients.Contracts\IdentityPatients.Contracts.csproj" />
+    <ProjectReference Include="..\..\Clinical\Clinical.Contracts\Clinical.Contracts.csproj" />
+    <ProjectReference Include="..\..\Billing\Billing.Contracts\Billing.Contracts.csproj" />
     <ProjectReference Include="..\..\..\Shared\Shared.Abstractions\Shared.Abstractions.csproj" />
   </ItemGroup>
 </Project>

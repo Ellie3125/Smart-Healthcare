@@ -4,6 +4,7 @@ using Scheduling.Application.CheckIn;
 using Scheduling.Application.Holds;
 using Shared.Infrastructure;
 using Shared.Infrastructure.Outbox;
+using Shared.Infrastructure.Persistence;
 using SmartHealthcare.Worker;
 
 var builder = Host.CreateApplicationBuilder(args);
@@ -38,9 +39,21 @@ host.Services.GetRequiredService<IRecurringJobManager>().AddOrUpdate<ClsDayEndSe
 host.Services.GetRequiredService<IRecurringJobManager>().AddOrUpdate<PaymentReconciliationService>(
     "billing-reconcile-vnpay", service => service.ReconcileOverdueAsync(CancellationToken.None), "*/5 * * * *");
 
+// Vé CLS chưa làm của ngày đã qua chuyển Cancelled (W3-13). 17:05 UTC = 00:05 giờ Việt Nam; job tự tính mốc nên chạy bù vẫn đúng.
+host.Services.GetRequiredService<IRecurringJobManager>().AddOrUpdate<Scheduling.Infrastructure.Queues.ClsDayEndJob>(
+    "scheduling-cls-day-end", job => job.RunAsync(CancellationToken.None), "5 17 * * *");
+
+// Kết thúc phiên khám theo trạng thái cuối của lịch hẹn (W3-07); không tự đóng theo giờ.
+host.Services.GetRequiredService<IRecurringJobManager>().AddOrUpdate<Scheduling.Infrastructure.Sessions.SessionCompletionJob>(
+    "scheduling-session-completion", job => job.RunAsync(CancellationToken.None), "*/5 * * * *");
+
 // Phát Outbox tới handler (W3-00, Giải pháp §8.3). Mỗi lần chạy xử lý tới khi hết bản ghi tới hạn; nhiều worker không nhận trùng.
 host.Services.GetRequiredService<IRecurringJobManager>().AddOrUpdate<OutboxDispatcher>(
     "shared-outbox-dispatch", dispatcher => dispatcher.DispatchPendingAsync(CancellationToken.None),
     builder.Configuration[$"{OutboxOptions.Section}:Cron"] ?? Cron.Minutely());
+
+// Dọn dữ liệu kỹ thuật quá 30 ngày (Outbox Published, ProcessedEvent, idempotency hết hạn). 19:00 UTC = 02:00 giờ Việt Nam.
+host.Services.GetRequiredService<IRecurringJobManager>().AddOrUpdate<TechnicalDataCleanupJob>(
+    "shared-technical-data-cleanup", job => job.RunAsync(CancellationToken.None), "0 19 * * *");
 
 host.Run();
