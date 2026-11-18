@@ -12,5 +12,6 @@ public static class DependencyInjection
     public static void MapDocumentsReportingEndpoints(this IEndpointRouteBuilder app)
     {
         DocumentsEndpoints.MapEndpoints(app);
+        app.MapReportSummary();
     }
 }

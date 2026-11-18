@@ -33,4 +33,8 @@ public interface IBillingModule
     /// Bên gọi đã kiểm quyền của người trả trên hồ sơ PatientId (MED-05).
     /// </summary>
     Task<PaymentDto> CreatePaymentAsync(CreatePayment command, CancellationToken ct);
+
+    /// <summary>Actual successful VND receipts/refunds grouped in GMT+7; caller validates UTC interval [from,until), at most31 days.</summary>
+    Task<IReadOnlyList<BillingDailyReport>> GetDailyReportAsync(DateTime fromUtc, DateTime untilUtc, CancellationToken ct = default) =>
+        throw new NotSupportedException();
 }

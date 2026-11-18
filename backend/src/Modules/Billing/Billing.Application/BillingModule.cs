@@ -5,8 +5,12 @@ using Billing.Domain.Enums;
 namespace Billing.Application;
 
 /// <summary>Hiện thực IBillingModule (contract v0.1 Draft). Không gọi cổng thanh toán (MOD-05).</summary>
-public sealed class BillingModule(IPriceCatalog catalog, IChargeStore charges, PaymentService payments, TimeProvider clock) : IBillingModule
+public sealed class BillingModule(IPriceCatalog catalog, IChargeStore charges, PaymentService payments, TimeProvider clock,
+    Reports.IBillingReportReader? reports = null) : IBillingModule
 {
+    public Task<IReadOnlyList<BillingDailyReport>> GetDailyReportAsync(DateTime fromUtc, DateTime untilUtc, CancellationToken ct = default) =>
+        (reports ?? throw new NotSupportedException()).ReadAsync(fromUtc, untilUtc, ct);
+
     public Task<PaymentDto> CreatePaymentAsync(CreatePayment command, CancellationToken ct) => payments.CreateAsync(command, ct);
 
     public async Task<FeeQuote> QuoteExamFeeAsync(QuoteExamFee query, CancellationToken ct)

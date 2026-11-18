@@ -10,8 +10,11 @@ public sealed class ClinicalModule(
     IPrescriptionStore prescriptionStore,
     TimeProvider clock,
     Func<Results.ClsLifecycleService>? clsLifecycle = null,
-    Func<Encounters.EncounterProgressService>? encounterProgress = null) : IClinicalModule
+    Func<Encounters.EncounterProgressService>? encounterProgress = null, Reports.IClinicalReportReader? reports = null) : IClinicalModule
 {
+    public Task<IReadOnlyList<ClinicalDailyReport>> GetDailyReportAsync(DateTime fromUtc, DateTime untilUtc, CancellationToken ct = default) =>
+        (reports ?? throw new NotSupportedException()).ReadAsync(fromUtc, untilUtc, ct);
+
     public Task StartReturnVisitAsync(Guid encounterId, Guid performedByUserId, CancellationToken ct) =>
         (encounterProgress ?? throw new NotSupportedException("Host chưa đăng ký tiến trình lượt khám."))().StartReturnVisitAsync(encounterId, performedByUserId, ct);
     public Task FinishConsultationAsync(Guid encounterId, Guid performedByUserId, CancellationToken ct) =>
