@@ -63,10 +63,10 @@ public static class DocumentsEndpoints
             .ProducesProblem(StatusCodes.Status403Forbidden)
             .Produces(StatusCodes.Status401Unauthorized);
 
-        // Chi tiết lịch sử khám tổng hợp Clinical + Billing + Documents (chỉ sau khi bác sĩ kết luận sau CLS)
+        // Chi tiết bệnh án Published; kết quả CLS chỉ sau kết luận sau CLS
         patientEncountersGroup.MapGet("/{id:guid}", GetPatientEncounterDetailAsync)
             .WithName("GetPatientEncounterDetail")
-            .WithSummary("Chi tiết lịch sử khám tổng hợp Clinical + Billing + Documents (chỉ sau khi bác sĩ kết luận sau CLS)")
+            .WithSummary("Chi tiết bệnh án Published; kết quả CLS chỉ sau kết luận sau CLS")
             .Produces<PatientEncounterDetailDto>(StatusCodes.Status200OK)
             .ProducesProblem(StatusCodes.Status404NotFound)
             .ProducesProblem(StatusCodes.Status403Forbidden)
@@ -384,7 +384,11 @@ public static class DocumentsEndpoints
             }
 
             var clinicalRecord = await clinicalModule.GetClinicalRecordByEncounterIdAsync(enc.Id, ct);
-            var primaryDiagnosis = clinicalRecord?.InitialClinicalImpression ?? clinicalRecord?.ChiefComplaint;
+            var diagnoses = await clinicalModule.GetPublishedDiagnosesAsync(enc.Id, ct);
+            var primaryDiagnosis = (diagnoses.FirstOrDefault(d => d.IsPrimary)
+                ?? diagnoses.FirstOrDefault(d => d.DiagnosisType == "Final") ?? diagnoses.FirstOrDefault())?.DiagnosisName;
+            var orders = await clinicalModule.GetServiceOrdersByEncounterIdAsync(enc.Id, ct);
+            var hasClsResults = orders.SelectMany(o => o.Items).Any(i => i.Result is { ResultStatus: "Published" });
 
             var prescriptions = await clinicalModule.GetPrescriptionsByEncounterIdAsync(enc.Id, ct);
             var hasPrescription = prescriptions.Count > 0;
@@ -392,7 +396,7 @@ public static class DocumentsEndpoints
             var attachments = await documentsModule.GetPublishedAttachmentsByEncounterAsync(enc.Id, ct);
             var hasAttachments = attachments.Count > 0;
 
-            var isPublished = enc.Status == "Completed" || (clinicalRecord is { Status: "Published" });
+            var isPublished = clinicalRecord is { Status: "Published" };
             var code = $"PK-{enc.Id.ToString()[..8].ToUpperInvariant()}";
 
             summaryList.Add(new PatientEncounterSummaryDto(
@@ -408,7 +412,7 @@ public static class DocumentsEndpoints
                 PatientName: null,
                 PatientProfileId: targetPatientId.Value,
                 IsPublished: isPublished,
-                HasClsResults: hasAttachments));
+                HasClsResults: hasClsResults));
         }
 
         var response = new PatientEncountersResponse(
@@ -458,12 +462,17 @@ public static class DocumentsEndpoints
                 detail: "Bạn không có quyền truy cập hồ sơ bệnh án này hoặc hồ sơ chưa được xác minh.");
         }
 
+        var clinicalRecord = await clinicalModule.GetClinicalRecordByEncounterIdAsync(id, ct);
+        if (clinicalRecord is not { Status: "Published" })
+            return Results.Problem(statusCode: StatusCodes.Status404NotFound, title: "EncounterNotFound",
+                detail: "Bệnh án chưa được phát hành.");
+        var diagnoses = await clinicalModule.GetPublishedDiagnosesAsync(id, ct);
+
         var doctor = await identityModule.GetDoctorAsync(encounter.OriginalDoctorId, ct);
         var doctorName = doctor?.FullName ?? "Bác sĩ phụ trách";
         var room = await identityModule.GetRoomAsync(encounter.OriginalRoomId, ct);
         var roomName = room?.Name;
 
-        var clinicalRecord = await clinicalModule.GetClinicalRecordByEncounterIdAsync(id, ct);
         var prescriptions = await clinicalModule.GetPrescriptionsByEncounterIdAsync(id, ct);
         var hasPrescription = prescriptions.Count > 0;
 
@@ -495,42 +504,14 @@ public static class DocumentsEndpoints
 
         var code = $"PK-{encounter.Id.ToString()[..8].ToUpperInvariant()}";
 
-        // Nếu bác sĩ CHƯA phát hành kết luận sau CLS: KHÔNG trả kết quả CLS và tệp cho bệnh nhân
-        if (!isPostClsPublished)
-        {
-            var unpublishedDetail = new PatientEncounterDetailDto(
-                Id: encounter.Id,
-                EncounterCode: code,
-                ServiceDate: encounter.CheckedInAtUtc,
-                DoctorName: doctorName,
-                SpecialtyName: encounter.SpecialtySnapshot,
-                DoctorRankName: encounter.DoctorRankSnapshot,
-                RoomName: roomName,
-                Symptoms: clinicalRecord?.Symptoms ?? clinicalRecord?.ChiefComplaint,
-                ClinicalNotes: null, // ẩn ghi chú lâm sàng nội bộ
-                Vitals: null,
-                Diagnoses: [],
-                Conclusion: null, // ẩn kết luận sau CLS
-                FollowUpInstruction: null,
-                PublishedAtUtc: null,
-                Version: 1,
-                IsPublished: false,
-                HasPrescription: hasPrescription,
-                ClsResults: [], // Không hiển thị tệp và kết quả CLS
-                BillingSummary: billingSummary,
-                PatientName: null);
-
-            return Results.Ok(unpublishedDetail);
-        }
-
-        // Khi bác sĩ ĐÃ phát hành kết luận sau CLS: ghép đầy đủ kết quả CLS và tệp đã phát hành
-        var serviceOrders = await clinicalModule.GetServiceOrdersByEncounterIdAsync(id, ct);
-        var publishedAttachments = await documentsModule.GetPublishedAttachmentsByEncounterAsync(id, ct);
+        // Kết quả và tệp CLS chỉ mở sau kết luận sau CLS; chẩn đoán Published không phụ thuộc điều kiện này.
+        var serviceOrders = isPostClsPublished ? await clinicalModule.GetServiceOrdersByEncounterIdAsync(id, ct) : [];
+        var publishedAttachments = isPostClsPublished ? await documentsModule.GetPublishedAttachmentsByEncounterAsync(id, ct) : [];
 
         var clsResultsList = new List<EncounterClsResultDto>();
         foreach (var order in serviceOrders)
         {
-            foreach (var item in order.Items)
+            foreach (var item in order.Items.Where(i => i.Result is { ResultStatus: "Published" }))
             {
                 var itemAttachments = item.Result is null
                     ? []
@@ -556,13 +537,12 @@ public static class DocumentsEndpoints
             DoctorRankName: encounter.DoctorRankSnapshot,
             RoomName: roomName,
             Symptoms: clinicalRecord?.Symptoms ?? clinicalRecord?.ChiefComplaint,
-            ClinicalNotes: clinicalRecord?.ClinicalExaminationNotes,
+            ClinicalNotes: isPostClsPublished ? clinicalRecord?.ClinicalExaminationNotes : null,
             Vitals: null,
-            Diagnoses: !string.IsNullOrWhiteSpace(clinicalRecord?.InitialClinicalImpression)
-                ? [new DocumentsReporting.Contracts.EncounterDiagnosisDto("R69", clinicalRecord.InitialClinicalImpression, true)]
-                : [],
-            Conclusion: clinicalRecord?.PostCLSConclusion,
-            FollowUpInstruction: clinicalRecord?.FollowUpInstructions,
+            Diagnoses: diagnoses.Select(d => new DocumentsReporting.Contracts.EncounterDiagnosisDto(
+                d.ICD10Code, d.DiagnosisName, d.IsPrimary, d.DiagnosisType)).ToArray(),
+            Conclusion: isPostClsPublished ? clinicalRecord?.PostCLSConclusion : null,
+            FollowUpInstruction: isPostClsPublished ? clinicalRecord?.FollowUpInstructions : null,
             PublishedAtUtc: clinicalRecord?.PublishedAtUtc,
             Version: 1,
             IsPublished: true,

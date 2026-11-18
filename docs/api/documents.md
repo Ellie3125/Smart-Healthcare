@@ -1,6 +1,14 @@
 # Contract DocumentsReporting — tệp nháp phòng CLS
 
-Phiên bản v0.1 Draft,18/11/2026. Contract hóa endpoint đã tồn tại trên dev; không thêm route hoặc thay đổi nghiệp vụ. Nguồn: DocumentsEndpoints, DocumentsService, ResultAttachmentDto, ERD documents.ResultAttachment và Scheduling QueueTicket. Contract báo cáo là tài liệu riêng trong PR#161.
+Phiên bản v0.2 Draft,18/11/2026. Bổ sung lịch sử khám theo brief hậu E2E đã giao trong phiên. Nguồn: DocumentsEndpoints, DocumentsService, ResultAttachmentDto, IClinicalModule, ERD documents.ResultAttachment và Scheduling QueueTicket. Contract báo cáo là tài liệu riêng trong PR#161.
+
+## Lịch sử khám bệnh nhân
+
+`GET /api/documents/patient/encounters?patientProfileId={id}&page=1&pageSize=10` và `GET /api/documents/patient/encounters/{id}` dùng PatientOnly, kênh Patient. 401 khi chưa đăng nhập, 403 nếu sai kênh/vai trò hoặc không có quyền ClinicalRecords (đại diện đang hoạt động, hồ sơ Verified). Alias query `patientId` vẫn dùng được; `patientProfileId` được ưu tiên. Page tối thiểu 1; pageSize ngoài 1..50 dùng 10.
+
+Danh sách trả `{items,totalCount,page,pageSize,hasMore,blockedPendingProfile}`. Mỗi item giữ các trường hiện có; `primaryDiagnosis` là tên chẩn đoán của bản ghi Published: chọn IsPrimary, nếu không có chọn Final đầu tiên, rồi chẩn đoán đầu tiên theo DiagnosedAtUtc/Id; thiếu chẩn đoán hoặc Draft trả null. `isPublished` chỉ theo trạng thái bản ghi Published. `hasClsResults` đúng khi có ít nhất một CLSResult Published, độc lập với tệp; `hasPublishedAttachments` vẫn theo tệp đã phát hành. Danh sách không chứa nội dung chẩn đoán Draft.
+
+Chi tiết không tìm thấy lượt khám hoặc bản ghi chưa Published trả 404 EncounterNotFound. Bản Published thêm `diagnoses: [{icd10Code,diagnosisName,diagnosisType,isPrimary}]`; diagnosisType là Initial/Final/Other, mảng rỗng khi chưa có. Giữ alias `icdCode` và `description` để tương thích consumer hiện có. Không dùng ChiefComplaint/InitialClinicalImpression làm chẩn đoán. Nội dung chẩn đoán Published hiển thị cả khi chưa có kết luận sau CLS; `clsResults` và tệp chỉ có CLSResult Published và vẫn ẩn cho đến khi bác sĩ ban đầu phát hành PostCLSConclusion. Timestamp ISO8601 UTC; dữ liệu chi phí tiếp tục lấy nguyên từ Billing contract.
 
 ## Quyền và định danh
 
