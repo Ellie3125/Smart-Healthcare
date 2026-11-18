@@ -33,11 +33,13 @@ internal static class ClinicalStaffListEndpoints
             .ToDictionary(e => e.EncounterId);
         var contacts = (await identity.GetPatientContactsAsync(contexts.Values.Select(e => e.PatientId).Distinct().ToArray(), ct))
             .ToDictionary(p => p.PatientId, p => p.FullName);
+        var roomNumber = (await identity.GetRoomsAsync(ct: ct)).SingleOrDefault(r => r.Id == roomId)?.Code;
         var items = tickets.Items.Where(t => contexts.ContainsKey(t.EncounterId)).Select(t =>
         {
             var e = contexts[t.EncounterId];
             return new NurseQueueItem(e.EncounterId, t.QueueTicketId, t.TicketNumber, contacts.GetValueOrDefault(e.PatientId, ""),
-                e.DoctorId, e.SpecialtyName, t.QueueStatus, e.EncounterStatus, e.Version, e.LastVitalsAtUtc);
+                e.DoctorId, e.SpecialtyName, t.QueueStatus, e.EncounterStatus, e.Version, e.LastVitalsAtUtc,
+                TicketDisplayNumber.Format(roomNumber, "InitialConsultation", t.SequenceNumber));
         }).ToArray();
         return TypedResults.Ok(new StaffListPage<NurseQueueItem>(items, page, pageSize, tickets.HasMore));
     }

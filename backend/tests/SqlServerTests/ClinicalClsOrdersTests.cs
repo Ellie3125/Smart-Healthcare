@@ -112,6 +112,8 @@ public sealed class ClinicalClsOrdersTests
             Assert.Equal(await responses[0].Content.ReadAsStringAsync(Ct), await responses[1].Content.ReadAsStringAsync(Ct));
             var body = await responses[0].Content.ReadFromJsonAsync<JsonElement>(Ct);
             Assert.Equal(123456m, body.GetProperty("order").GetProperty("items")[0].GetProperty("appliedPrice").GetDecimal());
+            Assert.Equal("P101-001", body.GetProperty("tickets").GetProperty("clsTickets")[0].GetProperty("displayNumber").GetString());
+            Assert.Equal("P101-R001", body.GetProperty("tickets").GetProperty("returnTicket").GetProperty("displayNumber").GetString());
         }
         finally { foreach (var response in responses) response.Dispose(); }
         Assert.Equal((1, 1, 1, 2), await f.CountsAsync());
@@ -284,7 +286,17 @@ internal sealed class ClsOrderFixture(WebApplication app) : IAsyncDisposable
     }
     public class RoomDirectory : DispatchProxy
     {
-        protected override object? Invoke(MethodInfo? method, object?[]? args) => method!.Name == nameof(IIdentityPatientsModule.GetRoomAsync)
-            ? Task.FromResult<RoomDto?>(new((Guid)args![0]!, "Test", "Test", "CLS", true)) : throw new NotSupportedException(method.Name);
+        private readonly HashSet<Guid> _rooms = [];
+        protected override object? Invoke(MethodInfo? method, object?[]? args)
+        {
+            if (method!.Name == nameof(IIdentityPatientsModule.GetRoomAsync))
+            {
+                _rooms.Add((Guid)args![0]!);
+                return Task.FromResult<RoomDto?>(new((Guid)args[0]!, "P101", "Test", "CLS", true));
+            }
+            if (method.Name == nameof(IIdentityPatientsModule.GetRoomsAsync))
+                return Task.FromResult<IReadOnlyList<RoomDto>>(_rooms.Select(r => new RoomDto(r, "P101", "Test", "CLS", true)).ToArray());
+            throw new NotSupportedException(method.Name);
+        }
     }
 }

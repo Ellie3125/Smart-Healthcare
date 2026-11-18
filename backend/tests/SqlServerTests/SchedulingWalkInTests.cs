@@ -109,6 +109,7 @@ public sealed partial class SchedulingHoldTests
         try
         {
             var request = new WalkInRequest(Guid.NewGuid(), day.DoctorId, actor, Key());
+            ((WalkInIdentity)services.GetRequiredService<IIdentityPatientsModule>()).DisplayRoom = day.AssignedRoomId;
             var concurrent = await Task.WhenAll(RegisterWalkInAsync(services, request), RegisterWalkInAsync(services, request));
             var result = concurrent[0];
             Assert.Equal(result, concurrent[1]);
@@ -118,6 +119,7 @@ public sealed partial class SchedulingHoldTests
             Assert.Equal((PaymentExamFee, "VND", false), (result.Receipt!.Amount, result.Receipt.Currency, result.Receipt.AlreadyCollected));
             Assert.Equal(1, result.CheckIn!.SequenceNumber);
             Assert.False(result.CheckIn.AlreadyCheckedIn);
+            Assert.Equal("P101-001", result.CheckIn.DisplayNumber);
             await using (var encounterScope = services.CreateAsyncScope())
                 Assert.Equal("Nội tổng quát", (await encounterScope.ServiceProvider.GetRequiredService<Clinical.Contracts.IClinicalModule>()
                     .GetEncounterByIdAsync(result.CheckIn.EncounterId, Ct))!.SpecialtySnapshot);
@@ -196,8 +198,10 @@ public sealed partial class SchedulingHoldTests
     }
     public class WalkInIdentity : DispatchProxy
     {
+        public Guid DisplayRoom { get; set; }
         protected override object? Invoke(MethodInfo? method, object?[]? args) => method?.Name switch
         {
+            "GetRoomsAsync" => Task.FromResult<IReadOnlyList<RoomDto>>([new(DisplayRoom, "P101", "Test", "Clinical", true)]),
             "GetDoctorAsync" => Task.FromResult<DoctorDto?>(new((Guid)args![0]!, $"Walkin-{(Guid)args[0]!:N}", AttendanceSpecialtyId, "TEST", Guid.NewGuid(), "BS", true)),
             "GetSpecialtiesAsync" => Task.FromResult<IReadOnlyList<SpecialtyDto>>([new(AttendanceSpecialtyId, "TEST", "Nội tổng quát")]),
             _ => throw new NotSupportedException(method?.Name)

@@ -20,7 +20,7 @@ internal sealed class SqlClinicalQueueReader(SchedulingDbContext db) : IClinical
                     || t.QueueStatus == QueueStatus.InProgress || t.QueueStatus == QueueStatus.Deferred))
             .OrderBy(t => t.QueuedAtUtc).ThenBy(t => t.SequenceNumber).ThenBy(t => t.Id)
             .Skip((page - 1) * pageSize).Take(pageSize + 1)
-            .Select(t => new ClinicalQueueTicket(t.Id, t.EncounterId, t.TicketNumber, t.QueueStatus.ToString(), t.QueuedAtUtc))
+            .Select(t => new ClinicalQueueTicket(t.Id, t.EncounterId, t.TicketNumber, t.QueueStatus.ToString(), t.QueuedAtUtc, t.SequenceNumber))
             .ToListAsync(ct);
         return new(rows.Count > pageSize, rows.Take(pageSize).ToArray());
     }
@@ -39,7 +39,7 @@ internal sealed class SqlClinicalQueueReader(SchedulingDbContext db) : IClinical
             .Where(t => t.EncounterId == encounterId && t.QueuedAtUtc >= start && t.QueuedAtUtc < start.AddDays(1) && t.QueueStatus != QueueStatus.Cancelled)
             .OrderBy(t => t.QueuedAtUtc).ThenBy(t => t.SequenceNumber).ThenBy(t => t.Id)
             .Select(t => new JourneyQueueTicket(t.Id, t.TargetRoomId, t.ServiceOrderItemId, t.TicketNumber, t.TicketType.ToString(), t.QueueStatus.ToString(),
-                t.QueuedAtUtc, t.CalledAtUtc, t.ServedAtUtc, t.CompletedAtUtc)).ToListAsync(ct);
+                t.QueuedAtUtc, t.CalledAtUtc, t.ServedAtUtc, t.CompletedAtUtc, t.SequenceNumber)).ToListAsync(ct);
         return new(appointment?.Appointment.Id, appointment?.AssignedRoomId, appointment?.Appointment.Status.ToString(), tickets);
     }
 }

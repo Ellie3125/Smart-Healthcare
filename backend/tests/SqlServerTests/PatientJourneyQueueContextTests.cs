@@ -34,8 +34,29 @@ using Xunit;
 
 namespace SqlServerTests;
 
+[Collection(nameof(SharedInfrastructureSerialCollection))]
 public sealed class PatientJourneyQueueContextTests
 {
+    [Fact]
+    public async Task Public_display_formats_three_ticket_kinds_without_disclosing_patient_data()
+    {
+        await using var f = await JourneyHost.CreateAsync();
+        var encounter = await f.EncounterAsync();
+        await f.TicketAsync(encounter, f.Room, "InitialConsultation", "Called", 1, f.Now.AddMinutes(-3));
+        await f.TicketAsync(encounter, f.Room, "CLS", "Called", 2, f.Now.AddMinutes(-2));
+        await f.TicketAsync(encounter, f.Room, "ReturnConsultation", "Called", 3, f.Now.AddMinutes(-1));
+        var roomNumber = Assert.Single(await f.Db.QueryAsync($"SELECT RoomNumber FROM [identity].Room WHERE Id='{f.Room}'"));
+        using var client = f.Client(authenticate: false);
+        var json = await client.GetFromJsonAsync<JsonElement>("/api/scheduling/public/display?roomId=" + f.Room, Ct);
+        var tickets = json.GetProperty("tickets").EnumerateArray().ToArray();
+        Assert.Equal(3, tickets.Length);
+        Assert.Equal(new[] { roomNumber + "-R003", roomNumber + "-002", roomNumber + "-001" },
+            tickets.Select(t => t.GetProperty("displayNumber").GetString()));
+        Assert.All(tickets, t => Assert.Equal(new[] { "displayNumber", "sequenceNumber", "ticketNumber" },
+            t.EnumerateObject().Select(p => p.Name).Order()));
+        Assert.Equal(new[] { "T-3", "T-2", "T-1" }, tickets.Select(t => t.GetProperty("ticketNumber").GetString()));
+    }
+
     private const string Route = "/api/clinical/patient/today-journey";
     private static CancellationToken Ct => TestContext.Current.CancellationToken;
 
@@ -130,7 +151,9 @@ public sealed class PatientJourneyQueueContextTests
         Assert.Equal(new[] { "Completed", "Called", "Deferred" }, steps.Select(s => s.GetProperty("status").GetString()));
         Assert.Equal(cls.ToString(), steps[1].GetProperty("id").GetString());
         Assert.Equal("CLS test room", steps[1].GetProperty("location").GetString());
-        Assert.Contains("T-2", result.GetProperty("currentCallText").GetString());
+        var roomNumber = Assert.Single(await f.Db.QueryAsync($"SELECT RoomNumber FROM [identity].Room WHERE Id='{f.ClsRoom}'"));
+        Assert.Equal(roomNumber + "-002", steps[1].GetProperty("displayNumber").GetString());
+        Assert.Contains(roomNumber + "-002", result.GetProperty("currentCallText").GetString());
         Assert.DoesNotContain("diagnosis", result.GetRawText(), StringComparison.OrdinalIgnoreCase);
         Assert.DoesNotContain("conclusion", result.GetRawText(), StringComparison.OrdinalIgnoreCase);
     }

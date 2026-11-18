@@ -79,6 +79,7 @@ public sealed class QueueCalledRealtimeTests
             .AddUnitOfWorkParticipant<WorkflowDbContext>().AddSingleton<IIdentityPatientsModule>(audience).BuildServiceProvider();
         var e = new QueueCalled(Guid.NewGuid(), Guid.NewGuid(), Guid.NewGuid(), Guid.NewGuid(), Guid.NewGuid(), Guid.NewGuid(),
             "TEST-001", 1, "CLS", Guid.NewGuid(), DateTime.UtcNow, null);
+        audience.RoomId = e.RoomId;
         var sends = new ConcurrentQueue<Delivery>();
         try
         {
@@ -94,14 +95,15 @@ public sealed class QueueCalledRealtimeTests
             Assert.All(sends.Where(s => s.Target == "patient"), s =>
             {
                 Assert.Equal(RealtimeEvents.QueueCalled, s.EventName);
-                Assert.Equal(new[] { "calledAtUtc", "eventId", "queueTicketId", "roomId", "ticketNumber" },
+                Assert.Equal(new[] { "calledAtUtc", "displayNumber", "eventId", "queueTicketId", "roomId", "ticketNumber" },
                     s.Payload.EnumerateObject().Select(p => p.Name).Order().ToArray());
                 Assert.Equal(e.QueueTicketId, s.Payload.GetProperty("queueTicketId").GetGuid());
             });
             var display = Assert.Single(sends, s => s.Target == "public");
             Assert.Equal(e.RoomId, display.Recipient); Assert.Equal(RealtimeEvents.DisplayBoardUpdated, display.EventName);
-            Assert.Equal(new[] { "sequenceNumber", "ticketNumber" }, display.Payload.EnumerateObject().Select(p => p.Name).Order().ToArray());
+            Assert.Equal(new[] { "displayNumber", "sequenceNumber", "ticketNumber" }, display.Payload.EnumerateObject().Select(p => p.Name).Order().ToArray());
             Assert.Equal(e.TicketNumber, display.Payload.GetProperty("ticketNumber").GetString());
+            Assert.All(sends, s => Assert.Equal("P101-001", s.Payload.GetProperty("displayNumber").GetString()));
             Assert.Equal(e.PerformedByUserId, Assert.Single(sends, s => s.Target == "user").Recipient);
             Assert.Equal(e.RoomId, Assert.Single(sends, s => s.Target == "room").Recipient);
             await using var check = services.CreateAsyncScope();
@@ -160,6 +162,7 @@ public sealed class QueueCalledRealtimeTests
 
     private sealed class Audience : IIdentityPatientsModule
     {
+        public Guid RoomId { get; set; }
         public Guid[] Ids { get; init; } = [Guid.NewGuid(), Guid.NewGuid()]; public Guid PatientId { get; private set; } public bool Fail { get; set; }
         public Task<IReadOnlyList<Guid>> GetPatientAppUserIdsAsync(Guid patientId, CancellationToken ct = default)
         { PatientId = patientId; if (Fail) throw new InvalidOperationException("Identity unavailable"); return Task.FromResult<IReadOnlyList<Guid>>(Ids); }
@@ -169,7 +172,7 @@ public sealed class QueueCalledRealtimeTests
         public Task<IReadOnlyList<SpecialtyDto>> GetSpecialtiesAsync(CancellationToken ct = default) => throw new NotSupportedException();
         public Task<IReadOnlyList<DoctorRankDto>> GetDoctorRanksAsync(CancellationToken ct = default) => throw new NotSupportedException();
         public Task<RoomDto?> GetRoomAsync(Guid id, CancellationToken ct = default) => throw new NotSupportedException();
-        public Task<IReadOnlyList<RoomDto>> GetRoomsAsync(string? type = null, bool? active = null, CancellationToken ct = default) => throw new NotSupportedException();
+        public Task<IReadOnlyList<RoomDto>> GetRoomsAsync(string? type = null, bool? active = null, CancellationToken ct = default) => Task.FromResult<IReadOnlyList<RoomDto>>([new(RoomId, "P101", "Test", "CLS", true)]);
         public Task<StaffDutyLeaderDto?> GetRoomShiftLeaderAsync(Guid id, DateOnly day, string shift, CancellationToken ct = default) => throw new NotSupportedException();
     }
     private sealed record Delivery(string Target, Guid Recipient, string EventName, JsonElement Payload);

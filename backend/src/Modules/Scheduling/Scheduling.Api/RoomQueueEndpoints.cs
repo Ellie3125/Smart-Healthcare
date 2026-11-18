@@ -6,6 +6,7 @@ using System.Globalization;
 using System.Security.Claims;
 using IdentityPatients.Contracts;
 using Scheduling.Application.RoomQueues;
+using Scheduling.Contracts;
 using Clinical.Contracts;
 using Microsoft.Extensions.DependencyInjection;
 using Shared.Abstractions;
@@ -71,7 +72,11 @@ public static class RoomQueueEndpoints
             result = result with { Items = result.Items.Select(t => t with { PatientName = t.EncounterId is { } id && contexts.TryGetValue(id, out var context)
                 ? names.GetValueOrDefault(context.PatientId, "") : "" }).ToArray() };
         }
-        return TypedResults.Ok(result);
+        var roomNumber = (await services.GetRequiredService<IIdentityPatientsModule>().GetRoomsAsync(ct: ct)).SingleOrDefault(r => r.Id == roomId)?.Code;
+        return TypedResults.Ok(result with { Items = result.Items.Select(t => t with
+        {
+            DisplayNumber = TicketDisplayNumber.Format(roomNumber, t.TicketType, t.SequenceNumber)
+        }).ToArray() });
     }
 
     /// <summary>Phòng người gọi được xem hàng chờ hôm nay, cùng luật với StaffAsync: RoomAccount theo token,
@@ -109,9 +114,17 @@ public static class RoomQueueEndpoints
             .OrderBy(r => r.RoomName).ToArray());
     }
 
-    private static async Task<IResult> PublicAsync([FromServices] IRoomQueueReader reader, CancellationToken ct,
-        string? roomId = null) => Guid.TryParse(roomId, out var room) && room != Guid.Empty
-            ? TypedResults.Ok(await reader.GetPublicAsync(room, ct)) : InvalidInput();
+    private static async Task<IResult> PublicAsync([FromServices] IRoomQueueReader reader,
+        [FromServices] IIdentityPatientsModule identity, CancellationToken ct, string? roomId = null)
+    {
+        if (!Guid.TryParse(roomId, out var room) || room == Guid.Empty) return InvalidInput();
+        var result = await reader.GetPublicAsync(room, ct);
+        var roomNumber = (await identity.GetRoomsAsync(ct: ct)).SingleOrDefault(r => r.Id == room)?.Code;
+        return TypedResults.Ok(result with { Tickets = result.Tickets.Select(t => t with
+        {
+            DisplayNumber = TicketDisplayNumber.Format(roomNumber, t.TicketType, t.SequenceNumber)
+        }).ToArray() });
+    }
 
     private static IResult InvalidInput() => TypedResults.Problem(statusCode: 400, title: "Phòng hoặc phân trang không hợp lệ.",
         extensions: new Dictionary<string, object?> { ["code"] = "InvalidInput" });

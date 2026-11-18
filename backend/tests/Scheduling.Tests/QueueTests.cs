@@ -12,6 +12,32 @@ namespace Scheduling.Tests;
 
 public sealed class QueueTests
 {
+    [Theory]
+    [InlineData("InitialConsultation", "P1-001")]
+    [InlineData("CLS", "P1-001")]
+    [InlineData("ReturnConsultation", "P1-R001")]
+    public async Task Queue_commands_return_display_numbers_for_each_ticket_kind(string kind, string expected)
+    {
+        var room = Guid.NewGuid();
+        var store = new Store(room) { Kind = kind };
+        var builder = SchedulingEndpointTestSetup.CreateBuilder();
+        builder.Services.AddSingleton<IQueueStore>(store);
+        var directory = System.Reflection.DispatchProxy.Create<IIdentityPatientsModule, RoomQueueEndpointTests.NurseDirectory>();
+        ((RoomQueueEndpointTests.NurseDirectory)(object)directory).RoomId = room;
+        builder.Services.AddSingleton(directory);
+        await using var app = builder.Build(); app.MapSchedulingEndpoints(); await app.StartAsync(Ct);
+        using var client = new HttpClient { BaseAddress = new(app.Urls.Single()) };
+        SchedulingEndpointTestSetup.Authorize(client, app.Configuration, Roles.RoomAccount, extra: new Claim(AppClaims.RoomId, room.ToString()));
+        foreach (var route in new[] { $"rooms/{room}/call-next", $"tickets/{store.OwnTicket}/start", $"tickets/{store.OwnTicket}/finish", $"tickets/{store.OwnTicket}/requeue" })
+        {
+            using var response = await client.PostAsync("/api/scheduling/staff/" + route, null, Ct);
+            Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+            using var json = System.Text.Json.JsonDocument.Parse(await response.Content.ReadAsStringAsync(Ct));
+            Assert.Equal(expected, json.RootElement.GetProperty("displayNumber").GetString());
+            Assert.Equal("001", json.RootElement.GetProperty("ticketNumber").GetString());
+        }
+    }
+
     private static readonly DateTime Now = new(2026, 11, 18, 3, 0, 0, DateTimeKind.Utc);
     private static CancellationToken Ct => TestContext.Current.CancellationToken;
 
@@ -85,6 +111,8 @@ public sealed class QueueTests
 
     private sealed class Store(Guid room) : IQueueStore
     {
+        public string Kind { get; init; } = "InitialConsultation";
+        private CalledTicket Ticket(Guid id) => new(id, "001", 1, Kind, "InProgress", room, null, Guid.NewGuid(), null);
         public Guid OwnTicket { get; } = Guid.NewGuid();
         public Guid OtherRoomTicket { get; } = Guid.NewGuid();
         public Guid? LastRequiredRoom { get; private set; }
@@ -95,13 +123,12 @@ public sealed class QueueTests
             var ticketRoom = command.TicketId == OwnTicket ? room : Guid.NewGuid();
             return Task.FromResult(command.RequiredRoomId is { } required && required != ticketRoom
                 ? new QueueOutcome(QueueResult.WrongRoom)
-                : new QueueOutcome(QueueResult.Called, new CalledTicket(command.TicketId, "001", 1, "InitialConsultation",
-                    "InProgress", ticketRoom, null, Guid.NewGuid(), null)));
+                : new QueueOutcome(QueueResult.Called, Ticket(command.TicketId) with { TargetRoomId = ticketRoom }));
         }
 
         public Task<Guid?> GetDoctorRoomTodayAsync(Guid doctorId, CancellationToken ct) => Task.FromResult<Guid?>(room);
-        public Task<StationLookup> ResolveStationAsync(Guid roomId, Guid? stationId, string roomName, CancellationToken ct) => throw new NotSupportedException();
-        public Task<CalledTicket?> GetAllocatedTicketAsync(Guid stationId, CancellationToken ct) => throw new NotSupportedException();
+        public Task<StationLookup> ResolveStationAsync(Guid roomId, Guid? stationId, string roomName, CancellationToken ct) => Task.FromResult(new StationLookup(Guid.NewGuid()));
+        public Task<CalledTicket?> GetAllocatedTicketAsync(Guid stationId, CancellationToken ct) => Task.FromResult<CalledTicket?>(Ticket(OwnTicket));
         public Task<IReadOnlyList<WaitingTicket>> ListWaitingAsync(Guid roomId, DateTime nowUtc, CancellationToken ct) => throw new NotSupportedException();
         public Task<int> CountRecentNewCallsAsync(Guid roomId, DateTime nowUtc, int limit, CancellationToken ct) => throw new NotSupportedException();
         public Task<QueueOutcome> TryAllocateAsync(Allocate command, CancellationToken ct) => throw new NotSupportedException();
