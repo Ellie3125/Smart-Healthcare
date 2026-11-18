@@ -479,13 +479,61 @@ class StaffApiMock {
     }
 
     // Reception search (searchUnified)
+    // Dạng Backend §4.6a dựng từ dữ liệu mẫu dạng trang.
     if (pathname === '/api/scheduling/staff/reception/search') {
-      return { data: this.store.receptionRecords };
+      return {
+        data: this.store.receptionRecords.map((r) => ({
+          patientId: `pat-${r.id}`,
+          fullName: r.patientName,
+          dateOfBirth: r.dateOfBirth,
+          gender: 'Male',
+          maskedPhoneNumber: r.phone,
+          maskedNationalId: r.cccdMasked,
+          isVerified: r.verificationStatus === 'Verified',
+        })),
+      };
+    }
+
+    if (pathname === '/api/scheduling/staff/doctors') {
+      const names = Array.from(new Set(this.store.receptionRecords.map((r) => r.doctorName ?? '')));
+      return {
+        data: {
+          serviceDate: query.get('serviceDate'),
+          page: 1,
+          pageSize: 50,
+          hasMore: false,
+          items: names.map((n, i) => ({
+            doctorId: `doc-${i}`,
+            fullName: n,
+            doctorRankId: 'rank-1',
+            specialtyId: 'spec-1',
+            availableSlots: 10,
+            totalSlots: 30,
+            examFee: 150000,
+            currency: 'VND',
+            doctorRankName: 'Bác sĩ CKI',
+            specialtyName: 'Nội tổng quát',
+          })),
+        },
+      };
     }
 
     // Cashier items
     if (pathname === '/api/billing/staff/cashier/items') {
-      return { data: this.store.cashierItems };
+      return {
+        data: this.store.cashierItems.map((c) => ({
+          serviceOrderId: c.id,
+          patientId: 'pat-recp-1',
+          encounterId: 'enc-001',
+          description: `${c.referenceCode}: ${c.description}`,
+          totalAmount: c.amount,
+          paidAmount: c.status === 'Paid' ? c.amount : 0,
+          outstanding: c.status === 'Paid' ? 0 : c.amount,
+          status: c.status === 'Paid' ? 1 : 0,
+          orderedAtUtc: new Date().toISOString(),
+          payByUtc: new Date().toISOString(),
+        })),
+      };
     }
 
     // Shift summary
@@ -524,35 +572,21 @@ class StaffApiMock {
 
     // Today appointments list
     if (pathname === '/api/scheduling/staff/appointments/today' && method === 'GET') {
-      return {
-        data: {
-          page: 1,
-          pageSize: 20,
-          hasMore: false,
-          items: [
-            {
-              appointmentId: 'apt-today-1',
-              appointmentNumber: 'SH-261117-001',
-              patientId: 'pat-001-aaaa',
-              doctorId: 'doc-001',
-              assignedRoomId: 'room-001',
-              serviceDate: '2026-11-17',
-              status: 'Confirmed',
-              checkInDeadlineUtc: new Date(Date.now() + 30 * 60 * 1000).toISOString(),
-            },
-            {
-              appointmentId: 'apt-today-2',
-              appointmentNumber: 'SH-261117-002',
-              patientId: 'pat-002-bbbb',
-              doctorId: 'doc-002',
-              assignedRoomId: 'room-002',
-              serviceDate: '2026-11-17',
-              status: 'CheckedIn',
-              checkInDeadlineUtc: new Date(Date.now() - 10 * 60 * 1000).toISOString(),
-            },
-          ],
-        },
-      };
+      const names = Array.from(new Set(this.store.receptionRecords.map((r) => r.doctorName ?? '')));
+      const code = query.get('appointmentNumber');
+      const items = this.store.receptionRecords
+        .filter((r) => r.appointmentId && (!code || r.appointmentCode === code))
+        .map((r) => ({
+          appointmentId: r.appointmentId!,
+          appointmentNumber: r.appointmentCode!,
+          patientId: `pat-${r.id}`,
+          doctorId: `doc-${names.indexOf(r.doctorName ?? '')}`,
+          assignedRoomId: 'room-001',
+          serviceDate: r.serviceDate!,
+          status: r.appointmentStatus === 'Confirmed' ? 'Scheduled' : r.appointmentStatus!,
+          checkInDeadlineUtc: new Date(Date.now() + (r.isPastCheckInDeadline ? -10 : 30) * 60 * 1000).toISOString(),
+        }));
+      return { data: { page: 1, pageSize: 50, hasMore: false, items } };
     }
 
     // Nurse queue & vitals
