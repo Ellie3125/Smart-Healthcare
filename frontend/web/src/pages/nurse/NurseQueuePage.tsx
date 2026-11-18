@@ -26,9 +26,9 @@ export const NurseQueuePage: React.FC = () => {
   });
 
   const callMutation = useMutation({
-    mutationFn: (encounterId: string) => clinicalStaffApi.callNursePatient(encounterId),
+    mutationFn: () => clinicalStaffApi.callNursePatient(),
     onSuccess: (res) => {
-      pushToast(`Đã gọi vé ${res.ticketNumber} (${res.patientName}) vào bàn sinh hiệu.`, 'success');
+      pushToast(`Đã gọi vé ${res.ticketNumber} vào bàn sinh hiệu.`, 'success');
       queryClient.invalidateQueries({ queryKey: ['staff', 'nurse-queue'] });
     },
     onError: (err) => pushToast(extractFriendlyError(err).message, 'danger'),
@@ -50,6 +50,15 @@ export const NurseQueuePage: React.FC = () => {
             <span className="h-2 w-2 rounded-full bg-primary" />
             {(query.data ?? []).length} bệnh nhân trong hàng chờ
           </span>
+          <Button
+            variant="secondary"
+            size="sm"
+            leftIcon={<PhoneCall className="h-3.5 w-3.5" />}
+            loading={callMutation.isPending}
+            onClick={() => callMutation.mutate()}
+          >
+            Gọi người tiếp theo
+          </Button>
           <Button variant="outline" size="sm" onClick={() => query.refetch()}>
             Làm mới hàng chờ
           </Button>
@@ -78,12 +87,12 @@ export const NurseQueuePage: React.FC = () => {
             {
               key: 'patient',
               header: 'Bệnh nhân',
-              render: (r) => `${r.patientName} (SN ${r.yearOfBirth})`,
+              render: (r) => r.patientName || '—',
             },
             {
               key: 'doctor',
-              header: 'Bác sĩ phụ trách',
-              render: (r) => `${r.doctorName} — ${r.specialtyName}`,
+              header: 'Chuyên khoa',
+              render: (r) => r.specialtyName || '—',
             },
             { key: 'status', header: 'Trạng thái', render: (r) => <StatusPill status={r.status} /> },
             {
@@ -91,15 +100,6 @@ export const NurseQueuePage: React.FC = () => {
               header: 'Thao tác',
               render: (r) => (
                 <div className="flex flex-wrap gap-2">
-                  <Button
-                    size="sm"
-                    variant="secondary"
-                    leftIcon={<PhoneCall className="h-3.5 w-3.5" />}
-                    loading={callMutation.isPending}
-                    onClick={() => callMutation.mutate(r.encounterId)}
-                  >
-                    Gọi loa
-                  </Button>
                   <Button
                     size="sm"
                     variant="primary"
