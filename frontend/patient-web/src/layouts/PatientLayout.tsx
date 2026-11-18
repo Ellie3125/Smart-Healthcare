@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { Link, NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom';
 import {
@@ -7,11 +7,13 @@ import {
   Bot,
   CalendarCheck,
   CalendarPlus,
+  ChevronDown,
   CreditCard,
   FileHeart,
   LogOut,
   Menu,
   PhoneCall,
+  UserPlus,
   UserRound,
   X,
 } from 'lucide-react';
@@ -19,7 +21,6 @@ import { assistantApi } from '../api/assistantApi';
 import { useAuth } from '../hooks/useAuth';
 
 const PATIENT_NAV_ITEMS = [
-  { to: '/profiles', label: 'Hồ sơ', shortLabel: 'Hồ sơ', icon: UserRound },
   { to: '/booking', label: 'Đặt lịch', shortLabel: 'Đặt lịch', icon: CalendarPlus },
   { to: '/appointments', label: 'Lịch của tôi', shortLabel: 'Lịch hẹn', icon: CalendarCheck },
   { to: '/today-journey', label: 'Hôm nay', shortLabel: 'Hôm nay', icon: Activity },
@@ -29,11 +30,11 @@ const PATIENT_NAV_ITEMS = [
 ];
 
 const MOBILE_BOTTOM_TABS = [
-  PATIENT_NAV_ITEMS[0],
-  PATIENT_NAV_ITEMS[1],
-  PATIENT_NAV_ITEMS[2],
-  PATIENT_NAV_ITEMS[3],
-  PATIENT_NAV_ITEMS[6],
+  { to: '/booking', label: 'Đặt lịch', shortLabel: 'Đặt lịch', icon: CalendarPlus },
+  { to: '/appointments', label: 'Lịch của tôi', shortLabel: 'Lịch hẹn', icon: CalendarCheck },
+  { to: '/today-journey', label: 'Hôm nay', shortLabel: 'Hôm nay', icon: Activity },
+  { to: '/records', label: 'Kết quả khám', shortLabel: 'Kết quả', icon: FileHeart },
+  { to: '/profiles', label: 'Hồ sơ', shortLabel: 'Hồ sơ', icon: UserRound },
 ];
 
 export const PatientLayout: React.FC = () => {
@@ -41,6 +42,22 @@ export const PatientLayout: React.FC = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [userMenuOpen, setUserMenuOpen] = useState(false);
+  const userMenuRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (userMenuRef.current && !userMenuRef.current.contains(event.target as Node)) {
+        setUserMenuOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
+
+  useEffect(() => {
+    setUserMenuOpen(false);
+  }, [location.pathname]);
 
   const notiQuery = useQuery({
     queryKey: ['patient', 'notifications', 'badge'],
@@ -71,7 +88,7 @@ export const PatientLayout: React.FC = () => {
               {mobileMenuOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
             </button>
 
-            <Link to="/profiles" className="flex items-center gap-2 shrink-0 group focus:outline-none">
+            <Link to="/booking" className="flex items-center gap-2 shrink-0 group focus:outline-none">
               <div className="w-10 h-10 rounded-xl bg-primary flex items-center justify-center text-on-primary shadow-sm">
                 <span className="material-symbols-outlined text-[24px]">local_hospital</span>
               </div>
@@ -136,16 +153,80 @@ export const PatientLayout: React.FC = () => {
 
             <div className="hidden sm:block h-6 w-px bg-surface-container-highest shrink-0" aria-hidden="true" />
 
-            <div className="hidden md:flex items-center gap-2 shrink-0">
-              <div className="w-8 h-8 rounded-full bg-primary flex items-center justify-center text-on-primary shrink-0 shadow-xs" title={user?.userName ?? 'Bệnh nhân'}>
-                <span className="material-symbols-outlined text-[18px]">person</span>
-              </div>
-              <div className="hidden 2xl:flex flex-col text-left leading-tight">
-                <span className="text-sm font-semibold text-on-surface truncate max-w-[120px]">
-                  {user?.userName ?? 'Bệnh nhân'}
-                </span>
-                <span className="text-[10px] text-on-surface-variant">Cổng bệnh nhân</span>
-              </div>
+            {/* User Avatar with Profile Dropdown */}
+            <div className="relative hidden md:block" ref={userMenuRef}>
+              <button
+                type="button"
+                onClick={() => setUserMenuOpen((prev) => !prev)}
+                className={`flex items-center gap-2 p-1.5 rounded-xl hover:bg-surface-container transition-colors focus:outline-none focus:ring-2 focus:ring-primary/20 ${
+                  location.pathname.startsWith('/profiles') ? 'bg-surface-container' : ''
+                }`}
+                aria-expanded={userMenuOpen}
+                aria-haspopup="true"
+                title="Hồ sơ & Tài khoản"
+              >
+                <div
+                  className={`w-8 h-8 rounded-full bg-primary flex items-center justify-center text-on-primary shrink-0 shadow-xs ${
+                    location.pathname.startsWith('/profiles') ? 'ring-2 ring-primary ring-offset-2' : ''
+                  }`}
+                >
+                  <span className="material-symbols-outlined text-[18px]">person</span>
+                </div>
+                <div className="hidden 2xl:flex items-center gap-1.5 text-left leading-tight">
+                  <span className="text-sm font-semibold text-on-surface truncate max-w-[120px]">
+                    {user?.userName ?? 'Bệnh nhân'}
+                  </span>
+                  <ChevronDown
+                    className={`h-3.5 w-3.5 text-on-surface-variant transition-transform duration-150 ${
+                      userMenuOpen ? 'rotate-180' : ''
+                    }`}
+                  />
+                </div>
+              </button>
+
+              {userMenuOpen && (
+                <div className="absolute right-0 mt-2 w-56 rounded-2xl bg-surface-container-lowest border border-surface-container-highest shadow-[0_4px_20px_rgba(0,0,0,0.08)] py-1.5 z-50">
+                  <div className="px-4 py-2 border-b border-surface-container-high/60">
+                    <p className="text-[11px] text-on-surface-variant font-medium">Tài khoản</p>
+                    <p className="text-sm font-bold text-on-surface truncate">{user?.userName ?? 'Bệnh nhân'}</p>
+                  </div>
+                  <div className="py-1">
+                    <Link
+                      to="/profiles"
+                      onClick={() => setUserMenuOpen(false)}
+                      className={`flex items-center gap-2.5 px-4 py-2 text-sm font-medium transition-colors ${
+                        location.pathname === '/profiles' || location.pathname.startsWith('/profiles/')
+                          ? 'bg-primary-container text-on-primary-container font-semibold'
+                          : 'text-on-surface hover:bg-surface-container'
+                      }`}
+                    >
+                      <UserRound className="h-4 w-4 text-primary shrink-0" />
+                      <span>Hồ sơ của tôi</span>
+                    </Link>
+                    <Link
+                      to="/profiles/add-relative"
+                      onClick={() => setUserMenuOpen(false)}
+                      className="flex items-center gap-2.5 px-4 py-2 text-sm font-medium text-on-surface hover:bg-surface-container transition-colors"
+                    >
+                      <UserPlus className="h-4 w-4 text-primary shrink-0" />
+                      <span>Thêm người thân</span>
+                    </Link>
+                  </div>
+                  <div className="border-t border-surface-container-high/60 pt-1">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setUserMenuOpen(false);
+                        handleLogout();
+                      }}
+                      className="w-full flex items-center gap-2.5 px-4 py-2 text-sm font-medium text-tertiary hover:bg-error-container hover:text-[#93000a] transition-colors"
+                    >
+                      <LogOut className="h-4 w-4 shrink-0" />
+                      <span>Đăng xuất</span>
+                    </button>
+                  </div>
+                </div>
+              )}
             </div>
 
             <button
@@ -165,6 +246,18 @@ export const PatientLayout: React.FC = () => {
         {mobileMenuOpen ? (
           <div className="lg:hidden border-t border-surface-container bg-surface-container-lowest px-4 py-3 shadow-md">
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+              <Link
+                to="/profiles"
+                onClick={() => setMobileMenuOpen(false)}
+                className={`flex items-center gap-2 rounded-xl px-3 py-2.5 text-sm font-medium ${
+                  location.pathname === '/profiles' || location.pathname.startsWith('/profiles/')
+                    ? 'bg-primary-container text-on-primary-container font-semibold'
+                    : 'bg-surface-container-low text-on-surface-variant hover:text-on-surface'
+                }`}
+              >
+                <UserRound className="h-4 w-4 shrink-0" aria-hidden="true" />
+                <span>Hồ sơ của tôi</span>
+              </Link>
               {PATIENT_NAV_ITEMS.map(({ to, label, icon: Icon }) => {
                 const isActive = location.pathname === to || location.pathname.startsWith(`${to}/`);
                 return (

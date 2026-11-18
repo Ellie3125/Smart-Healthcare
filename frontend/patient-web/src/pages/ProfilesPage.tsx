@@ -148,9 +148,6 @@ export const ProfilesPage: React.FC = () => {
             Hồ sơ y bạ gia đình
           </span>
           <h1 className="text-2xl font-bold text-on-surface tracking-tight">Danh Sách Hồ Sơ Của Tôi</h1>
-          <p className="text-sm text-on-surface-variant mt-1">
-            Quản lý hồ sơ sức khỏe bản thân và các thành viên được bạn đại diện
-          </p>
         </div>
         <div className="flex flex-wrap items-center gap-2.5 w-full sm:w-auto">
           <Link
@@ -188,10 +185,7 @@ export const ProfilesPage: React.FC = () => {
           <div className="w-16 h-16 rounded-2xl bg-surface-container-low flex items-center justify-center text-primary mx-auto mb-4">
             <span className="material-symbols-outlined text-[36px]">contact_page</span>
           </div>
-          <h2 className="text-lg font-bold text-on-surface mb-1">Chưa có hồ sơ y tế nào</h2>
-          <p className="text-sm text-on-surface-variant max-w-md mx-auto mb-6">
-            Tạo hồ sơ cho chính bạn hoặc thêm hồ sơ người thân (con, bố mẹ, vợ/chồng) để bắt đầu sử dụng dịch vụ.
-          </p>
+          <h2 className="text-lg font-bold text-on-surface mb-6">Chưa có hồ sơ y tế nào</h2>
           <div className="flex justify-center gap-3">
             <Link
               to="/profiles/new"

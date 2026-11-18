@@ -114,7 +114,7 @@ export const RegisterPage: React.FC = () => {
     try {
       const res = await apiClient.post<LoginResponse>('/auth/patient/register', payload);
       login(res.data);
-      navigate('/profiles', { replace: true });
+      navigate('/booking', { replace: true });
     } catch (err: unknown) {
       const errorObj = err as { response?: { status?: number; data?: { detail?: string; title?: string; errors?: Record<string, string[]> } } };
       if (errorObj.response?.status === 429) {
