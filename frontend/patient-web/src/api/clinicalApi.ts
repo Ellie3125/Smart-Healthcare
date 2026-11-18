@@ -27,6 +27,62 @@ interface ApiPrescription {
   }[];
 }
 
+// PatientClsBatch của Billing (Billing.Application/PatientClsPaymentService.cs); enum có thể về dạng số.
+const CLS_BATCH_STATES = ['PendingPayment', 'Paid', 'Expired', 'Cancelled'] as const;
+const CHARGE_STATES = ['Pending', 'PartiallyPaid', 'Paid', 'Cancelled', 'Waived'] as const;
+type ChargeState = (typeof CHARGE_STATES)[number];
+
+interface ApiClsBatch {
+  serviceOrderId: string;
+  encounterId: string;
+  orderedAtUtc: string;
+  payByUtc: string;
+  status: ClsPaymentBatch['status'] | number;
+  totalAmount: number;
+  outstanding: number;
+  items: {
+    chargeId: string;
+    serviceName: string;
+    unitPrice: number;
+    totalAmount: number;
+    status: ChargeState | number;
+  }[];
+}
+
+const enumName = <T extends string>(names: readonly T[], value: T | number): T =>
+  typeof value === 'number' ? names[value] : value;
+
+const ITEM_STATUS: Record<ChargeState, ClsPaymentBatch['items'][number]['status']> = {
+  Pending: 'PendingPayment',
+  PartiallyPaid: 'PendingPayment',
+  Paid: 'Paid',
+  Cancelled: 'Cancelled',
+  Waived: 'Cancelled',
+};
+
+// Billing không trả mã lịch hẹn, mã dịch vụ, tên phòng (thuộc Scheduling/Clinical) nên các trường đó để trống.
+const toClsBatch = (b: ApiClsBatch): ClsPaymentBatch => ({
+  batchId: b.serviceOrderId,
+  encounterId: b.encounterId,
+  appointmentCode: '',
+  createdAt: b.orderedAtUtc,
+  expiresAt: b.payByUtc,
+  status: enumName(CLS_BATCH_STATES, b.status),
+  totalGrossAmount: b.totalAmount,
+  totalWaiverAmount: 0,
+  totalPayableAmount: b.outstanding,
+  items: b.items.map((i) => ({
+    id: i.chargeId,
+    serviceCode: '',
+    serviceName: i.serviceName,
+    roomName: '',
+    unitPrice: i.unitPrice,
+    waiverAmount: 0,
+    netPrice: i.totalAmount,
+    status: ITEM_STATUS[enumName(CHARGE_STATES, i.status)],
+  })),
+});
+
 /**
  * Clinical, CLS Billing, Refunds & Records API (Patient Web).
  * Endpoint đánh dấu `// TODO: nối contract thật` gọi thẳng Backend; route chưa có thì trả lỗi tới khi Backend làm xong.
@@ -38,8 +94,9 @@ export const clinicalApi = {
       params: patientProfileId ? { patientProfileId } : undefined,
     }),
 
-  // TODO: nối contract thật P17 Danh sách đợt chỉ định CLS chờ thanh toán & tạo link VNPAY
-  listClsPaymentBatches: () => patientGet<ClsPaymentBatch[]>('/api/billing/patient/cls-batches'),
+  // P17: Billing bắt buộc patientId vì một tài khoản quản lý nhiều hồ sơ (PatientPaymentEndpoints.ListClsBatchesAsync).
+  listClsPaymentBatches: async (patientId: string) =>
+    (await patientGet<ApiClsBatch[]>('/api/billing/patient/cls-batches', { params: { patientId } })).map(toClsBatch),
 
   createClsVnpayCheckout: (batchId: string, idempotencyKey: string) =>
     patientPost<VnpayCheckoutResult, Record<string, never>>(

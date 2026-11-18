@@ -10,6 +10,7 @@ import { VnpayReturnPage } from '../pages/booking/VnpayReturnPage';
 import { RescheduleAppointmentPage } from '../pages/appointments/RescheduleAppointmentPage';
 import { CancelAppointmentPage } from '../pages/appointments/CancelAppointmentPage';
 import { EncounterCostPage } from '../pages/billing/EncounterCostPage';
+import { ClsPaymentsPage } from '../pages/billing/ClsPaymentsPage';
 import { EncounterHistoryPage } from '../pages/records/EncounterHistoryPage';
 import { EncounterDetailPage } from '../pages/records/EncounterDetailPage';
 import { PrescriptionDetailPage } from '../pages/records/PrescriptionDetailPage';
@@ -158,6 +159,42 @@ describe('Patient Web', () => {
 
     const link = await screen.findByRole('link', { name: /Đặt lịch/i });
     expect(link.getAttribute('href')).toMatch(/^\/booking\/doctors\/doc-1\?date=\d{4}-\d{2}-\d{2}$/);
+  });
+
+  it('P17: lists CLS batches of the selected profile from the Billing DTO', async () => {
+    const asked: (string | null)[] = [];
+    patientApiMock.override('GET', '/api/billing/patient/cls-batches', (_url, _body, _params, query) => {
+      const patientId = query?.get('patientId') ?? null;
+      asked.push(patientId);
+      return {
+        data: [
+          {
+            serviceOrderId: 'so-1',
+            encounterId: 'enc-1',
+            patientId,
+            orderedAtUtc: '2026-11-19T02:00:00Z',
+            payByUtc: '2026-11-19T16:59:59Z',
+            status: 0,
+            totalAmount: 250000,
+            paidAmount: 0,
+            outstanding: 250000,
+            currency: 'VND',
+            canPay: true,
+            items: [
+              { chargeId: 'ch-1', serviceOrderItemId: 'soi-1', serviceName: 'Siêu âm ổ bụng', unitPrice: 250000, quantity: 1, totalAmount: 250000, outstanding: 250000, status: 0 },
+            ],
+          },
+        ],
+      };
+    });
+    renderWithProviders(<ClsPaymentsPage />, ['/cls-payments'], '/cls-payments');
+
+    expect(await screen.findByText('Siêu âm ổ bụng')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /Thanh toán qua VNPAY/i })).toBeEnabled();
+    expect(asked).toContain('prof-self');
+
+    fireEvent.change(screen.getByLabelText(/Hồ sơ người khám/i), { target: { value: 'prof-mom' } });
+    await waitFor(() => expect(asked).toContain('prof-mom'));
   });
 
   it('TV01: renders queue ticket numbers only with zero patient PII', async () => {
