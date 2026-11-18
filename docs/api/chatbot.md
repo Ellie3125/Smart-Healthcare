@@ -1,8 +1,8 @@
 # Contract chatbot
 
-- contract_version: **v0.1 Draft** (CB-00, chờ trưởng nhóm duyệt, hạn 21/11/2026; §4 chờ chốt H-06, hạn 20/11/2026)
+- contract_version: **v0.2 Draft** (§3 đã có trên dev 18/11/2026; CB-00, chờ trưởng nhóm duyệt, hạn 21/11/2026; §4 chờ chốt H-06, hạn 20/11/2026)
 - Người giữ: theo ownership.md mục 1. Task: CB-00. Bên dùng: CB-01..CB-11 (dịch vụ chatbot), CB-05 (API đề nghị phía .NET), CB-08 (giao diện chat trên web bệnh nhân).
-- Nguồn: Phạm vi nghiệp vụ v2.12 §1, §2.1–2.2, §7; Giải pháp kỹ thuật v2.14 §2.1, §8.7, §11.1–11.7; luật BOT-01..BOT-12 (`docs/ai/instructions/chatbot-langchain-ollama.md`).
+- Nguồn: Phạm vi nghiệp vụ v2.13 §1, §2.1–2.2, §7; Giải pháp kỹ thuật v2.14 §2.1, §8.7, §11.1–11.7; luật BOT-01..BOT-12 (`docs/ai/instructions/chatbot-langchain-ollama.md`).
 - Dựa trên: `docs/api/scheduling.md` v0.2 Approved, `docs/api/identity.md` (dev 1026563), `docs/conventions.md` (ProblemDetails + `code`, JSON camelCase, UTC ISO-8601 có `Z`, ngày `yyyy-MM-dd`, `Idempotency-Key`).
 
 ## 1. Thành phần và đường đi
@@ -75,7 +75,7 @@ Xóa checkpoint khi người dùng đóng cuộc trò chuyện hoặc đăng xu�
 
 ## 3. API chat của .NET cho web bệnh nhân
 
-Route theo tiền tố kênh (`docs/conventions.md`, scheduling Q7). Module chứa: **Q-C1** (§9), đề xuất Notifications (`/api/notifications/patient/chat`). Policy `PatientOnly`. Lỗi ProblemDetails có `code`.
+Route theo tiền tố kênh (`docs/conventions.md`, scheduling Q7). Module Notifications (`/api/notifications/patient/chat`, Q-C1 chốt 18/11/2026), chỉ chuyển tiếp, không bảng. Policy `PatientOnly`. Lỗi ProblemDetails có `code`. Cấu hình .NET: `Chatbot__BaseUrl` (ví dụ `http://chatbot:8000`), `Chatbot__InternalKey` (= `CHATBOT_INTERNAL_KEY`, chỉ qua biến môi trường); thiếu một trong hai thì `available=false` và gửi lượt trả 503.
 
 ### 3.1 Route
 
@@ -83,12 +83,14 @@ Route theo tiền tố kênh (`docs/conventions.md`, scheduling Q7). Module ch�
 |---|---|---|---|
 | `GET /api/notifications/patient/chat/status` | Chatbot có dùng được không, để ẩn hoặc làm mờ ô chat | 200 `{ "available": bool }` | — |
 | `POST /api/notifications/patient/chat/conversations` | Mở cuộc trò chuyện cho một hồ sơ | 201 `{ "conversationId", "patientId", "available" }` | 400 `InvalidInput`; 404 `ProfileNotFound` |
-| `POST /api/notifications/patient/chat/conversations/{conversationId}/messages` | Gửi một lượt | 200 như §2.1 (bỏ `intent`) | 400 `InvalidInput`; 404 `ConversationNotFound`; 503 `ChatbotUnavailable`; 429 `TooManyRequests` |
+| `POST /api/notifications/patient/chat/conversations/{conversationId}/messages` | Gửi một lượt | 200 như §2.1 (bỏ `intent`) | 400 `InvalidInput`; 401 `SessionExpired`; 404 `ProfileNotFound`, `ConversationNotFound`; 503 `ChatbotUnavailable`; 429 `TooManyRequests` |
 | `DELETE /api/notifications/patient/chat/conversations/{conversationId}` | Đóng cuộc trò chuyện | 204 | 404 `ConversationNotFound` |
 
-- Body mở cuộc trò chuyện: `{ "patientId": "<guid>" }`. Body gửi lượt: `{ "text": "..." }` hoặc `{ "suggestion": "VIEW_APPOINTMENTS" }`.
+- Body mở cuộc trò chuyện: `{ "patientId": "<guid>" }`. Body gửi lượt (v0.2): `{ "patientId": "<guid>", "text": "..." }` hoặc `{ "patientId": "<guid>", "suggestion": "VIEW_APPOINTMENTS" }`; `patientId` là hồ sơ đã dùng khi mở cuộc trò chuyện (.NET không lưu, Q-C2), .NET kiểm quyền Booking ở mỗi lượt (mất quyền → 404 `ProfileNotFound`), chatbot trả `ConversationNotFound` khi khác chủ đã ghi ở lượt đầu. `text` cắt khoảng trắng, ≤ 1000 ký tự; đúng một trong `text` hoặc `suggestion`.
 - `status` gọi `GET /health` của chatbot, cache vài giây. Chatbot không chạy (profile `chatbot` tắt) cũng trả `available=false`.
-- Giới hạn tần suất đề xuất: 10 lượt/phút mỗi tài khoản (giá trị chốt khi đo p95 ở CB-09).
+- Giới hạn tần suất: 10 lượt/phút mỗi tài khoản (fixed window, đã có trên dev; giá trị chốt lại khi đo p95 ở CB-09). Bị chặn trả 429 `TooManyRequests` kèm `Retry-After`.
+- Lượt không tới được chatbot (chưa cấu hình, lỗi kết nối, quá 90 giây, chatbot trả 503, sai `X-Chatbot-Key`) đều trả 503 `ChatbotUnavailable`; sai khóa được log lỗi cấu hình phía .NET.
+- Web bệnh nhân hiện gọi `chat/health`, `chat/sessions`, `chat/sessions/{id}/messages` với body `{ content }`: đổi sang `chat/status`, `chat/conversations`, `chat/conversations/{id}/messages` với body ở trên (CB-08).
 
 ### 3.2 Cách .NET truyền ngữ cảnh
 
@@ -226,10 +228,10 @@ Access token, `userId`, `patientId`, `conversationId`, `proposalId` dạng thô,
 | # | Câu hỏi | Đề xuất | Trạng thái |
 |---|---|---|---|
 | H-06 | Lưu đề nghị chờ xác nhận ở đâu? | Phương án A §4.1: `Operation` (`Pending`) + `BookingAttempt`, không đổi ERD; thời hạn = `CreatedAtUtc` + `ProposalTtl` 10 phút | Chờ trưởng nhóm, hạn 20/11 |
-| Q-C1 | API chat .NET đặt ở module nào? | Notifications (`/api/notifications/patient/chat`): module chung, không phải nghiệp vụ lịch; chỉ chuyển tiếp, không có bảng | Chờ trưởng nhóm |
-| Q-C2 | Gắn `conversationId` với người dùng ở đâu? | Trong SQLite của chatbot cùng checkpointer (§3.3), không thêm bảng .NET | Chờ trưởng nhóm |
+| Q-C1 | API chat .NET đặt ở module nào? | Notifications (`/api/notifications/patient/chat`): module chung, không phải nghiệp vụ lịch; chỉ chuyển tiếp, không có bảng | **Đã chốt 18/11/2026** |
+| Q-C2 | Gắn `conversationId` với người dùng ở đâu? | Trong SQLite của chatbot cùng checkpointer (§3.3), không thêm bảng .NET | **Đã chốt 18/11/2026** |
 | Q-C3 | Thời hạn cuộc trò chuyện và đề nghị | Cuộc trò chuyện 30 phút không hoạt động; đề nghị 10 phút | Chờ trưởng nhóm; số chốt sau đo CB-09 |
-| Q-C4 | Xác thực .NET → chatbot | Không public + `X-Chatbot-Key` (`CHATBOT_INTERNAL_KEY`) | Chờ trưởng nhóm |
+| Q-C4 | Xác thực .NET → chatbot | Không public + `X-Chatbot-Key` (`CHATBOT_INTERNAL_KEY`) | **Đã chốt 18/11/2026** |
 | Q-C5 | Model có được biết tên bệnh nhân không? | Không cần; câu trả lời xưng "bạn", tên hồ sơ do web bệnh nhân hiển thị | Đề xuất |
 
 ## 10. Lịch sử
@@ -237,3 +239,4 @@ Access token, `userId`, `patientId`, `conversationId`, `proposalId` dạng thô,
 | Version | Ngày | Thay đổi |
 |---|---|---|
 | v0.1 Draft | 10/11/2026 | Bản đầu (CB-00): API nội bộ chatbot, API chat .NET, ngữ cảnh, đề nghị chờ xác nhận (đề xuất H-06), bảng intent ↔ công cụ ↔ endpoint, endpoint còn thiếu E1–E5 |
+| v0.2 Draft | 18/11/2026 | Q-C1, Q-C2, Q-C4 chốt; §3 có trên dev: body gửi lượt thêm `patientId`, mã `ProfileNotFound`, `SessionExpired`, cấu hình `Chatbot__BaseUrl`/`Chatbot__InternalKey`, 429 có `Retry-After`; ghi route web cần đổi |

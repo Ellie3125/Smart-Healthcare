@@ -13,4 +13,4 @@ public interface IPatientAppointmentReader
 
 public sealed record PatientAppointment(Guid AppointmentId, string AppointmentNumber, AppointmentStatus Status, Guid PatientId,
     Guid DoctorId, DateOnly ServiceDate, Guid AssignedRoomId, decimal AppliedConsultationFee, DateTime ConfirmedAtUtc,
-    DateTime? CheckInDeadlineUtc, DateTime? CancelledAtUtc);
+    DateTime? CheckInDeadlineUtc, DateTime? CancelledAtUtc, DateTime? RescheduleCutoffTimeUtc = null);

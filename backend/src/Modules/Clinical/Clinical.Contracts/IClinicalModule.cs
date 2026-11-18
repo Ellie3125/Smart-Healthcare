@@ -6,6 +6,15 @@ namespace Clinical.Contracts;
 /// </summary>
 public interface IClinicalModule
 {
+    /// <summary>Scheduling calls after its paid-ticket transition to InProgress, inside the caller's IUnitOfWork.
+    /// Verifies ticket room/item and an open encounter; Ordered → InProgress, replay InProgress is a no-op.
+    /// Errors: InvalidRequest, OrderItemNotFound, InvalidStatusTransition, EncounterClosed, Forbidden. Never commits the caller's transaction.</summary>
+    Task StartClsServiceAsync(ClsServiceCommand command, CancellationToken ct) => throw new NotSupportedException();
+
+    /// <summary>Scheduling calls after ticket Finish, in the same IUnitOfWork. InProgress → ServiceFinished and creates a Draft result.
+    /// Replay ServiceFinished/Completed is a no-op; errors as Start. A caller failure rolls back both Clinical and Scheduling.</summary>
+    Task FinishClsServiceAsync(ClsServiceCommand command, CancellationToken ct) => throw new NotSupportedException();
+
     /// <summary>Lấy thông tin chi tiết của một lượt khám theo EncounterId.</summary>
     Task<EncounterDto?> GetEncounterByIdAsync(Guid encounterId, CancellationToken ct);
 
