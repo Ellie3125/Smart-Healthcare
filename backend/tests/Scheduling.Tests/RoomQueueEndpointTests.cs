@@ -23,18 +23,25 @@ public sealed class RoomQueueEndpointTests
     {
         var ct = TestContext.Current.CancellationToken;
         var builder = SchedulingEndpointTestSetup.CreateBuilder();
-        builder.Services.AddSingleton<IRoomQueueReader, Reader>();
+        var reader = new Reader();
+        builder.Services.AddSingleton<IRoomQueueReader>(reader);
+        var directory = DispatchProxy.Create<IIdentityPatientsModule, NurseDirectory>();
+        var catalog = (NurseDirectory)(object)directory;
+        catalog.RoomId = reader.RoomId;
+        builder.Services.AddSingleton(directory);
         await using var app = builder.Build();
         app.MapSchedulingRoomQueueEndpoints();
         await app.StartAsync(ct);
         using var client = new HttpClient { BaseAddress = new Uri(app.Urls.Single()) };
-        using var response = await client.GetAsync($"/api/scheduling/public/display?roomId={Guid.NewGuid()}", ct);
+        using var response = await client.GetAsync($"/api/scheduling/public/display?roomId={reader.RoomId}", ct);
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
         using var json = JsonDocument.Parse(await response.Content.ReadAsStringAsync(ct));
         Assert.Equal(new[] { "tickets" }, json.RootElement.EnumerateObject().Select(x => x.Name));
         var ticket = Assert.Single(json.RootElement.GetProperty("tickets").EnumerateArray());
-        Assert.Equal(new[] { "sequenceNumber", "ticketNumber" }, ticket.EnumerateObject().Select(x => x.Name).Order());
+        Assert.Equal(new[] { "displayNumber", "sequenceNumber", "ticketNumber" }, ticket.EnumerateObject().Select(x => x.Name).Order());
         Assert.Equal("Q-007", ticket.GetProperty("ticketNumber").GetString());
+        Assert.Equal("P1-007", ticket.GetProperty("displayNumber").GetString());
+        Assert.Equal(1, catalog.RoomReads);
     }
 
     [Fact]
@@ -71,6 +78,8 @@ public sealed class RoomQueueEndpointTests
         Authorize(client, app.Configuration, Roles.RoomAccount, Channels.Staff, room: reader.RoomId);
         using var ownRoom = await client.GetAsync(route, ct);
         Assert.Equal(HttpStatusCode.OK, ownRoom.StatusCode);
+        using (var queueJson = JsonDocument.Parse(await ownRoom.Content.ReadAsStringAsync(ct)))
+            Assert.Equal("P1-R007", queueJson.RootElement.GetProperty("items")[0].GetProperty("displayNumber").GetString());
         using var otherRoom = await client.GetAsync($"/api/scheduling/staff/rooms/{Guid.NewGuid()}/queue", ct);
         Assert.Equal(HttpStatusCode.Forbidden, otherRoom.StatusCode);
         Authorize(client, app.Configuration, Roles.RoomAccount, Channels.Staff);
@@ -165,7 +174,8 @@ public sealed class RoomQueueEndpointTests
         public Guid DoctorId { get; } = Guid.NewGuid();
         public Task<RoomQueuePage?> GetStaffAsync(Guid roomId, Guid? doctorId, int page, int pageSize, CancellationToken ct) =>
             Task.FromResult<RoomQueuePage?>(doctorId is not null && (doctorId != DoctorId || roomId != RoomId)
-                ? null : new(new(2026, 11, 17), page, pageSize, false, []));
+                ? null : new(new(2026, 11, 17), page, pageSize, false,
+                    [new(Guid.NewGuid(), "original-ticket", 7, "ReturnConsultation", "Waiting", null, null)]));
         public Task<PublicRoomDisplay> GetPublicAsync(Guid roomId, CancellationToken ct) => Task.FromResult(new PublicRoomDisplay([new("Q-007", 7)]));
         public Guid OtherRoomId { get; } = Guid.NewGuid();
         public Task<IReadOnlyList<Guid>> GetTodayRoomIdsAsync(Guid? doctorId, CancellationToken ct) =>
@@ -178,10 +188,17 @@ public sealed class RoomQueueEndpointTests
     public class NurseDirectory : DispatchProxy
     {
         public Guid RoomId { get; set; }
+        public int RoomReads { get; private set; }
+        private Task<IReadOnlyList<RoomDto>> Rooms()
+        {
+            RoomReads++;
+            return Task.FromResult<IReadOnlyList<RoomDto>>([new(RoomId, "P1", "Phòng 1", "Consultation", true)]);
+        }
         protected override object? Invoke(MethodInfo? method, object?[]? args) => method!.Name switch
         {
             nameof(IIdentityPatientsModule.IsNurseOnDutyAsync) => Task.FromResult((Guid)args![1]! == RoomId),
-            nameof(IIdentityPatientsModule.GetRoomsAsync) => Task.FromResult<IReadOnlyList<RoomDto>>([new(RoomId, "P1", "Phòng 1", "Consultation", true)]),
+            nameof(IIdentityPatientsModule.GetRoomsAsync) => Rooms(),
+            nameof(IIdentityPatientsModule.GetRoomAsync) => Task.FromResult<RoomDto?>(new(RoomId, "P1", "Phòng 1", "Consultation", true)),
             _ => throw new NotSupportedException(),
         };
     }

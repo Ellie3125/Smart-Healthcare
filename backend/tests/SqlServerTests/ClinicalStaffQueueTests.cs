@@ -62,6 +62,7 @@ public sealed class ClinicalStaffQueueTests
             Assert.Equal(f.EncounterId, row.GetProperty("encounterId").GetGuid());
             Assert.Equal(ticketId, row.GetProperty("queueTicketId").GetGuid());
             Assert.Equal("Waiting", row.GetProperty("status").GetString());
+            Assert.Equal(encounter.OriginalRoomId + "-001", row.GetProperty("displayNumber").GetString());
         }
         finally
         {

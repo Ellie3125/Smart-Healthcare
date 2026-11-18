@@ -153,7 +153,7 @@ public sealed partial class SchedulingHoldTests
         protected override object? Invoke(System.Reflection.MethodInfo? method, object?[]? args) => method?.Name switch
         {
             nameof(IIdentityPatientsModule.GetRoomAsync) => Task.FromResult<RoomDto?>(new((Guid)args![0]!, "TEST", "Test", "Clinical", RoomActive)),
-            nameof(IIdentityPatientsModule.GetDoctorAsync) => Task.FromResult<DoctorDto?>(new((Guid)args![0]!, "Test", Guid.NewGuid(), "Test", Guid.NewGuid(), "Test", DoctorActive)),
+            nameof(IIdentityPatientsModule.GetDoctorAsync) => Task.FromResult<DoctorDto?>(new((Guid)args![0]!, "Test", AttendanceSpecialtyId, "Test", Guid.NewGuid(), "Test", DoctorActive)),
             _ => base.Invoke(method, args)
         };
     }

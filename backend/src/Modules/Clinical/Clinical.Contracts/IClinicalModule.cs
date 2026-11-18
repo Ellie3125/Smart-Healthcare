@@ -6,6 +6,10 @@ namespace Clinical.Contracts;
 /// </summary>
 public interface IClinicalModule
 {
+    /// <summary>Read-only diagnoses of the current Published clinical record, in diagnosis time/ID order; Draft or missing record returns empty.</summary>
+    Task<IReadOnlyList<EncounterDiagnosisDto>> GetPublishedDiagnosesAsync(Guid encounterId, CancellationToken ct = default) =>
+        throw new NotSupportedException();
+
     /// <summary>Read-only encounter check-ins grouped in GMT+7; caller validates UTC interval [from,until), at most31 days.</summary>
     Task<IReadOnlyList<ClinicalDailyReport>> GetDailyReportAsync(DateTime fromUtc, DateTime untilUtc, CancellationToken ct = default) =>
         throw new NotSupportedException();

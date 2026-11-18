@@ -45,6 +45,8 @@ internal static class CheckInTestServices
     public class UnusedContract : DispatchProxy
     {
         protected override object? Invoke(MethodInfo? targetMethod, object?[]? args) =>
-            throw new NotSupportedException($"Contract không được gọi trong test này: {targetMethod?.Name}");
+            targetMethod?.Name == nameof(IIdentityPatientsModule.GetRoomsAsync)
+                ? Task.FromResult<IReadOnlyList<RoomDto>>([])
+                : throw new NotSupportedException($"Contract không được gọi trong test này: {targetMethod?.Name}");
     }
 }

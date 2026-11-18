@@ -12,6 +12,16 @@ public sealed class ClinicalModule(
     Func<Results.ClsLifecycleService>? clsLifecycle = null,
     Func<Encounters.EncounterProgressService>? encounterProgress = null, Reports.IClinicalReportReader? reports = null) : IClinicalModule
 {
+    public async Task<IReadOnlyList<EncounterDiagnosisDto>> GetPublishedDiagnosesAsync(Guid encounterId, CancellationToken ct = default)
+    {
+        if (encounterId == Guid.Empty)
+            throw new ClinicalException(ClinicalErrorCode.InvalidRequest, "EncounterId không được rỗng.");
+        var record = await encounterStore.GetRecordByEncounterIdAsync(encounterId, ct);
+        if (record is not { Status: EncounterClinicalRecordStatus.Published }) return [];
+        return (await encounterStore.GetDiagnosesByEncounterIdAsync(encounterId, ct))
+            .OrderBy(d => d.DiagnosedAtUtc).ThenBy(d => d.Id).Select(ClinicalMappers.ToDto).ToArray();
+    }
+
     public Task<IReadOnlyList<ClinicalDailyReport>> GetDailyReportAsync(DateTime fromUtc, DateTime untilUtc, CancellationToken ct = default) =>
         (reports ?? throw new NotSupportedException()).ReadAsync(fromUtc, untilUtc, ct);
 

@@ -136,9 +136,9 @@ export const TodayJourneyPage: React.FC = () => {
                 </div>
               </div>
               <div className="flex items-center gap-2">
-                {step.queueNumber ? (
+                {step.displayNumber || step.queueNumber ? (
                   <span className="rounded-xl bg-surface-container-lowest px-3 py-1 text-xs font-bold tabular-nums text-primary shadow-sm">
-                    Số {step.queueNumber}
+                    Số {step.displayNumber || step.queueNumber}
                   </span>
                 ) : null}
                 <StatusPill status={step.status} />
