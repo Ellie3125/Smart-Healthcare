@@ -91,6 +91,8 @@ public sealed partial class SchedulingHoldTests
             Assert.Equal(second.QueueTicketId, called.Ticket!.QueueTicketId);
             Assert.Equal(1, await CountAsync($"SELECT COUNT(*) FROM scheduling.QueueTicket WHERE Id = '{first.QueueTicketId}' AND QueueStatus = 'Waiting' AND SequenceNumber = 1"));
 
+            // Khám xong vé của bác sĩ cần bệnh án đã phát hành (kết thúc lượt khám).
+            await ExecAsync($"UPDATE clinical.EncounterClinicalRecord SET Status = 'Published' WHERE EncounterId IN ('{first.EncounterId}', '{second.EncounterId}')");
             // Phòng CLS khám xong → bệnh nhân rảnh; phòng khám xong lượt hiện tại rồi gọi tiếp ra đúng vé số 1.
             foreach (var (ticket, room) in new[] { (cls, otherRoom), (second.QueueTicketId, day.AssignedRoomId) })
             {
@@ -233,6 +235,33 @@ public sealed partial class SchedulingHoldTests
         await using var scope = services.CreateAsyncScope();
         return await Uow(scope).ExecuteAsync(t =>
             scope.ServiceProvider.GetRequiredService<ISchedulingModule>().CreateClsTicketsAsync(order, t), Ct);
+    }
+
+    [Fact]
+    public async Task Doctor_finishing_last_ticket_completes_encounter_only_after_record_is_published()
+    {
+        var clock = new BoundaryDbClock(AtIct(8, 0));
+        await using var services = QueueServices(clock);
+        var day = await SeedBoundaryDayAsync(services, clock);
+        try
+        {
+            var visit = await CheckInAsync(services, (await BookedAsync(services, day)).AppointmentId);
+            Assert.Equal(visit.QueueTicketId, (await CallNextAsync(services, day, null)).Ticket!.QueueTicketId);
+            Assert.Equal(QueueResult.Called, (await TransitionAsync(services, visit.QueueTicketId, day.AssignedRoomId, TicketTransition.Start)).Result);
+
+            // Chưa phát hành bệnh án: từ chối, vé giữ InProgress, lượt khám còn mở.
+            var error = await Assert.ThrowsAsync<Clinical.Contracts.ClinicalException>(() =>
+                TransitionAsync(services, visit.QueueTicketId, day.AssignedRoomId, TicketTransition.Finish));
+            Assert.Equal(Clinical.Contracts.ClinicalErrorCode.RecordNotPublished, error.Code);
+            Assert.Equal(1, await CountAsync($"SELECT COUNT(*) FROM scheduling.QueueTicket WHERE Id = '{visit.QueueTicketId}' AND QueueStatus = 'InProgress'"));
+            Assert.Equal(1, await CountAsync($"SELECT COUNT(*) FROM clinical.Encounter WHERE Id = '{visit.EncounterId}' AND Status = 'InProgress'"));
+
+            await ExecAsync($"UPDATE clinical.EncounterClinicalRecord SET Status = 'Published' WHERE EncounterId = '{visit.EncounterId}'");
+            Assert.Equal(QueueResult.Called, (await TransitionAsync(services, visit.QueueTicketId, day.AssignedRoomId, TicketTransition.Finish)).Result);
+            Assert.Equal(1, await CountAsync($"SELECT COUNT(*) FROM clinical.Encounter WHERE Id = '{visit.EncounterId}' AND Status = 'Completed' AND CompletedAtUtc IS NOT NULL"));
+            Assert.Equal(1, await CountAsync($"SELECT COUNT(*) FROM shared.AuditLog WHERE RecordId = '{visit.EncounterId}' AND TableName = 'clinical.Encounter'"));
+        }
+        finally { await CleanupQueueAsync(day); }
     }
 
     private static Task<QueueOutcome> CallNextAsync(ServiceProvider services, DoctorDayQuota day, Guid? station) =>

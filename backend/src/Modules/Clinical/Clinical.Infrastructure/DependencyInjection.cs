@@ -29,7 +29,10 @@ public static class DependencyInjection
         services.AddScoped(sp => ActivatorUtilities.CreateInstance<Clinical.Application.Results.ClsLifecycleService>(sp));
         services.AddScoped<IClinicalModule>(sp => new ClinicalModule(sp.GetRequiredService<IEncounterStore>(),
             sp.GetRequiredService<IServiceOrderStore>(), sp.GetRequiredService<IPrescriptionStore>(), sp.GetRequiredService<TimeProvider>(),
-            () => sp.GetRequiredService<Clinical.Application.Results.ClsLifecycleService>()));
+            () => sp.GetRequiredService<Clinical.Application.Results.ClsLifecycleService>(),
+            () => sp.GetRequiredService<Clinical.Application.Encounters.EncounterProgressService>()));
+        services.AddScoped<Clinical.Application.Encounters.IEncounterProgressStore, EfEncounterProgressStore>();
+        services.AddScoped(sp => ActivatorUtilities.CreateInstance<Clinical.Application.Encounters.EncounterProgressService>(sp));
 
         return services;
     }

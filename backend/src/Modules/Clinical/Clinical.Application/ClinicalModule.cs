@@ -9,8 +9,13 @@ public sealed class ClinicalModule(
     IServiceOrderStore serviceOrderStore,
     IPrescriptionStore prescriptionStore,
     TimeProvider clock,
-    Func<Results.ClsLifecycleService>? clsLifecycle = null) : IClinicalModule
+    Func<Results.ClsLifecycleService>? clsLifecycle = null,
+    Func<Encounters.EncounterProgressService>? encounterProgress = null) : IClinicalModule
 {
+    public Task StartReturnVisitAsync(Guid encounterId, Guid performedByUserId, CancellationToken ct) =>
+        (encounterProgress ?? throw new NotSupportedException("Host chưa đăng ký tiến trình lượt khám."))().StartReturnVisitAsync(encounterId, performedByUserId, ct);
+    public Task FinishConsultationAsync(Guid encounterId, Guid performedByUserId, CancellationToken ct) =>
+        (encounterProgress ?? throw new NotSupportedException("Host chưa đăng ký tiến trình lượt khám."))().FinishConsultationAsync(encounterId, performedByUserId, ct);
     public Task StartClsServiceAsync(ClsServiceCommand command, CancellationToken ct) =>
         (clsLifecycle ?? throw new NotSupportedException("Host chưa đăng ký Clinical CLS lifecycle."))().TransitionAsync(command, true, ct);
     public Task FinishClsServiceAsync(ClsServiceCommand command, CancellationToken ct) =>
