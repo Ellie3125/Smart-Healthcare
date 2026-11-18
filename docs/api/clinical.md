@@ -257,3 +257,15 @@ Chưa map lệnh hủy hoặc giả ghi Cancelled. IBillingModule chưa có hàm
 Web `orderClsServices` dùng đúng POST route và body serviceIds/Idempotency-Key. Response là order+tickets, cần reload workspace; không phải DoctorEncounterWorkspaceDto. Route GET `/api/clinical/staff/doctor/cls-services` chưa thuộc việc này; danh mục thuộc Scheduling. Các API draft/publish/amend là PR độc lập; UI/E2E chưa kiểm chứng.
 
 Scheduling công bố IClsServiceDirectory.GetAsync(IReadOnlyList<Guid>, ct) trả OrderableClsService(Id, Name, IsMandatory), 1–50 ID distinct nonempty; chỉ trả active, không ghi/không cache schema khác. Cần chủ docs/api/scheduling.md bổ sung mục contract này (lõi riêng), không sửa tài liệu lõi trong PR này.
+
+## 9. Tiến trình lượt khám theo hàng đợi (thêm 18/11/2026, trưởng nhóm chốt)
+
+`IClinicalModule.StartReturnVisitAsync(encounterId, performedByUserId)` và `FinishConsultationAsync(encounterId, performedByUserId)` do Scheduling gọi trong IUnitOfWork của lệnh hàng đợi, sau khi đổi trạng thái vé.
+
+| Lệnh | Quy tắc |
+|---|---|
+| Bác sĩ bắt đầu vé quay lại | `WaitingCLS` → `ReturningDoctor` (bác sĩ đọc kết quả, có thể chỉ định đợt mới); trạng thái khác không đổi |
+| Bác sĩ khám xong vé khám đầu hoặc vé quay lại | `WaitingCLS` (vừa chỉ định CLS) hoặc `Completed`: không đổi. `InProgress`/`ReturningDoctor`: bệnh án phải `Published`, Encounter → `Completed`, `CompletedAtUtc` = giờ DB, AuditLog. Chưa phát hành: `ClinicalException(RecordNotPublished)`, rollback cả vé |
+| Lượt khám `Abandoned` | `EncounterClosed` |
+
+Sau khi Encounter `Completed`, job kết thúc phiên (Scheduling) chuyển lịch hẹn `CheckedIn` sang `Completed` khi không còn vé mở.

@@ -15,6 +15,13 @@ public interface IClinicalModule
     /// Replay ServiceFinished/Completed is a no-op; errors as Start. A caller failure rolls back both Clinical and Scheduling.</summary>
     Task FinishClsServiceAsync(ClsServiceCommand command, CancellationToken ct) => throw new NotSupportedException();
 
+    /// <summary>Scheduling gọi khi bác sĩ bắt đầu vé quay lại, trong cùng IUnitOfWork: WaitingCLS → ReturningDoctor.</summary>
+    Task StartReturnVisitAsync(Guid encounterId, Guid performedByUserId, CancellationToken ct) => throw new NotSupportedException();
+
+    /// <summary>Scheduling gọi khi bác sĩ khám xong vé khám đầu/quay lại, trong cùng IUnitOfWork. Còn chờ CLS thì không đổi;
+    /// ngược lại bệnh án phải đã phát hành (RecordNotPublished), Encounter → Completed.</summary>
+    Task FinishConsultationAsync(Guid encounterId, Guid performedByUserId, CancellationToken ct) => throw new NotSupportedException();
+
     /// <summary>Lấy thông tin chi tiết của một lượt khám theo EncounterId.</summary>
     Task<EncounterDto?> GetEncounterByIdAsync(Guid encounterId, CancellationToken ct);
 

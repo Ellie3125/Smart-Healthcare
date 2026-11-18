@@ -1,6 +1,6 @@
 # Contract module Scheduling
 
-- contract_version: **v0.12** (Draft, chờ trưởng nhóm duyệt; v0.4 Approved 12/11/2026)
+- contract_version: **v0.13** (Draft, chờ trưởng nhóm duyệt; v0.4 Approved 12/11/2026)
 - Trạng thái: **Approved** (H-02, trưởng nhóm duyệt 10/11/2026). Q1 đã chốt 17/11/2026; Q2–Q5 ở §6 vẫn là đề xuất cho tới khi trưởng nhóm chốt từng câu.
 - Người giữ: theo ownership.md mục 1. Task: W1-04.
 - Mã nguồn: `backend/src/Modules/Scheduling/Scheduling.Contracts/` (in-process), `Scheduling.Api/` (HTTP).
@@ -292,6 +292,7 @@ Phản hồi vé: `{ queueTicketId, ticketNumber, sequenceNumber, ticketType, qu
 
 - `start`: `Called` → `InProgress` (`ServedAtUtc`). `finish`: `InProgress` → `Finished` (`CompletedAtUtc`), giải phóng bệnh nhân và station. `requeue` (gọi không có mặt): `Called` → `Waiting`, bỏ station và `CalledAtUtc`, giữ số gốc, giải phóng bệnh nhân và station.
 - Gửi lại khi vé đã ở trạng thái đích: 200 với `alreadyCalled = true`. Lỗi: 403 (sai phòng) · 404 `TicketNotFound` · 409 `InvalidTicketState`.
+- Cùng transaction với Clinical (v0.13, trưởng nhóm chốt 18/11/2026): vé CLS `start`/`finish` gọi `StartClsServiceAsync`/`FinishClsServiceAsync`; vé quay lại `start` gọi `StartReturnVisitAsync` (WaitingCLS → ReturningDoctor); vé khám đầu hoặc vé quay lại `finish` gọi `FinishConsultationAsync`: lượt khám còn chờ CLS thì chỉ xong vé, ngược lại bệnh án phải đã phát hành và Encounter → Completed. Clinical từ chối (ví dụ `RecordNotPublished`) thì rollback cả vé, route trả 409 với `code` của Clinical.
 - `InProgress` mất kết nối chỉ cảnh báo ở UI; không có job tự giải phóng (Giải pháp §6.2). Phòng CLS chỉ bắt đầu khi khoản phí đã xác minh: kiểm ở W3-05, chưa có trong v0.7.
 
 DB (migration `QueueTicketActivationAndSequence`, 17/11/2026): cột `ActivatedAtUtc`, cột tính `QueuedAtUtc`, index phủ `(TargetRoomId, QueuedAtUtc)`, bảng đếm `TicketSequence`. DB (migration `AddQueueTicketUniqueIndexes`): unique `TicketNumber`; unique `ServiceOrderItemId` khi khác null; một vé khám đầu mỗi `EncounterId`; một vé quay lại mỗi `ServiceOrderId`.
@@ -350,3 +351,4 @@ Chỉ route và mục đích, để UI (W2-09) mock trước. Body, mã lỗi v�
 | v0.10 | 17/11/2026 | §4.1 mở ngày trực: `roomId` tùy chọn, thiếu thì lấy phòng theo ca trực; thêm 400 `RoomRequired` |
 | v0.11 | 18/11/2026 | §3 thêm sự kiện `QueueCalled`, `ClsTicketCancelled`; job cuối ngày CLS, kết thúc phiên; `ICoordinationExceptionReader` |
 | v0.12 | 18/11/2026 | §4.7: `cancellation-preview` (bệnh nhân), tiếp tân hủy `POST /staff/appointments/{id}/cancel` (CheckedIn hủy vé chờ, mã `PatientInService`); `GET /staff/doctors` (Q2 chốt); hoàn tiền chỉ tại quầy (Phạm vi v2.13); bỏ route riêng `reschedule-options`, `ticket` |
+| v0.13 | 18/11/2026 | §4.8: vé của bác sĩ/phòng CLS nối tiến trình Clinical cùng transaction; khám xong vé cuối kết thúc lượt khám (cần bệnh án đã phát hành, 409 `RecordNotPublished`) |

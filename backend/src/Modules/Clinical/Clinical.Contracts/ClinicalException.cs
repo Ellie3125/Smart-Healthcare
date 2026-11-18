@@ -63,6 +63,9 @@ public enum ClinicalErrorCode
     ConcurrencyConflict,
     Forbidden,
     EncounterClosed,
+
+    /// <summary>Bác sĩ khám xong vé cuối nhưng bệnh án chưa phát hành: chưa kết thúc được lượt khám.</summary>
+    RecordNotPublished,
 }
 
 /// <summary>Lỗi nghiệp vụ Clinical trả cho client hoặc các module gọi khác.</summary>

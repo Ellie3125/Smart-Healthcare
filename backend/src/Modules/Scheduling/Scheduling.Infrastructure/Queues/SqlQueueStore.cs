@@ -179,6 +179,14 @@ internal sealed class SqlQueueStore(SchedulingDbContext db, IDbClock clock, Audi
             var command = new Clinical.Contracts.ClsServiceCommand(itemId, ticket.TargetRoomId, c.PerformedByUserId);
             await (transition == TicketTransition.Start ? lifecycle.StartClsServiceAsync(command, ct) : lifecycle.FinishClsServiceAsync(command, ct));
         }
+        // Vé của bác sĩ: bắt đầu vé quay lại → ReturningDoctor; khám xong vé cuối → kết thúc lượt khám (bệnh án đã phát hành).
+        else if (ticket.TicketType is TicketType.InitialConsultation or TicketType.ReturnConsultation && clinical is not null)
+        {
+            if (transition == TicketTransition.Start && ticket.TicketType == TicketType.ReturnConsultation)
+                await clinical.StartReturnVisitAsync(ticket.EncounterId, c.PerformedByUserId, ct);
+            else if (transition == TicketTransition.Finish)
+                await clinical.FinishConsultationAsync(ticket.EncounterId, c.PerformedByUserId, ct);
+        }
 
         // Khám xong hoặc trả về hàng chờ: giải phóng bệnh nhân và station trên nguồn có thẩm quyền (Giải pháp §6.3).
         if (transition != TicketTransition.Start)
