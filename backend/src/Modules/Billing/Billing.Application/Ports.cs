@@ -11,6 +11,10 @@ public sealed record PriceCandidate(PriceList PriceList, PriceListItem Item);
 /// </summary>
 public interface IPriceCatalog
 {
+    Task<IReadOnlyList<CatalogPriceList>> ListAsync(int skip, int take, CancellationToken ct) => throw new NotSupportedException();
+    Task CreateAsync(PriceList list, IReadOnlyList<PriceListItem> items, Guid actorId, string? clientIp, CancellationToken ct) =>
+        throw new NotSupportedException();
+
     Task<IReadOnlyList<PriceCandidate>> GetConsultationCandidatesAsync(Guid doctorId, Guid doctorRankId, DateTime atUtc, CancellationToken ct);
 
     Task<IReadOnlyList<PriceCandidate>> GetClsCandidatesAsync(IReadOnlyCollection<Guid> medicalServiceIds, DateTime atUtc, CancellationToken ct);
