@@ -121,6 +121,8 @@ public enum ChangeResult
     AppointmentNotFound,
     /// <summary>Trạng thái lịch không cho phép (vai trò này) hủy/đổi.</summary>
     InvalidAppointmentState,
+    /// <summary>Lịch đăng ký tại quầy chỉ hủy/đổi qua tiếp tân.</summary>
+    CounterAppointmentRequiresReception,
     /// <summary>Tiếp tân hủy lịch đã check in mà không có lý do.</summary>
     ReasonRequired,
     /// <summary>Lịch đã check in nhưng bệnh nhân đã vào khám hoặc có vé CLS/quay lại đang mở: không hủy được.</summary>
