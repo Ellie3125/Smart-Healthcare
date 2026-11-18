@@ -138,6 +138,8 @@ class TurnResponse(_Camel):
     suggestions: list[Suggestion] = []
     proposal: dict | None = None
     options: list[TurnOption] = []
+    # Dấu hiệu cấp cứu (BOT-12): web hiện nút gọi 115, không hiện nút đặt lịch. .NET bỏ intent nhưng giữ trường này.
+    emergency: bool = False
     # Dữ kiện có nhãn trường cho model (agent) đọc khi công cụ trả về; không có Id, không gửi ra API.
     facts: list[str] = Field(default_factory=list, exclude=True)
 

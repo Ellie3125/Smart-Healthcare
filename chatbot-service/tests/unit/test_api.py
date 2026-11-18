@@ -117,6 +117,7 @@ def test_shortcut_answers_even_when_model_is_down(tmp_path, ids):
         emergency = client.post("/v1/turns", json=turn_body(*ids, text="khó thở quá"), headers=HEADERS)
         free = client.post("/v1/turns", json=turn_body(*ids, text="bác sĩ Nam chiều nay khám không"), headers=HEADERS)
     assert emergency.status_code == 200 and emergency.json()["intent"] == "EMERGENCY"
+    assert emergency.json()["emergency"] is True
     assert (free.status_code, free.json()["code"]) == (503, "ChatbotUnavailable")
 
 

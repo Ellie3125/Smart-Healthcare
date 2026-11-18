@@ -8,38 +8,55 @@ export interface PatientNotificationItem {
   targetPath?: string;
 }
 
-export interface ChatHealthStatus {
+/** Contract docs/api/chatbot.md §3 (API chat của .NET, E4). */
+export interface ChatStatus {
   available: boolean;
-  message?: string;
 }
 
-export interface ChatProposalCard {
-  proposalId: string;
-  doctorId: string;
-  doctorName: string;
-  specialtyName: string;
-  serviceDate: string;
-  consultationFee: number;
-  remainingSlots: number;
-  status: 'Proposed' | 'Confirmed' | 'Declined' | 'Expired';
+export interface ChatConversation {
+  conversationId: string;
+  patientId: string;
+  available: boolean;
 }
 
-export interface ChatMessageDto {
+/** Mã nút gợi ý (contract §6.2); nhãn hiển thị do web giữ. */
+export type ChatSuggestionCode =
+  | 'SEARCH_SLOTS'
+  | 'VIEW_APPOINTMENTS'
+  | 'VIEW_TICKET'
+  | 'VIEW_EXAM_PAYMENT'
+  | 'RESCHEDULE'
+  | 'CANCEL'
+  | 'SUGGEST_SPECIALTY';
+
+/** Lựa chọn bấm được: bác sĩ (đặt lịch), lịch hẹn, chuyên khoa. Số suất trong nhãn chỉ để tham khảo. */
+export interface ChatOption {
+  kind: 'Doctor' | 'Appointment' | 'Specialty';
+  label: string;
+  specialtyCode?: string | null;
+  doctorId?: string | null;
+  serviceDate?: string | null;
+  appointmentId?: string | null;
+}
+
+export interface ChatTurnReply {
+  reply: string;
+  suggestions: ChatSuggestionCode[];
+  /** Đề nghị chờ xác nhận (contract §4, chờ H-06); hiện chatbot chưa tạo. */
+  proposal: unknown | null;
+  options: ChatOption[];
+  /** Câu có dấu hiệu cấp cứu (chatbot gắn khi intent EMERGENCY): hiện nút gọi 115, không hiện nút đặt lịch. */
+  emergency?: boolean;
+}
+
+/** Tin nhắn hiển thị trên khung chat (chỉ giữ trong trình duyệt). */
+export interface ChatMessage {
   id: string;
   role: 'user' | 'assistant';
   content: string;
-  createdAt: string;
-  isRedFlagEmergency?: boolean;
-  emergencyPhone?: string;
-  suggestedSpecialty?: string;
-  disclaimer?: string;
-  proposal?: ChatProposalCard;
-}
-
-export interface ChatSessionResponse {
-  sessionId: string;
-  quickSuggestions: string[];
-  messages: ChatMessageDto[];
+  options?: ChatOption[];
+  suggestions?: ChatSuggestionCode[];
+  emergency?: boolean;
 }
 
 export interface DisplayQueueCard {
