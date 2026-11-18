@@ -7,6 +7,7 @@ using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Routing;
 using Microsoft.Extensions.Logging;
+using System.Text.Json;
 
 namespace Billing.Api;
 
@@ -31,6 +32,8 @@ internal static class StaffCashierEndpoints
         cashier.MapGet("/shift-summary", SummaryAsync)
             .WithSummary("Tổng tiền mặt tiếp tân đã thu hôm nay (giờ Việt Nam) và danh sách phiếu thu để đối chiếu (Receptionist).")
             .Produces<CashierShiftSummary>();
+        cashier.MapPost("/close-shift", CloseShiftAsync).Produces<CashierShiftSummary>()
+            .ProducesProblem(400).ProducesProblem(409).Produces(401).Produces(403);
 
         // Bệnh nhân mang bill đến quầy khi giao dịch online không được ghi nhận (Giải pháp kỹ thuật v2.13 mục 5.5).
         billing.MapPost("/staff/payments/querydr", QueryDrAsync)
@@ -93,6 +96,10 @@ internal static class StaffCashierEndpoints
                 _ => Problem(StatusCodes.Status404NotFound, "ClsBatchNotFound", "Không tìm thấy đợt chỉ định."),
             };
         }
+        catch (BillingException ex) when (ex.Code is BillingErrorCode.CashierShiftClosed or BillingErrorCode.CashierShiftDateChanged)
+        {
+            return Problem(409, ex.Code.ToString(), "Ngày thu ngân đã chốt hoặc đã đổi.");
+        }
         catch (BillingException ex) when (ex.Code is BillingErrorCode.ChargeNotPayable)
         {
             logs.CreateLogger("Billing.Cashier").LogWarning("Không thu được tiền mặt cho đợt CLS {ServiceOrderId}: {Message}",
@@ -102,13 +109,31 @@ internal static class StaffCashierEndpoints
     }
 
     private static async Task<IResult> SummaryAsync(ClaimsPrincipal user, HttpResponse response,
-        [FromServices] CashierService cashier, CancellationToken ct)
+        [FromServices] CashierShiftService cashier, CancellationToken ct)
     {
         if (!TryGetUserId(user, out var staffUserId))
             return TypedResults.Unauthorized();
 
         response.Headers.CacheControl = "no-store";
-        return TypedResults.Ok(await cashier.GetTodaySummaryAsync(staffUserId, ct));
+        return TypedResults.Ok(await cashier.ReadAsync(staffUserId, ct));
+    }
+
+    private static async Task<IResult> CloseShiftAsync(HttpRequest request, ClaimsPrincipal user,
+        [FromServices] CashierShiftService service, CancellationToken ct)
+    {
+        if (!TryGetUserId(user, out var actor)) return TypedResults.Unauthorized();
+        if (!request.HasJsonContentType()) return Problem(415, "UnsupportedMediaType", "Yêu cầu phải là JSON.");
+        if (!request.Headers.TryGetValue("Idempotency-Key", out var keys) || keys.Count != 1)
+            return Problem(400, "InvalidInput", "Thiếu khóa idempotency.");
+        CloseCashierShift? body;
+        try { body = await request.ReadFromJsonAsync<CloseCashierShift>(ct); }
+        catch (JsonException) { return Problem(400, "InvalidInput", "Yêu cầu không hợp lệ."); }
+        catch (BadHttpRequestException) { return Problem(400, "InvalidInput", "Yêu cầu không hợp lệ."); }
+        if (body is null) return Problem(400, "InvalidInput", "Yêu cầu không hợp lệ.");
+        try { return TypedResults.Ok(await service.CloseAsync(actor, body, keys[0] ?? "", request.HttpContext.Connection.RemoteIpAddress?.ToString(), ct)); }
+        catch (CashierShiftException e) { return Problem(e.Error == CashierShiftError.InvalidInput ? 400 : 409, e.Error.ToString(), "Không thể chốt ngày thu ngân."); }
+        catch (BillingException e) when (e.Code is BillingErrorCode.CashierShiftClosed or BillingErrorCode.CashierShiftDateChanged)
+        { return Problem(409, e.Code.ToString(), "Ngày thu ngân đã chốt hoặc đã đổi."); }
     }
 
     private static bool TryGetUserId(ClaimsPrincipal user, out Guid id) =>

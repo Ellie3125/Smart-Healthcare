@@ -8,6 +8,9 @@ namespace Billing.Infrastructure.Persistence;
 
 internal sealed class EfRefundStore(BillingDbContext db, SharedDbContext shared, TimeProvider clock) : IRefundStore
 {
+    public Task EnsureCashierShiftOpenAsync(Guid cashierUserId, DateOnly date, CancellationToken ct) =>
+        CashierShiftGuard.EnsureOpenAsync(db, cashierUserId, date, ct);
+
     public async Task<IReadOnlyList<RefundablePayment>> GetPaidAllocationsAsync(IReadOnlyCollection<Guid> chargeIds, CancellationToken ct)
     {
         if (chargeIds.Count == 0)
@@ -58,7 +61,7 @@ internal sealed class EfRefundStore(BillingDbContext db, SharedDbContext shared,
     public void Add(RefundTransaction transaction) => db.Add(transaction);
 
     public Task WriteAuditAsync(BillingAuditEntry entry, CancellationToken ct) =>
-        BillingAuditWriter.WriteAsync(db, shared, entry, clock.GetUtcNow().UtcDateTime, ct);
+        BillingAuditWriter.WriteAsync(db, shared, entry, entry.TimestampUtc ?? clock.GetUtcNow().UtcDateTime, ct);
 
     // Lọc và sắp trước khi chiếu sang RefundView: EF không dịch được truy cập thuộc tính của record đã chiếu. Mới nhất trước.
     private IQueryable<RefundView> Views(RefundRequestStatus? status, Guid? patientId, Guid? refundRequestId) =>

@@ -47,11 +47,13 @@ public sealed record BillingAuditEntry(
     string ChangedColumns,
     string NewValuesJson,
     string ChangeReason,
-    string? ClientIp);
+    string? ClientIp,
+    DateTime? TimestampUtc = null);
 
 /// <summary>Lưu và đọc yêu cầu hoàn (billing.RefundRequest, billing.RefundTransaction). Lệnh ghi chạy trong <see cref="IPaymentStore.InTransactionAsync{T}"/>.</summary>
 public interface IRefundStore
 {
+    Task EnsureCashierShiftOpenAsync(Guid cashierUserId, DateOnly date, CancellationToken ct) => throw new NotSupportedException();
     /// <summary>Phân bổ của các giao dịch thu Success vào <paramref name="chargeIds"/> (không khóa).</summary>
     Task<IReadOnlyList<RefundablePayment>> GetPaidAllocationsAsync(IReadOnlyCollection<Guid> chargeIds, CancellationToken ct);
 
@@ -104,7 +106,7 @@ public sealed record CashRefundSlip(
 /// Không phụ thuộc Identity: Worker (handler PaymentVerified, AppointmentCancelled) không nạp module Identity; endpoint bệnh nhân
 /// tự kiểm quyền đại diện hồ sơ trước khi lọc theo PatientId.
 /// </summary>
-public sealed class RefundService(IPaymentStore store, IRefundStore refunds, IChargeStore charges, TimeProvider clock) : IPaymentRefunds
+public sealed class RefundService(IPaymentStore store, IRefundStore refunds, IChargeStore charges, TimeProvider clock, IDbClock? dbClock = null) : IPaymentRefunds
 {
     public const int ListLimit = 200;
     public const int NoteMaxLength = 500;
@@ -198,6 +200,12 @@ public sealed class RefundService(IPaymentStore store, IRefundStore refunds, ICh
 
         var (outcome, slip) = await store.InTransactionAsync(async token =>
         {
+            var now = dbClock is null ? clock.GetUtcNow().UtcDateTime : await dbClock.GetUtcNowAsync(token);
+            var date = DateOnly.FromDateTime(now.AddHours(7));
+            await refunds.EnsureCashierShiftOpenAsync(staffUserId, date, token);
+            now = dbClock is null ? clock.GetUtcNow().UtcDateTime : await dbClock.GetUtcNowAsync(token);
+            if (DateOnly.FromDateTime(now.AddHours(7)) != date)
+                throw new BillingException(BillingErrorCode.CashierShiftDateChanged, "Ngày thu ngân đã đổi; vui lòng gửi lại.");
             var request = await refunds.LockRequestAsync(refundRequestId, token);
             if (request is null)
                 return ((RefundChangeOutcome.NotFound, (string?)null), (CashRefundSlip?)null);
@@ -205,7 +213,6 @@ public sealed class RefundService(IPaymentStore store, IRefundStore refunds, ICh
                 return ((RefundChangeOutcome.InvalidState, request.Status.ToString()), null);
 
             var charge = (await store.LockChargesAsync([request.BillingItemId], token)).Single();
-            var now = clock.GetUtcNow().UtcDateTime;
             var slipNumber = $"PH{now + TimeSpan.FromHours(7):yyyyMMdd}{Guid.NewGuid():N}"[..22].ToUpperInvariant();
             var transaction = new RefundTransaction
             {
@@ -235,7 +242,7 @@ public sealed class RefundService(IPaymentStore store, IRefundStore refunds, ICh
                     chargeId = request.BillingItemId,
                     patientId,
                 }),
-                "Hoàn tiền mặt tại quầy", clientIp), token);
+                "Hoàn tiền mặt tại quầy", clientIp, now), token);
             return ((RefundChangeOutcome.Done, (string?)null),
                 new CashRefundSlip(slipNumber, request.Id, patientId, request.RequestedAmount, BillingCurrency.Vnd, now));
         }, ct);

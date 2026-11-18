@@ -28,11 +28,17 @@ public sealed record CounterReceipt(
 /// <summary>Ghi vết và đọc phiếu thu tiền mặt tại quầy.</summary>
 public interface ICashierStore
 {
+    Task<CashierShiftClosure?> FindClosureAsync(Guid cashierUserId, DateOnly date, CancellationToken ct) => throw new NotSupportedException();
+    Task<CashierShiftClosure?> LockClosureAsync(Guid cashierUserId, DateOnly date, CancellationToken ct) => throw new NotSupportedException();
+    Task EnsureShiftOpenAsync(Guid cashierUserId, DateOnly date, CancellationToken ct) => throw new NotSupportedException();
+    Task SaveClosureAsync(CashierShiftClosure closure, string? clientIp, CancellationToken ct) => throw new NotSupportedException();
+
     /// <summary>
     /// Ghi shared.AuditLog cho phiếu thu trong cùng transaction với thay đổi của Billing (Giải pháp kỹ thuật v2.13 mục 5.5).
     /// Gọi bên trong <see cref="IPaymentStore.InTransactionAsync{T}"/>.
     /// </summary>
-    Task WriteCollectionAuditAsync(Guid staffUserId, Guid paymentTransactionId, string newValuesJson, string? clientIp, CancellationToken ct);
+    Task WriteCollectionAuditAsync(Guid staffUserId, Guid paymentTransactionId, string newValuesJson, string? clientIp, CancellationToken ct,
+        DateTime? timestampUtc = null);
 
     /// <summary>Phiếu thu tiền mặt đã ghi nhận do <paramref name="staffUserId"/> thu trong [fromUtc, toUtc), theo thời điểm thu.</summary>
     Task<IReadOnlyList<CounterReceipt>> GetReceiptsAsync(Guid staffUserId, DateTime fromUtc, DateTime toUtc, CancellationToken ct);

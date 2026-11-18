@@ -31,6 +31,8 @@ public enum BillingErrorCode
 
     /// <summary>Kết quả gửi về không có chữ ký hợp lệ của cổng (sai khóa, sửa nội dung, quá hạn); không ghi nhận gì.</summary>
     InvalidSignature,
+    CashierShiftClosed,
+    CashierShiftDateChanged,
 }
 
 /// <summary>Lỗi nghiệp vụ Billing trả cho module gọi. Không retry: dữ liệu hoặc cấu hình phải được sửa trước (DB-12).</summary>
