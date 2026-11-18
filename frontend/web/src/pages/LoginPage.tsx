@@ -10,7 +10,6 @@ export const LoginPage: React.FC = () => {
 
   const [identity, setIdentity] = useState('');
   const [password, setPassword] = useState('');
-  const [deviceIdInput, setDeviceIdInput] = useState(() => localStorage.getItem('shc_custom_device_id') || '');
   const [remember, setRemember] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
@@ -18,12 +17,6 @@ export const LoginPage: React.FC = () => {
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   const resolveDeviceId = () => {
-    const custom = deviceIdInput.trim();
-    if (custom) {
-      localStorage.setItem('shc_custom_device_id', custom);
-      return custom;
-    }
-    localStorage.removeItem('shc_custom_device_id');
     const storedBrowserId = localStorage.getItem('shc_browser_device_id');
     if (storedBrowserId) return storedBrowserId;
     const randomPart =
@@ -401,29 +394,8 @@ export const LoginPage: React.FC = () => {
                     </div>
                   </div>
 
-                  {/* Device ID (for RoomAccount session tracking) */}
-                  <div>
-                    <label className="block font-label-md text-label-md font-medium text-on-surface mb-1.5" htmlFor="deviceId">
-                      Mã thiết bị / Máy trạm <span className="text-xs font-normal text-on-surface-variant">(dành cho Phòng CLS)</span>
-                    </label>
-                    <div className="relative">
-                      <span className="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-primary text-[20px] pointer-events-none w-5 h-5 flex items-center justify-center overflow-hidden shrink-0 select-none">
-                        computer
-                      </span>
-                      <input
-                        className="w-full h-[42px] pl-11 pr-3 rounded-xl border border-transparent bg-surface-container-low/70 text-on-surface font-body-md text-body-md placeholder:text-on-surface-variant/60 focus:outline-none focus:border-primary focus:bg-white focus:ring-2 focus:ring-primary/15 transition-all duration-150"
-                        id="deviceId"
-                        name="deviceId"
-                        value={deviceIdInput}
-                        onChange={(e) => setDeviceIdInput(e.target.value)}
-                        placeholder="Để trống để tự gán theo trình duyệt (VD: XQ01-PC01)"
-                        type="text"
-                      />
-                    </div>
-                  </div>
-
                   {/* Remember me checkbox */}
-                  <div className="flex items-center justify-between pt-1">
+                  <div className="flex items-center pt-1">
                     <label className="flex items-center gap-2 cursor-pointer select-none">
                       <input
                         className="w-4 h-4 rounded border-outline-variant text-primary focus:ring-primary focus:ring-offset-0 cursor-pointer accent-[#006a41]"
@@ -435,7 +407,6 @@ export const LoginPage: React.FC = () => {
                       />
                       <span className="font-body-md text-body-md text-on-surface">Ghi nhớ đăng nhập</span>
                     </label>
-                    <span className="font-label-sm text-label-sm text-on-surface-variant">Kênh: Nhân viên (Staff)</span>
                   </div>
 
                   {/* Primary CTA Button */}
@@ -456,19 +427,6 @@ export const LoginPage: React.FC = () => {
                     </button>
                   </div>
                 </form>
-
-                {/* Patient Portal Link */}
-                <div className="mt-6 text-center">
-                  <p className="font-body-md text-body-md text-on-surface-variant">
-                    Bạn là bệnh nhân hoặc người đại diện?{' '}
-                    <a
-                      className="font-semibold text-primary hover:underline focus:outline-none focus:ring-1 focus:ring-primary rounded ml-1"
-                      href={import.meta.env.VITE_PATIENT_PORTAL_URL || 'http://localhost:3000'}
-                    >
-                      Chuyển sang Cổng bệnh nhân
-                    </a>
-                  </p>
-                </div>
 
                 {/* Footer Assistance */}
                 <div className="mt-8 pt-5 border-t border-outline-variant/25 flex flex-col sm:flex-row items-center justify-between gap-3 text-center sm:text-left">

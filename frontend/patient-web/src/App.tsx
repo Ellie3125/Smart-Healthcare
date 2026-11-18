@@ -98,7 +98,7 @@ export const App: React.FC = () => {
 
       <Route
         path="/"
-        element={<Navigate to={isAuthenticated ? '/profiles' : '/login'} replace />}
+        element={<Navigate to={isAuthenticated ? '/booking' : '/login'} replace />}
       />
       <Route
         path="*"

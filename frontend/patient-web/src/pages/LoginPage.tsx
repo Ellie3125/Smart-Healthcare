@@ -15,7 +15,7 @@ export const LoginPage: React.FC = () => {
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  const from = (location.state as { from?: { pathname: string } })?.from?.pathname || '/profiles';
+  const from = (location.state as { from?: { pathname: string } })?.from?.pathname || '/booking';
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
