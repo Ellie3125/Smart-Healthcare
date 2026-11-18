@@ -6,7 +6,6 @@ import {
   Banner,
   Button,
   Card,
-  DatePicker,
   FormField,
   Input,
   MoneyText,
@@ -21,10 +20,9 @@ import { extractFriendlyError } from '../../shared/lib/errors';
 export const WalkInRegisterPage: React.FC = () => {
   const { pushToast } = useToast();
   const [step, setStep] = useState(0);
-  const [fullName, setFullName] = useState('');
-  const [phone, setPhone] = useState('');
-  const [dateOfBirth, setDateOfBirth] = useState('1990-01-01');
-  const [cccd, setCccd] = useState('');
+  // Backend chỉ đăng ký walk-in cho hồ sơ đã có: tra theo SĐT/CCCD khớp chính xác rồi chọn hồ sơ.
+  const [keyword, setKeyword] = useState('');
+  const [patient, setPatient] = useState<{ id: string; patientName: string } | null>(null);
   const [selectedDoctorId, setSelectedDoctorId] = useState('');
   const [issuedTicket, setIssuedTicket] = useState<{ appointmentCode: string; ticketNumber: string; queueNumber: number } | null>(null);
   const [idemKey] = useState(() => createIdempotencyKey('walkin'));
@@ -35,18 +33,17 @@ export const WalkInRegisterPage: React.FC = () => {
     queryFn: () => receptionApi.listWalkInDoctors(today),
   });
 
+  const patientsQuery = useQuery({
+    queryKey: ['reception', 'walkin-patients', keyword],
+    queryFn: () => receptionApi.searchPatients(keyword.replace(/\s/g, '')),
+    enabled: /^\d{9,20}$/.test(keyword.replace(/\s/g, '')),
+  });
+  const patients = patientsQuery.data ?? [];
+
   const registerMutation = useMutation({
     mutationFn: () =>
       receptionApi.registerWalkIn(
-        {
-          fullName: fullName.trim(),
-          phone: phone.trim(),
-          dateOfBirth,
-          cccd: cccd.trim(),
-          doctorId: selectedDoctorId,
-          serviceDate: today,
-          collectCashNow: true,
-        },
+        { patientId: patient!.id, doctorId: selectedDoctorId },
         idemKey,
       ),
     onSuccess: (res) => {
@@ -78,27 +75,40 @@ export const WalkInRegisterPage: React.FC = () => {
       />
 
       {step === 0 ? (
-        <Card title="Bước 1: Đối chiếu & nhập thông tin người khám">
-          <div className="grid gap-4 sm:grid-cols-2">
-            <FormField label="Họ và tên" required>
-              {(props) => <Input {...props} value={fullName} onChange={(e) => setFullName(e.target.value)} />}
-            </FormField>
-            <FormField label="Số điện thoại" required>
-              {(props) => <Input {...props} value={phone} onChange={(e) => setPhone(e.target.value)} />}
-            </FormField>
-            <FormField label="Ngày sinh" required>
-              {(props) => <DatePicker {...props} value={dateOfBirth} onChange={(e) => setDateOfBirth(e.target.value)} />}
-            </FormField>
-            <FormField label="Số CCCD / Giấy tờ tùy thân" required>
-              {(props) => <Input {...props} value={cccd} onChange={(e) => setCccd(e.target.value)} />}
-            </FormField>
+        <Card title="Bước 1: Tra hồ sơ người khám">
+          <FormField label="Số điện thoại hoặc CCCD của người khám" required>
+            {(props) => (
+              <Input {...props} value={keyword} onChange={(e) => setKeyword(e.target.value)} placeholder="VD: 0901234567" />
+            )}
+          </FormField>
+          <div className="mt-3 space-y-2">
+            {patientsQuery.isFetching ? <Skeleton rows={2} /> : null}
+            {patientsQuery.isSuccess && patients.length === 0 ? (
+              <Banner tone="warning" title="Không tìm thấy hồ sơ">
+                Người khám cần có hồ sơ trên web bệnh nhân trước khi đăng ký tại quầy.
+              </Banner>
+            ) : null}
+            {patients.map((p) => {
+              const selected = patient?.id === p.patientId;
+              return (
+                <label key={p.patientId} className="flex items-center gap-3 rounded-xl bg-surface-container-low/65 p-3 text-sm">
+                  <input
+                    type="radio"
+                    name="walkin-patient"
+                    checked={selected}
+                    onChange={() => setPatient({ id: p.patientId, patientName: p.fullName })}
+                    className="h-4 w-4 accent-[#006a41]"
+                  />
+                  <span className="font-semibold">{p.fullName}</span>
+                  <span className="text-xs text-on-surface-variant">
+                    {p.phone} • CCCD {p.cccdMasked || '—'} • {p.dateOfBirth}
+                  </span>
+                </label>
+              );
+            })}
           </div>
           <div className="mt-4 flex justify-end">
-            <Button
-              variant="primary"
-              disabled={!fullName.trim() || !phone.trim() || !cccd.trim()}
-              onClick={() => setStep(1)}
-            >
+            <Button variant="primary" disabled={!patient} onClick={() => setStep(1)}>
               Tiếp theo: Chọn bác sĩ
             </Button>
           </div>
@@ -125,7 +135,7 @@ export const WalkInRegisterPage: React.FC = () => {
                     <div>
                       <p className="font-semibold text-on-surface">{doc.doctorName}</p>
                       <p className="text-xs text-on-surface-variant">
-                        {doc.specialtyName} • {doc.roomName} • Còn <strong className="font-data-tabular text-primary">{doc.remainingSlots}</strong>/30 suất
+                        {doc.specialtyName} • Còn <strong className="font-data-tabular text-primary">{doc.remainingSlots}</strong>/{doc.totalSlots} suất
                       </p>
                     </div>
                     <div className="flex items-center gap-3">
@@ -172,9 +182,8 @@ export const WalkInRegisterPage: React.FC = () => {
               variant="primary"
               onClick={() => {
                 setStep(0);
-                setFullName('');
-                setPhone('');
-                setCccd('');
+                setKeyword('');
+                setPatient(null);
                 setIssuedTicket(null);
               }}
             >

@@ -16,7 +16,6 @@ import {
   StatusPill,
   useToast,
 } from '../../shared/ui';
-import { createIdempotencyKey } from '../../shared/lib/idempotency';
 import { extractFriendlyError } from '../../shared/lib/errors';
 
 /**
@@ -36,14 +35,10 @@ export const ReceptionCheckInPage: React.FC = () => {
   });
 
   const checkInMutation = useMutation({
-    mutationFn: (appointmentId: string) =>
-      receptionApi.checkInAppointment(
-        appointmentId,
-        { identityDocumentVerified: true },
-        createIdempotencyKey(`checkin-${appointmentId}`),
-      ),
+    // Backend idempotent theo lịch hẹn, không nhận Idempotency-Key; ô tick CCCD là kiểm tra tại quầy.
+    mutationFn: (appointmentId: string) => receptionApi.checkInAppointment(appointmentId),
     onSuccess: (res) => {
-      pushToast(`Check-in thành công! Số thứ tự ${res.queueNumber} (${res.roomName})`, 'success');
+      pushToast(`Check-in thành công! Số vé ${res.queueNumber}`, 'success');
       queryClient.invalidateQueries({ queryKey: ['reception'] });
     },
     onError: (err) => pushToast(extractFriendlyError(err).message, 'danger'),
@@ -70,7 +65,7 @@ export const ReceptionCheckInPage: React.FC = () => {
           </span>
           <span>Khổ in nhiệt 80mm tự động khi cấp STT</span>
         </div>
-        <FormField label="Tìm theo SĐT / Tên / Mã lịch hẹn">
+        <FormField label="Tìm theo SĐT / CCCD / Mã lịch hẹn (để trống: lịch hôm nay)">
           {(props) => (
             <Input
               {...props}

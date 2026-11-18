@@ -60,7 +60,7 @@ export const ReceptionRefundsPage: React.FC = () => {
           empty={<EmptyState title="Không có phiếu chờ chi tiền mặt" />}
           columns={[
             { key: 'ref', header: 'Mã hoàn tiền', render: (r) => <span className="font-mono font-semibold">{r.referenceCode}</span> },
-            { key: 'patient', header: 'Bệnh nhân', render: (r) => r.patientName },
+            { key: 'patient', header: 'Khoản được hoàn', render: (r) => r.patientName },
             { key: 'amt', header: 'Số tiền chi', align: 'right', render: (r) => <MoneyText amount={r.amount} /> },
             { key: 'status', header: 'Trạng thái', render: (r) => <StatusPill status={r.status} /> },
             {
@@ -95,7 +95,7 @@ export const ReceptionRefundsPage: React.FC = () => {
         message={
           selected ? (
             <p>
-              Xác nhận chi trả <MoneyText amount={selected.amount} /> tiền mặt cho bệnh nhân{' '}
+              Xác nhận chi trả <MoneyText amount={selected.amount} /> tiền mặt cho khoản{' '}
               <strong>{selected.patientName}</strong> ({selected.referenceCode})?
             </p>
           ) : null

@@ -74,7 +74,7 @@ export const ReceptionCancelPage: React.FC = () => {
           rows={rows}
           columns={[
             { key: 'code', header: 'Mã lịch', render: (r) => <span className="font-mono font-semibold">{r.appointmentCode}</span> },
-            { key: 'patient', header: 'Bệnh nhân', render: (r) => `${r.patientName} (${r.phone})` },
+            { key: 'patient', header: 'Bệnh nhân', render: (r) => (r.patientName ? `${r.patientName} (${r.phone})` : '—') },
             { key: 'doctor', header: 'Bác sĩ', render: (r) => r.doctorName || '—' },
             { key: 'status', header: 'Trạng thái', render: (r) => <StatusPill status={r.appointmentStatus || 'Confirmed'} /> },
             {

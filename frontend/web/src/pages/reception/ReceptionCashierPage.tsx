@@ -63,7 +63,7 @@ export const ReceptionCashierPage: React.FC = () => {
       </Banner>
 
       <Card>
-        <FormField label="Tìm theo tên bệnh nhân hoặc mã đợt thu">
+        <FormField label="Lọc theo nội dung hoặc mã đợt thu">
           {(props) => (
             <Input
               {...props}
@@ -86,7 +86,7 @@ export const ReceptionCashierPage: React.FC = () => {
           empty={<EmptyState title="Không có khoản thu tiền mặt" />}
           columns={[
             { key: 'ref', header: 'Mã khoản thu', render: (r) => <span className="font-mono font-semibold">{r.referenceCode}</span> },
-            { key: 'patient', header: 'Bệnh nhân', render: (r) => r.patientName },
+            { key: 'patient', header: 'Bệnh nhân', render: (r) => r.patientName || '—' },
             { key: 'desc', header: 'Nội dung', render: (r) => r.description },
             {
               key: 'amount',
