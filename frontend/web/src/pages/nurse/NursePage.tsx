@@ -28,7 +28,7 @@ import type { VitalsRecordDto } from '../../types/staffWorkflow';
  */
 export const NursePage: React.FC = () => {
   const [searchParams] = useSearchParams();
-  const encounterId = searchParams.get('encounterId') || 'enc-nurse-1';
+  const encounterId = searchParams.get('encounterId') || '';
   const queryClient = useQueryClient();
   const { pushToast } = useToast();
 
@@ -41,6 +41,7 @@ export const NursePage: React.FC = () => {
   const query = useQuery({
     queryKey: ['staff', 'nurse-vitals', encounterId],
     queryFn: () => clinicalStaffApi.getVitalsForm(encounterId),
+    enabled: Boolean(encounterId),
   });
 
   useEffect(() => {

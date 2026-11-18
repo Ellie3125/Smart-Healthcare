@@ -58,7 +58,7 @@ export const ResultFileUploader: React.FC<ResultFileUploaderProps> = ({
 
   // Mutation xóa tệp Draft
   const deleteMutation = useMutation({
-    mutationFn: (fileId: string) => documentsApi.deleteDraftFile(fileId),
+    mutationFn: (fileId: string) => documentsApi.deleteDraftFile(queueTicketId, fileId),
     onSuccess: () => {
       pushToast('Đã xóa tệp nháp thành công.', 'success');
       setDeleteCandidate(null);

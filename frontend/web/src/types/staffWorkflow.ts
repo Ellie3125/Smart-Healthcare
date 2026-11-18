@@ -288,7 +288,8 @@ export interface DoctorEncounterWorkspaceDto {
   patientAge: number;
   patientGender: string;
   status: 'InProgress' | 'AwaitingCls' | 'ClsCompleted' | 'Published' | 'Amended';
-  version: number;
+  // RowVersion base64 của bệnh án; rỗng khi chưa có bản hiện hành.
+  version: string;
   vitalsSummary?: string;
   symptoms: string;
   clinicalNotes: string;
@@ -326,6 +327,9 @@ export interface ClsRoomResultDraftDto {
   technicalConclusion: string;
   readingDoctorName: string;
   availableShiftDoctors: string[];
-  version: number;
+  readingDoctors?: { doctorId: string; fullName: string }[];
+  queueTicketId?: string;
+  // RowVersion base64 của kết quả nháp.
+  version: string;
   draftFiles: { fileId: string; fileName: string; mimeType: string; sizeBytes: number }[];
 }
