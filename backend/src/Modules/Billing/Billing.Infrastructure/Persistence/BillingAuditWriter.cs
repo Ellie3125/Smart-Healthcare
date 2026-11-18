@@ -34,6 +34,7 @@ internal static class BillingAuditWriter
             ActionType = entry.IsInsert ? ActionType.INSERT : ActionType.UPDATE,
             ClientIpAddress = entry.ClientIp,
             ChangedColumns = entry.ChangedColumns,
+            OldValuesJson = entry.OldValuesJson,
             NewValuesJson = entry.NewValuesJson,
             ChangeReason = entry.ChangeReason,
             TimestampUtc = timestampUtc,

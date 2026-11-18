@@ -6,6 +6,10 @@ namespace Clinical.Contracts;
 /// </summary>
 public interface IClinicalModule
 {
+    /// <summary>Read-only encounter check-ins grouped in GMT+7; caller validates UTC interval [from,until), at most31 days.</summary>
+    Task<IReadOnlyList<ClinicalDailyReport>> GetDailyReportAsync(DateTime fromUtc, DateTime untilUtc, CancellationToken ct = default) =>
+        throw new NotSupportedException();
+
     /// <summary>Scheduling calls after its paid-ticket transition to InProgress, inside the caller's IUnitOfWork.
     /// Verifies ticket room/item and an open encounter; Ordered → InProgress, replay InProgress is a no-op.
     /// Errors: InvalidRequest, OrderItemNotFound, InvalidStatusTransition, EncounterClosed, Forbidden. Never commits the caller's transaction.</summary>

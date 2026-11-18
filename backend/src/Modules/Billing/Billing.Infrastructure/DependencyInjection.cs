@@ -19,6 +19,7 @@ public static class DependencyInjection
 
         services.TryAddSingleton(TimeProvider.System);
         services.AddScoped<IPriceCatalog, EfPriceCatalog>();
+        services.AddScoped<Billing.Application.Reports.IBillingReportReader, Reports.EfBillingReportReader>();
         services.AddScoped<IBillingStatusReader, Monitoring.EfBillingStatusReader>();
         services.AddScoped<IChargeStore, EfChargeStore>();
         services.AddScoped<IPaymentStore, EfPaymentStore>();

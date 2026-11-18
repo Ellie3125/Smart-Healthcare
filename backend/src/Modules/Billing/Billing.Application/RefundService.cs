@@ -48,7 +48,8 @@ public sealed record BillingAuditEntry(
     string NewValuesJson,
     string ChangeReason,
     string? ClientIp,
-    DateTime? TimestampUtc = null);
+    DateTime? TimestampUtc = null,
+    string? OldValuesJson = null);
 
 /// <summary>Lưu và đọc yêu cầu hoàn (billing.RefundRequest, billing.RefundTransaction). Lệnh ghi chạy trong <see cref="IPaymentStore.InTransactionAsync{T}"/>.</summary>
 public interface IRefundStore
