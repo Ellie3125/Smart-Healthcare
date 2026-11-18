@@ -54,4 +54,11 @@ public sealed class SchedulingModule(DoctorSearchService doctorSearch, Func<Chec
         return new(queueTicketId, roomId, ticket.EncounterId, encounter.PatientId, item.Id, result.Id, ticket.TicketNumber, null, null,
             ticket.QueueStatus == "Finished" && item.ItemStatus is "ServiceFinished" or "Completed", result.ResultStatus == "Published");
     }
+
+    public Task<PatientJourneySnapshot> GetPatientJourneyAsync(Guid patientId, Guid? appointmentId, Guid? encounterId, DateTime atUtc, CancellationToken ct = default)
+    {
+        if (patientId == Guid.Empty || appointmentId == Guid.Empty || encounterId == Guid.Empty || atUtc.Kind != DateTimeKind.Utc)
+            throw new SchedulingException(SchedulingErrorCode.InvalidInput, "Hồ sơ hoặc thời điểm không hợp lệ.");
+        return (clinicalQueue ?? throw new NotSupportedException())().ReadPatientJourneyAsync(patientId, appointmentId, encounterId, atUtc, ct);
+    }
 }

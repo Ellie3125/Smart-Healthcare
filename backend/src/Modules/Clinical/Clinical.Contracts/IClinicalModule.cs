@@ -48,5 +48,9 @@ public interface IClinicalModule
 
     /// <summary>Bác sĩ ban đầu đã phát hành kết luận sau CLS; trước đó bệnh nhân và người đại diện chưa xem được kết quả (GP §6.5).</summary>
     Task<bool> IsPostClsConclusionPublishedAsync(Guid encounterId, CancellationToken ct);
+
+    /// <summary>Caller has authorized the staff room queue; at most100 encounter IDs, one batch, no medical content.</summary>
+    Task<IReadOnlyList<QueuePatientContext>> GetQueuePatientContextsAsync(IReadOnlyCollection<Guid> encounterIds, CancellationToken ct = default) =>
+        throw new NotSupportedException();
 }
 

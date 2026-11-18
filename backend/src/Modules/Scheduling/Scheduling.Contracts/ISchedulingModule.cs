@@ -61,4 +61,8 @@ public interface ISchedulingModule
     /// Dùng cho module DocumentsReporting kiểm tra vé khi phòng CLS tải tệp kết quả.
     /// </summary>
     Task<ClsQueueTicketValidationDto?> ValidateClsTicketForRoomAsync(Guid queueTicketId, Guid roomId, CancellationToken ct = default);
+
+    /// <summary>Caller validates patient access and the encounter/appointment pair via Clinical; Scheduling reads only its own day/queue data.</summary>
+    Task<PatientJourneySnapshot> GetPatientJourneyAsync(Guid patientId, Guid? appointmentId, Guid? encounterId, DateTime atUtc, CancellationToken ct = default) =>
+        throw new NotSupportedException();
 }

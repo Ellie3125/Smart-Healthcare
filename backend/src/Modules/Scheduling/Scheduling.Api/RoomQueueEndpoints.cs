@@ -6,6 +6,9 @@ using System.Globalization;
 using System.Security.Claims;
 using IdentityPatients.Contracts;
 using Scheduling.Application.RoomQueues;
+using Clinical.Contracts;
+using Microsoft.Extensions.DependencyInjection;
+using Shared.Abstractions;
 
 namespace Scheduling.Api;
 
@@ -27,7 +30,7 @@ public static class RoomQueueEndpoints
     }
 
     private static async Task<IResult> StaffAsync(Guid roomId, ClaimsPrincipal user,
-        [FromServices] IRoomQueueReader reader, CancellationToken ct, string page = "1", string pageSize = "50")
+        [FromServices] IRoomQueueReader reader, IServiceProvider services, CancellationToken ct, string page = "1", string pageSize = "50")
     {
         if (!user.HasClaim(AppClaims.Channel, Channels.Staff)
             || !(user.IsInRole(Roles.Receptionist) || user.IsInRole(Roles.Nurse)
@@ -48,7 +51,25 @@ public static class RoomQueueEndpoints
             doctorId = doctor;
         }
         var result = await reader.GetStaffAsync(roomId, doctorId, number, size, ct);
-        return result is null ? TypedResults.Forbid() : TypedResults.Ok(result);
+        if (result is null) return TypedResults.Forbid();
+        if (user.IsInRole(Roles.Nurse))
+        {
+            var now = await services.GetRequiredService<IDbClock>().GetUtcNowAsync(ct);
+            if (!Guid.TryParse(user.FindFirstValue(ClaimTypes.NameIdentifier) ?? user.FindFirstValue("sub"), out var actor)
+                || result.ServiceDate != DateOnly.FromDateTime(now.AddHours(7))
+                || !await services.GetRequiredService<IIdentityPatientsModule>().IsNurseOnDutyAsync(actor, roomId, now, ct))
+                return TypedResults.Forbid();
+        }
+        var ids = result.Items.Where(t => t.EncounterId.HasValue).Select(t => t.EncounterId!.Value).Distinct().ToArray();
+        if (ids.Length > 0)
+        {
+            var contexts = (await services.GetRequiredService<IClinicalModule>().GetQueuePatientContextsAsync(ids, ct)).ToDictionary(c => c.EncounterId);
+            var names = (await services.GetRequiredService<IIdentityPatientsModule>().GetPatientContactsAsync(contexts.Values.Select(c => c.PatientId).Distinct().ToArray(), ct))
+                .ToDictionary(p => p.PatientId, p => p.FullName);
+            result = result with { Items = result.Items.Select(t => t with { PatientName = t.EncounterId is { } id && contexts.TryGetValue(id, out var context)
+                ? names.GetValueOrDefault(context.PatientId, "") : "" }).ToArray() };
+        }
+        return TypedResults.Ok(result);
     }
 
     private static async Task<IResult> PublicAsync([FromServices] IRoomQueueReader reader, CancellationToken ct,

@@ -21,7 +21,7 @@ internal sealed class SqlRoomQueueReader(SchedulingDbContext db, IDbClock clock)
             .OrderBy(t => t.QueuedAtUtc).ThenBy(t => t.SequenceNumber).ThenBy(t => t.Id)
             .Skip((page - 1) * pageSize).Take(pageSize + 1)
             .Select(t => new RoomQueueEntry(t.Id, t.TicketNumber, t.SequenceNumber, t.TicketType.ToString(),
-                t.QueueStatus.ToString(), t.TargetStationId, t.CalledAtUtc)).ToListAsync(ct);
+                t.QueueStatus.ToString(), t.TargetStationId, t.CalledAtUtc, t.EncounterId, t.ServiceOrderItemId)).ToListAsync(ct);
         return new(today, page, pageSize, rows.Count > pageSize, rows.Take(pageSize).ToArray());
     }
 

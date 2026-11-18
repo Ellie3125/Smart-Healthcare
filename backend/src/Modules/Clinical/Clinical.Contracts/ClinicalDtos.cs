@@ -1,5 +1,7 @@
 namespace Clinical.Contracts;
 
+public sealed record QueuePatientContext(Guid EncounterId, Guid PatientId);
+
 public sealed record StartEncounterCommand(
     Guid AppointmentId,
     Guid PatientId,

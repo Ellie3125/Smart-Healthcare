@@ -8,6 +8,10 @@ public enum AccessLevel
 
 public interface IIdentityPatientsModule
 {
+    /// <summary>Verified ClinicalRecords access; omitted patientId selects exactly one active Self profile. No arbitrary relative fallback.</summary>
+    Task<PatientJourneyProfile?> GetJourneyPatientAsync(Guid appUserId, Guid? patientId, CancellationToken ct = default) =>
+        throw new NotSupportedException();
+
     /// <summary>Active nurse, account and room, assigned in the current local-day shift [start,end).</summary>
     Task<bool> IsNurseOnDutyAsync(Guid appUserId, Guid roomId, DateTime atUtc, CancellationToken ct = default) =>
         throw new NotSupportedException();

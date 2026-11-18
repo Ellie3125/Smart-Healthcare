@@ -4,6 +4,8 @@ namespace Clinical.Application;
 
 public interface IEncounterStore
 {
+    Task<Encounter?> GetForPatientDayAsync(Guid patientId, DateTime fromUtc, DateTime untilUtc, CancellationToken ct) => throw new NotSupportedException();
+    Task<IReadOnlyList<Encounter>> GetByIdsAsync(IReadOnlyCollection<Guid> ids, CancellationToken ct) => throw new NotSupportedException();
     Task<Encounter?> GetByIdAsync(Guid encounterId, CancellationToken ct);
 
     Task<Encounter?> GetActiveByPatientIdAsync(Guid patientId, CancellationToken ct);

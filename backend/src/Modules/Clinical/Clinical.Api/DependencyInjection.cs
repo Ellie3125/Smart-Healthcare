@@ -12,13 +12,15 @@ public static class DependencyInjection
     public static IServiceCollection AddClinicalApi(this IServiceCollection services) =>
         services.AddScoped<INurseStaffDirectory, IdentityNurseStaffDirectory>()
             .AddScoped<Clinical.Application.Orders.ClsOrderService>()
-            .AddScoped<Clinical.Application.Results.ClsPublicationService>();
+            .AddScoped<Clinical.Application.Results.ClsPublicationService>()
+            .AddScoped<Clinical.Application.Journey.TodayJourneyService>();
 
     public static RouteGroupBuilder MapClinicalEndpoints(this IEndpointRouteBuilder app)
     {
         var group = ClinicalEndpoints.MapEndpoints(app);
         group.MapNurseVitalsRoutes();
         group.MapStaffListRoutes();
+        group.MapPatientJourneyRoutes();
         group.MapDoctorRecordRoutes();
         group.MapRoomResultRoutes();
         group.MapClsOrderRoutes();

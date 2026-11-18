@@ -188,5 +188,13 @@ public sealed class ClinicalModule(
             return ClinicalMappers.ToDto(p, items ?? []);
         }).ToList();
     }
+
+    public async Task<IReadOnlyList<QueuePatientContext>> GetQueuePatientContextsAsync(IReadOnlyCollection<Guid> encounterIds, CancellationToken ct = default)
+    {
+        if (encounterIds.Count > 100 || encounterIds.Contains(Guid.Empty))
+            throw new ClinicalException(ClinicalErrorCode.InvalidRequest, "Danh sách lượt khám không hợp lệ.");
+        if (encounterIds.Count == 0) return [];
+        return (await encounterStore.GetByIdsAsync(encounterIds, ct)).Select(e => new QueuePatientContext(e.Id, e.PatientId)).ToArray();
+    }
 }
 

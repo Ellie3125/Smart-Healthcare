@@ -9,6 +9,8 @@ using System.Text;
 using System.IdentityModel.Tokens.Jwt;
 using System.Net.Http.Headers;
 using IdentityPatients.Contracts;
+using System.Reflection;
+using Shared.Abstractions;
 using Microsoft.Extensions.Configuration;
 using Microsoft.IdentityModel.Tokens;
 
@@ -42,6 +44,10 @@ public sealed class RoomQueueEndpointTests
         var reader = new Reader();
         var builder = SchedulingEndpointTestSetup.CreateBuilder();
         builder.Services.AddSingleton<IRoomQueueReader>(reader);
+        builder.Services.AddSingleton<IDbClock>(new DoctorSearchTests.FakeDbClock(new DateTime(2026, 11, 16, 17, 30, 0, DateTimeKind.Utc)));
+        var identity = DispatchProxy.Create<IIdentityPatientsModule, NurseDirectory>();
+        ((NurseDirectory)(object)identity).RoomId = reader.RoomId;
+        builder.Services.AddSingleton(identity);
         await using var app = builder.Build();
         app.MapSchedulingRoomQueueEndpoints();
         await app.StartAsync(ct);
@@ -79,6 +85,8 @@ public sealed class RoomQueueEndpointTests
         using var noDoctorClaim = await client.GetAsync(route, ct);
         Assert.Equal(HttpStatusCode.Forbidden, noDoctorClaim.StatusCode);
         Authorize(client, app.Configuration, Roles.Nurse, Channels.Staff);
+        using var nurseOtherRoom = await client.GetAsync($"/api/scheduling/staff/rooms/{Guid.NewGuid()}/queue", ct);
+        Assert.Equal(HttpStatusCode.Forbidden, nurseOtherRoom.StatusCode);
         foreach (var query in new[] { "?page=0", "?pageSize=101", "?page=invalid" })
         {
             using var bad = await client.GetAsync(route + query, ct);
@@ -111,5 +119,12 @@ public sealed class RoomQueueEndpointTests
             Task.FromResult<RoomQueuePage?>(doctorId is not null && (doctorId != DoctorId || roomId != RoomId)
                 ? null : new(new(2026, 11, 17), page, pageSize, false, []));
         public Task<PublicRoomDisplay> GetPublicAsync(Guid roomId, CancellationToken ct) => Task.FromResult(new PublicRoomDisplay([new("Q-007", 7)]));
+    }
+
+    public class NurseDirectory : DispatchProxy
+    {
+        public Guid RoomId { get; set; }
+        protected override object? Invoke(MethodInfo? method, object?[]? args) => method!.Name == nameof(IIdentityPatientsModule.IsNurseOnDutyAsync)
+            ? Task.FromResult((Guid)args![1]! == RoomId) : throw new NotSupportedException();
     }
 }
