@@ -17,6 +17,7 @@ public static class DependencyInjection
 
         services.TryAddSingleton(TimeProvider.System);
         services.AddScoped<IEncounterStore, EfEncounterStore>();
+        services.AddScoped<Clinical.Application.StaffLists.IClinicalStaffListReader, EfClinicalStaffListReader>();
         services.AddScoped<IServiceOrderStore, EfServiceOrderStore>();
         services.AddScoped<IPrescriptionStore, EfPrescriptionStore>();
         services.AddScoped<Clinical.Application.Vitals.IVitalsStore, EfVitalsStore>();

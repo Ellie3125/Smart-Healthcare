@@ -9,8 +9,16 @@ namespace Scheduling.Application;
 /// <summary>Hiện thực ISchedulingModule (docs/api/scheduling.md §2). Check in thuộc W3-02, vé CLS thuộc W3-04.</summary>
 public sealed class SchedulingModule(DoctorSearchService doctorSearch, Func<CheckInService> checkIn,
     Func<ClsTicketService>? clsTickets = null, Func<IClsTicketReader>? clsTicketReader = null,
-    Func<IClinicalModule>? clinical = null) : ISchedulingModule
+    Func<IClinicalModule>? clinical = null,
+    Func<RoomQueues.IClinicalQueueReader>? clinicalQueue = null) : ISchedulingModule
 {
+    public Task<ClinicalQueuePage> GetClinicalQueueAsync(Guid roomId, DateTime atUtc, int page, int pageSize, CancellationToken ct = default)
+    {
+        if (roomId == Guid.Empty || atUtc.Kind != DateTimeKind.Utc || page is < 1 or > 1000 || pageSize is < 1 or > 100)
+            throw new SchedulingException(SchedulingErrorCode.InvalidInput, "Phòng hoặc phân trang không hợp lệ.");
+        return (clinicalQueue ?? throw new NotSupportedException())().ReadAsync(roomId, atUtc, page, pageSize, ct);
+    }
+
     public Task<DoctorSearchPage> SearchDoctorsAsync(DoctorSearchQuery query, CancellationToken ct)
     {
         if (query is null
