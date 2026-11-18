@@ -115,7 +115,7 @@ public sealed record PatientEncounterSummaryDto(
 
 /// <summary>
 /// DTO chi tiết lượt khám tổng hợp từ Clinical + Billing + Documents (FR08, GP §5.4, §8.2).
-/// Chỉ trả dữ liệu khi bác sĩ khám ban đầu đã phát hành kết luận sau CLS.
+/// Bệnh án phải Published; kết quả CLS chỉ trả sau khi bác sĩ ban đầu phát hành kết luận sau CLS.
 /// </summary>
 public sealed record PatientEncounterDetailDto(
     Guid Id,
@@ -151,7 +151,12 @@ public sealed record EncounterVitalsDto(
 public sealed record EncounterDiagnosisDto(
     string IcdCode,
     string Description,
-    bool IsPrimary);
+    bool IsPrimary,
+    string? DiagnosisType = null)
+{
+    public string Icd10Code => IcdCode;
+    public string DiagnosisName => Description;
+}
 
 public sealed record EncounterClsResultDto(
     Guid Id,
