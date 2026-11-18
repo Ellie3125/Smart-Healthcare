@@ -12,8 +12,8 @@ export interface ServiceStationItem {
   id: string;
   code: string;
   name: string;
-  stationType: 'Reception' | 'Cashier' | 'Vitals' | 'QueueDisplay';
-  floor: string;
+  roomId: string;
+  roomName: string;
   isActive: boolean;
 }
 
@@ -38,7 +38,8 @@ export interface MedicalServiceCatalogItem {
   id: string;
   code: string;
   name: string;
-  category: 'Lab' | 'Imaging' | 'Functional';
+  // Laboratory | Radiology | Ultrasound | Endoscopy (Scheduling)
+  category: string;
   roomId: string;
   roomName: string;
   hasActiveRoom: boolean;
@@ -81,6 +82,7 @@ export interface OperationalExceptionItem {
   detail: string;
   status: 'Open' | 'Resolved';
   createdAt: string;
+  canRetry?: boolean;
 }
 
 export interface AdminRefundItem {

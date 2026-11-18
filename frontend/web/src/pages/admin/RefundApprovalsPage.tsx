@@ -36,7 +36,7 @@ export const RefundApprovalsPage: React.FC = () => {
     mutationFn: ({ item, decision, reason }: { item: AdminRefundItem; decision: 'Approve' | 'Reject'; reason?: string }) =>
       adminOpsApi.decideRefund(
         item.id,
-        { decision, reason, version: item.version },
+        { decision, reason },
         createIdempotencyKey(`admin-ref-${item.id}`),
       ),
     onSuccess: () => {

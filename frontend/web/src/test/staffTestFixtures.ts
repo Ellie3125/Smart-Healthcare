@@ -84,9 +84,9 @@ export function createStaffRealStore() {
   ];
 
   const stations: ServiceStationItem[] = [
-    { id: 'st-1', code: 'Q01', name: 'Quầy tiếp đón số 1', stationType: 'Reception', floor: 'Tầng 1', isActive: true },
-    { id: 'st-2', code: 'TN01', name: 'Quầy thu ngân số 1', stationType: 'Cashier', floor: 'Tầng 1', isActive: true },
-    { id: 'st-3', code: 'SH01', name: 'Bàn đo sinh hiệu S01', stationType: 'Vitals', floor: 'Tầng 2', isActive: true },
+    { id: 'st-1', code: 'Q01', name: 'Quầy tiếp đón số 1', roomId: 'room-001', roomName: 'Tầng 1', isActive: true },
+    { id: 'st-2', code: 'TN01', name: 'Quầy thu ngân số 1', roomId: 'room-001', roomName: 'Tầng 1', isActive: true },
+    { id: 'st-3', code: 'SH01', name: 'Bàn đo sinh hiệu S01', roomId: 'room-001', roomName: 'Tầng 2', isActive: true },
   ];
 
   const doctorDays: DoctorDayQuotaItem[] = [
@@ -469,8 +469,20 @@ class StaffApiMock {
     }
 
     // Payment reconcile
+    // Dạng Backend PaymentNeedingReview.
     if (pathname === '/api/billing/admin/payments/reconcile') {
-      return { data: this.store.reconcileRows };
+      return {
+        data: this.store.reconcileRows.map((r) => ({
+          transactionReference: r.vnpTxnRef,
+          paymentIntentId: r.id,
+          intentNumber: r.appointmentOrBatchCode,
+          purpose: 0,
+          patientId: 'pat-001',
+          amount: r.amount,
+          createdAtUtc: r.checkedAt ?? new Date().toISOString(),
+          expiresAtUtc: new Date().toISOString(),
+        })),
+      };
     }
 
     // Audit logs
