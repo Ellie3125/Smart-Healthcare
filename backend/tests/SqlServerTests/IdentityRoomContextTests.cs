@@ -134,6 +134,8 @@ internal sealed class RoomAuditFixture(ServiceProvider services) : IAsyncDisposa
         var services = new ServiceCollection().AddSharedInfrastructure(cs).AddIdentityPatientsInfrastructure(configuration, cs)
             .AddSchedulingInfrastructure(cs).AddNotificationsInfrastructure(cs).AddSingleton<IDbClock>(new Clock())
             .AddUnitOfWorkParticipant<IdentityPatientsDbContext>().AddUnitOfWorkParticipant<SchedulingDbContext>().AddUnitOfWorkParticipant<WorkflowDbContext>()
+            // Hàng đợi cần Billing để kiểm phí CLS; test này chỉ dùng vé khám đầu nên Billing không được gọi.
+            .AddSingleton(System.Reflection.DispatchProxy.Create<Billing.Contracts.IBillingModule, NoBilling>())
             .BuildServiceProvider();
         var f = new RoomAuditFixture(services);
         await using var scope = services.CreateAsyncScope();
@@ -149,8 +151,8 @@ internal sealed class RoomAuditFixture(ServiceProvider services) : IAsyncDisposa
         var scheduling = scope.ServiceProvider.GetRequiredService<SchedulingDbContext>();
         var patient = Guid.NewGuid(); var encounter = Guid.NewGuid();
         scheduling.AddRange(new ServiceStation { Id = f.StationId, RoomId = f.RoomId, StationCode = f.StationId.ToString("N"), StationName = "Test", IsActive = true },
-            new QueueTicket { Id = f.TicketId, EncounterId = encounter, TargetRoomId = f.RoomId, TargetStationId = f.StationId, ServiceOrderItemId = Guid.NewGuid(),
-                TicketNumber = f.TicketId.ToString("N"), TicketType = TicketType.CLS, SequenceNumber = 1, QueueStatus = QueueStatus.Called, IssuedAtUtc = Now },
+            new QueueTicket { Id = f.TicketId, EncounterId = encounter, TargetRoomId = f.RoomId, TargetStationId = f.StationId,
+                TicketNumber = f.TicketId.ToString("N"), TicketType = TicketType.InitialConsultation, SequenceNumber = 1, QueueStatus = QueueStatus.Called, IssuedAtUtc = Now },
             new ActivePatientEngagement { PatientId = patient, EncounterId = encounter, CurrentStationId = f.StationId, CurrentTicketId = f.TicketId, AcquiredAtUtc = Now },
             new ActiveStationAllocation { StationId = f.StationId, CurrentPatientId = patient, CurrentTicketId = f.TicketId, AllocatedAtUtc = Now });
         await scheduling.SaveChangesAsync(Ct);
@@ -197,4 +199,9 @@ internal sealed class RoomAuditFixture(ServiceProvider services) : IAsyncDisposa
         await Services.DisposeAsync();
     }
     private sealed class Clock : IDbClock { public Task<DateTime> GetUtcNowAsync(CancellationToken ct) => Task.FromResult(Now); }
+}
+
+public class NoBilling : System.Reflection.DispatchProxy
+{
+    protected override object? Invoke(System.Reflection.MethodInfo? method, object?[]? args) => throw new NotSupportedException(method?.Name);
 }

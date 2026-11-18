@@ -18,6 +18,18 @@ internal static class QueueEndpoints
 {
     public static void MapQueueEndpoints(this RouteGroupBuilder scheduling)
     {
+        scheduling.MapGet("/staff/rooms/{roomId:guid}/pending-results", async (Guid roomId, int? page, int? pageSize,
+            ClaimsPrincipal user, [FromServices] IClsPendingResultReader reader, CancellationToken ct) =>
+        {
+            if (!Guid.TryParse(user.FindFirstValue(AppClaims.RoomId), out var room) || room == Guid.Empty || room != roomId)
+                return (IResult)TypedResults.Forbid();
+            var number = page ?? 1; var size = pageSize ?? 50;
+            if (number < 1 || size is < 1 or > 100 || number > int.MaxValue / size)
+                return Problem(QueueResult.InvalidInput);
+            return TypedResults.Ok(await reader.ListAsync(roomId, number, size, ct));
+        }).RequireAuthorization(Policies.RoomAccountOnly)
+            .WithSummary("Vé CLS khám xong, chưa phát hành kết quả của phòng (RoomAccount)")
+            .Produces<ClsPendingResultPage>().ProducesProblem(400).ProducesProblem(403);
         var staff = scheduling.MapGroup("/staff").RequireAuthorization(Policies.AnyChannel);
         staff.AddEndpointFilter(async (context, next) =>
         {
@@ -34,6 +46,9 @@ internal static class QueueEndpoints
             }
             try { return await next(context); }
             catch (RoomAuditDeniedException) { return TypedResults.Forbid(); }
+            // Clinical từ chối chuyển mục CLS (đợt hủy, lượt khám đã đóng...): UoW đã rollback cả vé.
+            catch (Clinical.Contracts.ClinicalException e) { return TypedResults.Problem(statusCode: StatusCodes.Status409Conflict, title: e.Message,
+                extensions: new Dictionary<string, object?> { ["code"] = e.Code.ToString() }); }
         });
         staff.MapPost("/rooms/{roomId:guid}/call-next", CallNextAsync)
             .WithSummary("Gọi người tiếp theo của phòng (Doctor, Nurse, RoomAccount)")

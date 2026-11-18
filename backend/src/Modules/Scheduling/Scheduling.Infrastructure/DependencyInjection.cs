@@ -45,6 +45,7 @@ public static class DependencyInjection
             .AddScoped<Scheduling.Application.Queues.IQueueStore, Queues.SqlQueueStore>()
             .AddScoped<Scheduling.Application.Queues.RoomAuditRequest>()
             .AddScoped<Scheduling.Application.Queues.IClsTicketStore, Queues.SqlClsTicketStore>()
+            .AddScoped<Scheduling.Application.Queues.IClsPendingResultReader>(provider => ActivatorUtilities.CreateInstance<Queues.SqlClsPendingResultReader>(provider))
             .AddScoped<Scheduling.Contracts.IClsServiceDirectory, Queues.SqlClsServiceDirectory>()
             .AddScoped<Scheduling.Contracts.IClsTicketReader, Queues.SqlClsTicketReader>()
             .AddScoped(provider => ActivatorUtilities.CreateInstance<Queues.ClsDayEndJob>(provider))
