@@ -20,7 +20,8 @@ public static class DependencyInjection
     public static IServiceCollection AddBillingApi(this IServiceCollection services) =>
         services.AddScoped<PatientPaymentService>()
             .AddScoped<PatientClsPaymentService>()
-            .AddScoped<PatientCostSummaryService>();
+            .AddScoped<PatientCostSummaryService>()
+            .AddScoped(provider => ActivatorUtilities.CreateInstance<PriceListAdminService>(provider));
 
     public static RouteGroupBuilder MapBillingEndpoints(this IEndpointRouteBuilder app)
     {
@@ -35,6 +36,7 @@ public static class DependencyInjection
         group.MapPatientPaymentEndpoints();
         group.MapStaffCashierEndpoints();
         group.MapRefundEndpoints();
+        group.MapAdminPriceLists();
         return group;
     }
 
