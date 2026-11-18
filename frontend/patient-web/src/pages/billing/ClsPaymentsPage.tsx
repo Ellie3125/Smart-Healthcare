@@ -10,11 +10,14 @@ import {
   DateTimeText,
   EmptyState,
   ErrorState,
+  FormField,
   MoneyText,
+  Select,
   Skeleton,
   StatusPill,
   useToast,
 } from '../../shared/ui';
+import { patientGet } from '../../shared/lib/http';
 import { createIdempotencyKey } from '../../shared/lib/money';
 import { extractPatientError } from '../../shared/lib/errors';
 
@@ -27,9 +30,19 @@ export const ClsPaymentsPage: React.FC = () => {
   const [expiredMap, setExpiredMap] = useState<Record<string, boolean>>({});
   const [payingBatchId, setPayingBatchId] = useState<string | null>(null);
 
+  const [selectedProfileId, setSelectedProfileId] = useState<string>('');
+
+  const profilesQuery = useQuery({
+    queryKey: ['patient', 'profiles'],
+    queryFn: () => patientGet<{ patientId: string; fullName: string; relationship: string }[]>('/api/patient/profiles'),
+  });
+  const profiles = profilesQuery.data ?? [];
+  const activeId = profiles.find((p) => p.patientId === selectedProfileId)?.patientId ?? profiles[0]?.patientId ?? '';
+
   const batchesQuery = useQuery({
-    queryKey: ['patient', 'cls-batches'],
-    queryFn: () => clinicalApi.listClsPaymentBatches(),
+    queryKey: ['patient', 'cls-batches', activeId],
+    queryFn: () => clinicalApi.listClsPaymentBatches(activeId),
+    enabled: Boolean(activeId),
   });
 
   const payMutation = useMutation({
@@ -48,7 +61,7 @@ export const ClsPaymentsPage: React.FC = () => {
     onSettled: () => setPayingBatchId(null),
   });
 
-  if (batchesQuery.isLoading) {
+  if (profilesQuery.isLoading || batchesQuery.isLoading) {
     return (
       <Card title="Thanh toán chỉ định cận lâm sàng">
         <Skeleton rows={4} />
@@ -56,13 +69,9 @@ export const ClsPaymentsPage: React.FC = () => {
     );
   }
 
-  if (batchesQuery.isError) {
-    return (
-      <ErrorState
-        message={extractPatientError(batchesQuery.error).message}
-        onRetry={() => batchesQuery.refetch()}
-      />
-    );
+  const failed = profilesQuery.isError ? profilesQuery : batchesQuery.isError ? batchesQuery : null;
+  if (failed) {
+    return <ErrorState message={extractPatientError(failed.error).message} onRetry={() => failed.refetch()} />;
   }
 
   const batches = batchesQuery.data ?? [];
@@ -83,6 +92,21 @@ export const ClsPaymentsPage: React.FC = () => {
         </div>
       </div>
 
+      {profiles.length > 1 ? (
+        <Card>
+          <FormField label="Hồ sơ người khám">
+            {(props) => (
+              <Select
+                {...props}
+                value={activeId}
+                onChange={(e) => setSelectedProfileId(e.target.value)}
+                options={profiles.map((p) => ({ value: p.patientId, label: `${p.fullName} (${p.relationship})` }))}
+              />
+            )}
+          </FormField>
+        </Card>
+      ) : null}
+
       {batches.length === 0 ? (
         <EmptyState
           title="Không có chỉ định CLS chờ thanh toán"
@@ -95,7 +119,7 @@ export const ClsPaymentsPage: React.FC = () => {
             return (
               <Card
                 key={batch.batchId}
-                title={`Đợt chỉ định ${batch.appointmentCode}`}
+                title={batch.appointmentCode ? `Đợt chỉ định ${batch.appointmentCode}` : 'Đợt chỉ định cận lâm sàng'}
                 subtitle={
                   <>
                     Tạo lúc <DateTimeText value={batch.createdAt} />
@@ -123,8 +147,13 @@ export const ClsPaymentsPage: React.FC = () => {
                       <div>
                         <p className="font-semibold text-on-surface">{item.serviceName}</p>
                         <p className="text-xs text-on-surface-variant">
-                          {item.serviceCode} • {item.roomName}
-                          {item.waiverAmount > 0 ? ` • Miễn giảm ${item.waiverAmount.toLocaleString('vi-VN')} ₫` : ''}
+                          {[
+                            item.serviceCode,
+                            item.roomName,
+                            item.waiverAmount > 0 ? `Miễn giảm ${item.waiverAmount.toLocaleString('vi-VN')} ₫` : '',
+                          ]
+                            .filter(Boolean)
+                            .join(' • ')}
                         </p>
                       </div>
                       <MoneyText amount={item.netPrice} className="font-semibold text-primary" />
