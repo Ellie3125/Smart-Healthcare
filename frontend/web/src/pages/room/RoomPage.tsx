@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useNavigate } from 'react-router-dom';
 import { CheckCircle2, Clock, FileUp, PhoneCall, Play } from 'lucide-react';
@@ -11,6 +11,7 @@ import {
   DateTimeText,
   EmptyState,
   ErrorState,
+  Select,
   Skeleton,
   StatusPill,
   useToast,
@@ -32,6 +33,11 @@ export const RoomPage: React.FC = () => {
     queryFn: () => clinicalStaffApi.listRoomQueue(),
   });
 
+  const roomQuery = useQuery({ queryKey: ['staff', 'my-room'], queryFn: () => clinicalStaffApi.getMyRoom() });
+  const stations = roomQuery.data?.stations ?? [];
+  const [stationId, setStationId] = useState('');
+  const activeStation = stationId || (stations.length === 1 ? stations[0].stationId : '');
+
   const actionMutation = useMutation({
     mutationFn: ({
       queueTicketId,
@@ -39,7 +45,7 @@ export const RoomPage: React.FC = () => {
     }: {
       queueTicketId: string;
       action: 'Call' | 'ConfirmPresence' | 'Defer' | 'Start' | 'FinishProcedure';
-    }) => clinicalStaffApi.roomQueueAction(queueTicketId, action),
+    }) => clinicalStaffApi.roomQueueAction(queueTicketId, action, activeStation || undefined),
     onSuccess: () => {
       pushToast('Đã cập nhật trạng thái thực hiện kỹ thuật.', 'success');
       queryClient.invalidateQueries({ queryKey: ['staff', 'room-queue'] });
@@ -84,8 +90,20 @@ export const RoomPage: React.FC = () => {
         </Card>
       </div>
 
-      <div className="flex justify-end">
+      <div className="flex flex-wrap items-end justify-end gap-3">
+        {stations.length > 1 ? (
+          <div className="w-56">
+            <Select
+              aria-label="Vị trí gọi số"
+              value={stationId}
+              placeholder="Chọn vị trí gọi số"
+              onChange={(e) => setStationId(e.target.value)}
+              options={stations.map((s) => ({ value: s.stationId, label: s.stationName }))}
+            />
+          </div>
+        ) : null}
         <Button
+          disabled={stations.length > 1 && !stationId}
           variant="secondary"
           leftIcon={<PhoneCall className="h-4 w-4" />}
           loading={actionMutation.isPending}

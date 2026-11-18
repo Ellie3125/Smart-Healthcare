@@ -124,6 +124,12 @@ public sealed class RoomQueueEndpointTests
 
         Authorize(client, app.Configuration, Roles.Doctor, Channels.Staff, doctor: reader.DoctorId);
         Assert.Equal([reader.RoomId], await RoomsAsync());
+        using (var withStations = await client.GetAsync("/api/scheduling/staff/my-rooms", ct))
+        {
+            using var json = JsonDocument.Parse(await withStations.Content.ReadAsStringAsync(ct));
+            var station = Assert.Single(json.RootElement[0].GetProperty("stations").EnumerateArray());
+            Assert.Equal(reader.StationId, station.GetProperty("stationId").GetGuid());
+        }
         Authorize(client, app.Configuration, Roles.Doctor, Channels.Staff, doctor: Guid.NewGuid());
         Assert.Empty(await RoomsAsync());
         Authorize(client, app.Configuration, Roles.Nurse, Channels.Staff);
@@ -164,6 +170,9 @@ public sealed class RoomQueueEndpointTests
         public Guid OtherRoomId { get; } = Guid.NewGuid();
         public Task<IReadOnlyList<Guid>> GetTodayRoomIdsAsync(Guid? doctorId, CancellationToken ct) =>
             Task.FromResult<IReadOnlyList<Guid>>(doctorId is null ? [RoomId, OtherRoomId] : doctorId == DoctorId ? [RoomId] : []);
+        public Guid StationId { get; } = Guid.NewGuid();
+        public Task<IReadOnlyList<RoomStation>> GetActiveStationsAsync(IReadOnlyCollection<Guid> roomIds, CancellationToken ct) =>
+            Task.FromResult<IReadOnlyList<RoomStation>>(roomIds.Contains(RoomId) ? [new(RoomId, new(StationId, "XN-1", "Bàn 1"))] : []);
     }
 
     public class NurseDirectory : DispatchProxy

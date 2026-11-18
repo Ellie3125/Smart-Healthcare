@@ -13,7 +13,8 @@ internal sealed class ApiIdempotencyRecordConfiguration : IEntityTypeConfigurati
 
         builder.Property(x => x.CallerScope).HasMaxLength(64);
         builder.Property(x => x.OperationType).HasMaxLength(64);
-        builder.Property(x => x.IdempotencyKey).HasMaxLength(64);
+        // Các module nhận key 1–128 ký tự theo contract; Scheduling tự giới hạn 64.
+        builder.Property(x => x.IdempotencyKey).HasMaxLength(128);
         builder.Property(x => x.RequestHash).HasMaxLength(128);
         builder.Property(x => x.ResponseBodyJson).HasColumnType("nvarchar(max)");
 

@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Link } from 'react-router-dom';
 import { CheckCircle2, FilePlus2, FlaskConical, History, PhoneForwarded, Save, Send } from 'lucide-react';
@@ -96,6 +96,20 @@ export const DoctorPage: React.FC = () => {
     onError: (err) => pushToast(extractFriendlyError(err).message, 'danger'),
   });
 
+  const activeTicket = queuesQuery.data?.activeTicket;
+  const ticketMutation = useMutation({
+    mutationFn: (action: 'start' | 'finish') =>
+      action === 'start'
+        ? clinicalStaffApi.startTicket(activeTicket!.queueTicketId)
+        : clinicalStaffApi.finishTicket(activeTicket!.queueTicketId),
+    onSuccess: (_res, action) => {
+      pushToast(action === 'start' ? 'Đã bắt đầu khám.' : 'Đã xong lượt khám tại phòng.', 'success');
+      queryClient.invalidateQueries({ queryKey: ['staff', 'doctor-queues'] });
+      queryClient.invalidateQueries({ queryKey: ['staff', 'doctor-workspace', activeEncounterId] });
+    },
+    onError: (err) => pushToast(extractFriendlyError(err).message, 'danger'),
+  });
+
   const saveDraftMutation = useMutation({
     mutationFn: (payload: DoctorEncounterWorkspaceDto) =>
       clinicalStaffApi.saveDoctorDraft(payload.encounterId, {
@@ -106,9 +120,10 @@ export const DoctorPage: React.FC = () => {
         followUpInstruction: payload.followUpInstruction,
         version: payload.version,
       }),
+    // Chỉ lấy version/trạng thái/CLS mới từ server; nội dung form giữ bản bác sĩ đang gõ.
     onSuccess: (updated) => {
-      setDraft(updated);
-      setDraftSavedHint(`Đã lưu nháp lúc ${new Date().toLocaleTimeString('vi-VN')} (v${updated.version})`);
+      setDraft((prev) => (prev ? { ...prev, version: updated.version, status: updated.status, clsOrders: updated.clsOrders } : updated));
+      setDraftSavedHint(`Đã lưu nháp lúc ${new Date().toLocaleTimeString('vi-VN')}`);
     },
     onError: (err) => {
       const parsed = extractFriendlyError(err);
@@ -179,12 +194,14 @@ export const DoctorPage: React.FC = () => {
     onError: (err) => pushToast(extractFriendlyError(err).message, 'danger'),
   });
 
-  // Auto-draft nhẹ sau khi ngừng gõ 1.8 giây
+  // Auto-draft nhẹ sau khi ngừng gõ 1.8 giây; gửi bản form mới nhất qua ref (tránh closure cũ làm mất ô vừa gõ).
+  const draftRef = useRef(draft);
+  draftRef.current = draft;
   useEffect(() => {
     if (!draft || !wsQuery.data || draft.status === 'Published') return;
     if (draft.symptoms === wsQuery.data.symptoms && draft.conclusion === wsQuery.data.conclusion) return;
     const t = window.setTimeout(() => {
-      saveDraftMutation.mutate(draft);
+      if (draftRef.current) saveDraftMutation.mutate(draftRef.current);
     }, 1800);
     return () => window.clearTimeout(t);
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -300,11 +317,21 @@ export const DoctorPage: React.FC = () => {
             <ErrorState message={extractFriendlyError(wsQuery.error).message} onRetry={() => wsQuery.refetch()} />
           ) : (
             <Card
-              title={`Ca đang xử lý: ${draft.ticketNumber} — ${draft.patientName} (${draft.patientGender}, ${draft.patientAge} tuổi)`}
-              subtitle={`${draft.encounterCode} • ${draft.vitalsSummary || 'Chưa có sinh hiệu'} • ${draftSavedHint || `Phiên bản v${draft.version}`}`}
+              title={activeTicket ? `Ca đang xử lý: ${activeTicket.ticketNumber} — ${activeTicket.patientName}` : `Lượt khám ${draft.encounterCode}`}
+              subtitle={`${draft.encounterCode} • ${draft.vitalsSummary || 'Chưa có sinh hiệu'}${draftSavedHint ? ` • ${draftSavedHint}` : ''}`}
               actions={
                 <div className="flex flex-wrap items-center gap-2 max-w-full">
                   <StatusPill status={draft.status} />
+                  {activeTicket?.status === 'Called' ? (
+                    <Button size="sm" variant="secondary" loading={ticketMutation.isPending} onClick={() => ticketMutation.mutate('start')}>
+                      Bắt đầu khám
+                    </Button>
+                  ) : null}
+                  {activeTicket?.status === 'InProgress' ? (
+                    <Button size="sm" variant="outline" loading={ticketMutation.isPending} onClick={() => ticketMutation.mutate('finish')}>
+                      Xong lượt tại phòng
+                    </Button>
+                  ) : null}
                   <Button
                     size="sm"
                     variant="outline"

@@ -36,18 +36,29 @@ interface ApiCalledTicket {
  * RoomAccount theo token, Doctor theo phân công ngày, Nurse theo ca trực.
  * shortcut: dùng phòng đầu tiên; thêm chọn phòng khi một người trực nhiều phòng cùng lúc.
  */
-const myRoomId = async (): Promise<string> => {
-  const rooms = await apiGet<{ roomId: string; roomName: string }[]>('/api/scheduling/staff/my-rooms');
+export interface StaffRoom {
+  roomId: string;
+  roomName: string;
+  stations: { stationId: string; stationCode: string; stationName: string }[];
+}
+
+const myRoom = async (): Promise<StaffRoom> => {
+  const rooms = await apiGet<StaffRoom[]>('/api/scheduling/staff/my-rooms');
   if (!rooms.length) throw new ApiHttpError(403, 'NO_ROOM_TODAY', 'Bạn chưa được phân công phòng làm việc hôm nay.');
-  return rooms[0].roomId;
+  return rooms[0];
 };
+const myRoomId = async () => (await myRoom()).roomId;
 
 const roomQueue = async (roomId: string) =>
   (await apiGet<{ items: ApiRoomQueueItem[] }>(`/api/scheduling/staff/rooms/${roomId}/queue`, { params: { pageSize: 100 } })).items;
 
 // Server chọn lượt tiếp theo của phòng; 204 khi hàng chờ trống.
-const callNext = async (roomId: string): Promise<ApiCalledTicket> => {
-  const res = await apiPost<ApiCalledTicket | '', Record<string, never>>(`/api/scheduling/staff/rooms/${roomId}/call-next`, {});
+// Phòng có nhiều vị trí phục vụ phải gửi stationId (409 StationRequired).
+const callNext = async (roomId: string, stationId?: string): Promise<ApiCalledTicket> => {
+  const res = await apiPost<ApiCalledTicket | '', { stationId?: string }>(
+    `/api/scheduling/staff/rooms/${roomId}/call-next`,
+    stationId ? { stationId } : {},
+  );
   if (!res) throw new ApiHttpError(409, 'QUEUE_EMPTY', 'Hàng chờ đang trống.');
   return res;
 };
@@ -274,8 +285,14 @@ export const clinicalStaffApi = {
       initialQueue: items.filter((t) => t.ticketType !== 'ReturnConsultation').map(entry),
       clsReturnQueue: items.filter((t) => t.ticketType === 'ReturnConsultation').map(entry),
       activeEncounterId: active?.encounterId ?? undefined,
+      // Vé đang ở bàn bác sĩ: Called → bắt đầu khám, InProgress → xong lượt (giải phóng bệnh nhân sang CLS hoặc kết thúc).
+      activeTicket: active
+        ? { queueTicketId: active.queueTicketId, ticketNumber: active.ticketNumber, patientName: active.patientName, status: active.queueStatus }
+        : undefined,
     };
   },
+  startTicket: (queueTicketId: string) => apiPost<ApiCalledTicket, Record<string, never>>(`/api/scheduling/staff/tickets/${queueTicketId}/start`, {}),
+  finishTicket: (queueTicketId: string) => apiPost<ApiCalledTicket, Record<string, never>>(`/api/scheduling/staff/tickets/${queueTicketId}/finish`, {}),
   // Server chọn lượt (trộn hai loại vé theo thứ tự), không chọn theo queueKind.
   callNextDoctorPatient: async (_queueKind: 'Initial' | 'ClsReturn', _idempotencyKey?: string) => {
     const roomId = await myRoomId();
@@ -428,8 +445,13 @@ export const clinicalStaffApi = {
     ];
   },
   // Call: server gọi lượt kế tiếp của phòng; các thao tác khác theo vé (Scheduling §4.8).
-  roomQueueAction: async (queueTicketId: string, action: 'Call' | 'ConfirmPresence' | 'Defer' | 'Start' | 'FinishProcedure') => {
-    if (action === 'Call') return callNext(await myRoomId());
+  getMyRoom: myRoom,
+  roomQueueAction: async (
+    queueTicketId: string,
+    action: 'Call' | 'ConfirmPresence' | 'Defer' | 'Start' | 'FinishProcedure',
+    stationId?: string,
+  ) => {
+    if (action === 'Call') return callNext(await myRoomId(), stationId);
     const path = action === 'Defer' ? 'requeue' : action === 'FinishProcedure' ? 'finish' : 'start';
     return apiPost<ApiCalledTicket, Record<string, never>>(`/api/scheduling/staff/tickets/${queueTicketId}/${path}`, {});
   },
@@ -444,7 +466,12 @@ export const clinicalStaffApi = {
       version: string;
       readingDoctorId?: string | null;
       readingDoctors?: { doctorId: string; fullName: string }[];
-    }>(`/api/clinical/staff/room/results/${orderItemId}`);
+    }>(`/api/clinical/staff/room/results/${orderItemId}`).catch((e: unknown) => {
+      // Phòng không xem lại kết quả đã phát hành (contract §7): hiện trạng thái khóa thay vì lỗi.
+      if (e instanceof ApiHttpError && e.status === 409 && e.code === 'RESULTALREADYPUBLISHED')
+        return { orderItemId, queueTicketId: '', resultStatus: 'Published' as const, summaryText: '', technicalConclusion: '', version: '', readingDoctorId: null, readingDoctors: [] };
+      throw e;
+    });
     // Envelope không có tên bệnh nhân (contract §7); số vé lấy từ danh sách chờ kết quả của phòng để đối chiếu.
     const ticketNumber = await myRoomId()
       .then((roomId) => apiGet<{ items: { queueTicketId: string; ticketNumber: string }[] }>(

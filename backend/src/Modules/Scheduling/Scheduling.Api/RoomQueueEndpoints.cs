@@ -104,7 +104,9 @@ public static class RoomQueueEndpoints
             return TypedResults.Forbid();
         if (rooms.Count == 0) return TypedResults.Ok(Array.Empty<StaffRoomOption>());
         var names = (await services.GetRequiredService<IIdentityPatientsModule>().GetRoomsAsync(ct: ct)).ToDictionary(r => r.Id, r => r.Name);
-        return TypedResults.Ok(rooms.Select(r => new StaffRoomOption(r, names.GetValueOrDefault(r, ""))).OrderBy(r => r.RoomName).ToArray());
+        var stations = (await reader.GetActiveStationsAsync(rooms, ct)).ToLookup(s => s.RoomId, s => s.Station);
+        return TypedResults.Ok(rooms.Select(r => new StaffRoomOption(r, names.GetValueOrDefault(r, ""), stations[r].ToArray()))
+            .OrderBy(r => r.RoomName).ToArray());
     }
 
     private static async Task<IResult> PublicAsync([FromServices] IRoomQueueReader reader, CancellationToken ct,
