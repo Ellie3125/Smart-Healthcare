@@ -167,10 +167,10 @@ public static class OutboxDispatcherRegistration
         return services;
     }
 
-    /// <summary>Cho dispatcher phát <typeparamref name="TEvent"/> (EventType theo tên lớp) tới mọi handler đã đăng ký.</summary>
-    public static IServiceCollection AddOutboxEvent<TEvent>(this IServiceCollection services) where TEvent : IIntegrationEvent
+    /// <summary>Phát event tới các handler; wireType chỉ định tên wire đã có khi contract CLR dùng tên khác.</summary>
+    public static IServiceCollection AddOutboxEvent<TEvent>(this IServiceCollection services, EventType? wireType = null) where TEvent : IIntegrationEvent
     {
-        if (!Enum.TryParse<EventType>(typeof(TEvent).Name, out var type))
+        if (!Enum.TryParse<EventType>(wireType?.ToString() ?? typeof(TEvent).Name, out var type) || !Enum.IsDefined(type))
             throw new ArgumentException($"Sự kiện {typeof(TEvent).Name} không có trong danh sách EventType của Outbox.");
 
         return services.AddSingleton(new OutboxEventRegistration(type, async (provider, json, ct) =>
