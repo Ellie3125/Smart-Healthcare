@@ -87,17 +87,22 @@ public sealed class PatientNotificationTests
         var item = Assert.Single((await f.List(f.Users.First)).Items);
         Assert.True(await f.Read(f.Users.First, item.Id)); await Deliver();
         Assert.Equal("Read", Assert.Single((await f.List(f.Users.First)).Items).Status);
+        // Trang lịch nhận AppointmentsUpdated một lần cho mỗi tài khoản của hồ sơ, không đẩy lại khi phát lại.
+        Assert.Equal(new[] { f.Users.First, f.Users.Second }.Order(), f.Pushes.Where(x => x.Event == RealtimeEvents.AppointmentsUpdated).Select(x => x.User).Order());
+        Assert.Equal(2, f.Pushes.Count);
     }
 
     private sealed class Fixture : IAsyncDisposable
     {
         public Users Users { get; } = new(); public Clinical Clinical { get; } = new();
         public List<Guid> Events { get; } = []; public ServiceProvider Services { get; private set; } = null!;
+        public System.Collections.Concurrent.ConcurrentBag<(Guid User, string Event)> Pushes { get; } = [];
         public static async Task<Fixture> CreateAsync()
         {
             var f = new Fixture(); var cs = TestDatabase.RequiredConnectionString();
             f.Services = new ServiceCollection().AddSharedInfrastructure(cs).AddNotificationsInfrastructure(cs)
-                .AddUnitOfWorkParticipant<WorkflowDbContext>().AddSingleton<IIdentityPatientsModule>(f.Users).AddSingleton<IClinicalModule>(f.Clinical).BuildServiceProvider();
+                .AddUnitOfWorkParticipant<WorkflowDbContext>().AddSingleton<IIdentityPatientsModule>(f.Users).AddSingleton<IClinicalModule>(f.Clinical)
+                .AddSingleton<IRealtimeNotifier>(new Pusher(f.Pushes)).BuildServiceProvider();
             await using var scope = f.Services.CreateAsyncScope();
             var db = scope.ServiceProvider.GetRequiredService<WorkflowDbContext>();
             var ready = await db.Database.SqlQuery<int>($"SELECT IIF(OBJECT_ID(N'workflow.PatientNotification') IS NOT NULL AND OBJECT_ID(N'workflow.PatientNotificationRead') IS NOT NULL,1,0) AS Value").SingleAsync(Ct);
@@ -127,6 +132,8 @@ public sealed class PatientNotificationTests
     private sealed class Users : IIdentityPatientsModule
     {
         public Guid First { get; } = Guid.NewGuid(); public Guid Second { get; } = Guid.NewGuid(); public Guid Patient { get; } = Guid.NewGuid(); public bool Verified { get; set; } = true;
+        public Task<IReadOnlyList<Guid>> GetPatientAppUserIdsAsync(Guid patientId, CancellationToken ct = default) =>
+            Task.FromResult<IReadOnlyList<Guid>>(patientId == Patient ? [First, Second] : []);
         public Task<bool> CanAccessPatientAsync(Guid u, Guid p, AccessLevel l = AccessLevel.Booking, CancellationToken ct = default) => Task.FromResult(p == Patient && (u == First || u == Second) && (l == AccessLevel.Booking || Verified));
         public Task<DoctorDto?> GetDoctorAsync(Guid id, CancellationToken ct = default) => throw new NotSupportedException();
         public Task<RoomDto?> GetRoomAsync(Guid id, CancellationToken ct = default) => throw new NotSupportedException();
@@ -135,6 +142,13 @@ public sealed class PatientNotificationTests
         public Task<IReadOnlyList<DoctorRankDto>> GetDoctorRanksAsync(CancellationToken ct = default) => throw new NotSupportedException();
         public Task<IReadOnlyList<RoomDto>> GetRoomsAsync(string? t = null, bool? a = null, CancellationToken ct = default) => throw new NotSupportedException();
         public Task<StaffDutyLeaderDto?> GetRoomShiftLeaderAsync(Guid r, DateOnly d, string s, CancellationToken ct = default) => throw new NotSupportedException();
+    }
+    private sealed class Pusher(System.Collections.Concurrent.ConcurrentBag<(Guid User, string Event)> pushes) : IRealtimeNotifier
+    {
+        public Task ToPatientUserAsync(Guid id, string name, object payload, CancellationToken ct) { pushes.Add((id, name)); return Task.CompletedTask; }
+        public Task ToStaffUserAsync(Guid id, string name, object payload, CancellationToken ct) => throw new NotSupportedException();
+        public Task ToStaffRoomAsync(Guid id, string name, object payload, CancellationToken ct) => throw new NotSupportedException();
+        public Task ToPublicDisplayAsync(Guid id, string name, object payload, CancellationToken ct) => throw new NotSupportedException();
     }
     private sealed class Clinical : IClinicalModule
     {

@@ -47,10 +47,8 @@ host.Services.GetRequiredService<IRecurringJobManager>().AddOrUpdate<Scheduling.
 host.Services.GetRequiredService<IRecurringJobManager>().AddOrUpdate<Scheduling.Infrastructure.Sessions.SessionCompletionJob>(
     "scheduling-session-completion", job => job.RunAsync(CancellationToken.None), "*/5 * * * *");
 
-// Phát Outbox tới handler (W3-00, Giải pháp §8.3). Mỗi lần chạy xử lý tới khi hết bản ghi tới hạn; nhiều worker không nhận trùng.
-host.Services.GetRequiredService<IRecurringJobManager>().AddOrUpdate<OutboxDispatcher>(
-    "shared-outbox-dispatch", dispatcher => dispatcher.DispatchPendingAsync(CancellationToken.None),
-    builder.Configuration[$"{OutboxOptions.Section}:Cron"] ?? Cron.Minutely());
+// Outbox nay do OutboxDispatchLoop phát theo Outbox:PollIntervalSeconds; xóa job theo phút cũ còn lưu trong storage Hangfire.
+host.Services.GetRequiredService<IRecurringJobManager>().RemoveIfExists("shared-outbox-dispatch");
 
 // Dọn dữ liệu kỹ thuật quá 30 ngày (Outbox Published, ProcessedEvent, idempotency hết hạn). 19:00 UTC = 02:00 giờ Việt Nam.
 host.Services.GetRequiredService<IRecurringJobManager>().AddOrUpdate<TechnicalDataCleanupJob>(

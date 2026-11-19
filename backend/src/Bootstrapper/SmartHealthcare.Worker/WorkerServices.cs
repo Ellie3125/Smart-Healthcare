@@ -35,6 +35,7 @@ public static class WorkerServices
                 SqlClientFactory = SqlClientFactory.Instance,
             }));
         services.AddHangfireServer();
+        services.AddHostedService<OutboxDispatchLoop>();
 
         return services
             .AddSharedInfrastructure(connectionString)
