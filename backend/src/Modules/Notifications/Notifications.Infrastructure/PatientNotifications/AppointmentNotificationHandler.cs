@@ -10,11 +10,12 @@ public sealed class AppointmentNotificationHandler(IUnitOfWork uow, IProcessedEv
     : IIntegrationEventHandler<AppointmentConfirmed>, IIntegrationEventHandler<AppointmentCancelled>
 {
     public Task HandleAsync(AppointmentConfirmed e, CancellationToken ct) => Save(e.EventId, e.PatientId,
-        PatientNotificationKind.AppointmentConfirmed, e.AppointmentId, "Notifications.AppointmentConfirmed.v1", ct);
+        PatientNotificationKind.AppointmentConfirmed, e.AppointmentId, e.ServiceDate, "Notifications.AppointmentConfirmed.v1", ct);
     public Task HandleAsync(AppointmentCancelled e, CancellationToken ct) => Save(e.EventId, e.PatientId,
-        PatientNotificationKind.AppointmentCancelled, e.AppointmentId, "Notifications.AppointmentCancelled.v1", ct);
+        PatientNotificationKind.AppointmentCancelled, e.AppointmentId, e.ServiceDate, "Notifications.AppointmentCancelled.v1", ct);
 
-    private async Task Save(Guid eventId, Guid patientId, PatientNotificationKind kind, Guid targetId, string handler, CancellationToken ct)
+    private async Task Save(Guid eventId, Guid patientId, PatientNotificationKind kind, Guid targetId, DateOnly serviceDate,
+        string handler, CancellationToken ct)
     {
         var recipients = await uow.ExecuteAsync<IReadOnlyList<Guid>?>(async t =>
         {
@@ -23,8 +24,9 @@ public sealed class AppointmentNotificationHandler(IUnitOfWork uow, IProcessedEv
             return await identity.GetPatientAppUserIdsAsync(patientId, t);
         }, ct);
         if (recipients is null) return;
-        // Cố gắng sau commit: trang lịch tải lại qua REST; mất tín hiệu thì lần mở trang sau vẫn đúng.
-        var payload = new { EventId = eventId, AppointmentId = targetId, Kind = kind.ToString() };
-        await Task.WhenAll(recipients.Distinct().Select(id => realtime.ToPatientUserAsync(id, RealtimeEvents.AppointmentsUpdated, payload, ct)));
+        // Cố gắng sau commit: trang lịch (bệnh nhân) và màn check-in (tiếp tân) tải lại qua REST; mất tín hiệu thì lần mở trang sau vẫn đúng.
+        var payload = new { EventId = eventId, AppointmentId = targetId, Kind = kind.ToString(), ServiceDate = serviceDate };
+        await Task.WhenAll(recipients.Distinct().Select(id => realtime.ToPatientUserAsync(id, RealtimeEvents.AppointmentsUpdated, payload, ct))
+            .Append(realtime.ToReceptionAsync(RealtimeEvents.AppointmentsUpdated, payload, ct)));
     }
 }

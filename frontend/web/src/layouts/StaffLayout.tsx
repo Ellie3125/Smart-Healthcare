@@ -50,7 +50,7 @@ export const StaffLayout: React.FC = () => {
     const conn = createStaffRealtimeConnection(
       '/hubs/staff',
       () => localStorage.getItem('token'),
-      ['NotificationReceived', 'QueueUpdated', 'SessionReplaced'],
+      ['NotificationReceived', 'QueueUpdated', 'SessionReplaced', 'AppointmentsUpdated'],
       {
         onStatusChange: setRtStatus,
         onEvent: (eventName, payload) => {
@@ -66,6 +66,9 @@ export const StaffLayout: React.FC = () => {
             pushToast(msg, 'info');
           } else if (eventName === 'QueueUpdated') {
             queryClient.invalidateQueries({ queryKey: ['staff'] });
+          } else if (eventName === 'AppointmentsUpdated') {
+            // Lịch vừa xác nhận/hủy ở Worker: màn check-in tiếp tân tải lại, không cần F5.
+            queryClient.invalidateQueries({ queryKey: ['reception'] });
           }
         },
       },
