@@ -16,7 +16,8 @@ public enum DocumentsErrorCode
     StorageError
 }
 
-public sealed class DocumentsException(DocumentsErrorCode errorCode, string message) : Exception(message)
+public sealed class DocumentsException(DocumentsErrorCode errorCode, string message, Exception? innerException = null)
+    : Exception(message, innerException)
 {
     public DocumentsErrorCode ErrorCode { get; } = errorCode;
 }

@@ -98,7 +98,8 @@ public sealed class DocumentsService(
         catch (Exception ex)
         {
             // Lỗi upload: giữ metadata nháp, cho phép gửi lại, không sinh vé hay bản ghi mới
-            throw new DocumentsException(DocumentsErrorCode.StorageError, $"Lỗi khi tải tệp lên kho lưu trữ R2: {ex.Message}");
+            // Thông báo lỗi của kho có thể chứa host, bucket và key R2: chỉ giữ ở InnerException/log server, không trả về client.
+            throw new DocumentsException(DocumentsErrorCode.StorageError, "Không lưu được tệp kết quả, vui lòng thử lại.", ex);
         }
 
         // 6. Tải thành công -> đặt Uploaded và UploadedAtUtc
