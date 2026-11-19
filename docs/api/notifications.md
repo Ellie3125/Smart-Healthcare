@@ -1,6 +1,6 @@
 # Contract module Notifications (workflow)
 
-- contract_version: **v0.5**
+- contract_version: **v0.6**
 - Trạng thái: **Draft**, chờ trưởng nhóm duyệt (H-02).
 - Người giữ: Claude Code (ownership.md mục 1). Task: W2-03.
 - Mã nguồn: `backend/src/Modules/Notifications/Notifications.Contracts/IOperationTracker.cs`.
@@ -29,7 +29,7 @@ Mã nguồn: `Notifications.Contracts/IRealtimeNotifier.cs`, `Notifications.Api/
 | Hub | Ai kết nối | Nhóm | Sự kiện client đang nghe |
 |---|---|---|---|
 | `/hubs/staff` | Kênh Staff, vai trò Admin, Receptionist, Nurse, Doctor, RoomAccount (vai trò khác 401/403 trước khi nâng cấp WebSocket) | theo AppUser; tài khoản phòng thêm nhóm theo `room_id` | `NotificationReceived`, `QueueUpdated`, `SessionReplaced` |
-| `/hubs/patient` | `PatientOnly` | theo AppUser | `JourneyUpdated`, `QueueCalled` |
+| `/hubs/patient` | `PatientOnly` | theo AppUser | `JourneyUpdated`, `QueueCalled`, `AppointmentsUpdated` |
 | `/hubs/public-display?roomId=` | Ẩn danh (màn hình gọi số) | theo phòng; không có `roomId` thì nhóm mọi phòng | `DisplayBoardUpdated` (chỉ số vé, không PII) |
 
 Nginx chặn `/hubs/staff` ở host công khai và `/hubs/patient`, `/hubs/public-display` ở host nhân viên.
@@ -37,6 +37,8 @@ Nginx chặn `/hubs/staff` ở host công khai và `/hubs/patient`, `/hubs/publi
 `IRealtimeNotifier` (module khác gọi, ví dụ W4-02, W4-03): `ToStaffUserAsync`, `ToStaffRoomAsync`, `ToPatientUserAsync`, `ToPublicDisplayAsync(roomId, eventName, payload)`. Tên sự kiện ở `RealtimeEvents`. Gửi kiểu cố gắng, tối đa 3 giây: lỗi (Redis chết, không có kết nối) chỉ ghi log cảnh báo, không ném lỗi, nên gọi sau khi nghiệp vụ đã commit (thường trong handler Outbox ở Worker).
 
 Gọi số (W4-02, v0.4): handler `QueueCalled` trong Worker ghi `ProcessedEvent` rồi mới gửi (ngoài transaction, kiểu cố gắng). `QueueUpdated` tới AppUser người bấm và nhóm phòng, payload `{ eventId, roomId, queueTicketId, stationId, ticketNumber, displayNumber?, calledAtUtc }`; `DisplayBoardUpdated` tới màn hình chờ, payload chỉ `{ ticketNumber, sequenceNumber, displayNumber? }` (không PII). Client chống trùng bằng `eventId` và tải lại REST khi nhận sự kiện hoặc kết nối lại. Chưa gửi tới web bệnh nhân (cần danh sách tài khoản được xem hồ sơ từ Identity).
+
+Lịch hẹn xác nhận/hủy (v0.6): handler `AppointmentConfirmed`/`AppointmentCancelled` trong Worker lưu thông báo bệnh nhân, ghi `ProcessedEvent` rồi gửi `AppointmentsUpdated` tới mọi AppUser được xem hồ sơ (`GetPatientAppUserIdsAsync`), payload `{ eventId, appointmentId, kind }` với `kind` là `AppointmentConfirmed` hoặc `AppointmentCancelled`. Phát lại sự kiện không gửi lần hai. Web bệnh nhân tải lại danh sách lịch khi nhận; trang kết quả VNPAY đọc vé của `appointmentId` để hiện ngày khám. Độ trễ từ IPN tới sự kiện phụ thuộc `Outbox:PollIntervalSeconds` của Worker (Shared, vòng lặp phát Outbox).
 
 Backplane: `ConnectionStrings:Redis` có giá trị thì Api (BE1, BE2) và Worker dùng Redis (`ChannelPrefix = SmartHealthcare`, `AbortOnConnectFail = false`: Redis chết Api vẫn khởi động, đặt lịch vẫn chạy); trống thì một instance không backplane (máy dev). Package `Microsoft.AspNetCore.SignalR.StackExchangeRedis` 10.0.15 (bản vá GHSA-wr8v-9x5q-ggcm).
 
@@ -65,3 +67,4 @@ Lưu bền trong `workflow.PatientNotification` (một dòng mỗi sự kiện �
 | v0.3 | 17/11/2026 | §3a thông báo bệnh nhân lưu bền + đã đọc theo tài khoản (W4-03), migration Workflow `PatientNotifications` |
 | v0.4 | 18/11/2026 | §3 sự kiện gọi số `QueueUpdated`, `DisplayBoardUpdated` (W4-02) |
 | v0.5 | 19/11/2026 | §3 thêm `displayNumber` (nullable, theo Scheduling v0.17) vào `QueueCalled`/`QueueUpdated`/`DisplayBoardUpdated` |
+| v0.6 | 19/11/2026 | §3 sự kiện `AppointmentsUpdated` trên `/hubs/patient` khi lịch xác nhận/hủy |

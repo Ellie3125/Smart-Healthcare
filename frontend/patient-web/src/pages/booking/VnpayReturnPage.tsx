@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { Link } from 'react-router-dom';
 import { AlertCircle, CheckCircle2, Clock, RefreshCw } from 'lucide-react';
@@ -12,6 +12,7 @@ import {
   StatusPill,
 } from '../../shared/ui';
 import { extractPatientError } from '../../shared/lib/errors';
+import { usePatientHubEvent } from '../../shared/lib/signalr';
 
 /**
  * P10 — Màn Return URL VNPAY.
@@ -32,7 +33,21 @@ export const VnpayReturnPage: React.FC = () => {
     },
   });
 
+  // Worker xác nhận lịch sau khi thanh toán ghi nhận: nhận AppointmentsUpdated rồi đọc vé để hiện ngày khám.
+  const [confirmedId, setConfirmedId] = useState<string | null>(null);
+  usePatientHubEvent('AppointmentsUpdated', (payload) => {
+    const p = payload as { appointmentId?: string; kind?: string } | null;
+    if (p?.kind === 'AppointmentConfirmed' && p.appointmentId) setConfirmedId(p.appointmentId);
+  });
+  const ticketQuery = useQuery({
+    queryKey: ['patient', 'appointment-ticket', confirmedId],
+    queryFn: () => bookingApi.getAppointmentTicket(confirmedId!),
+    enabled: Boolean(confirmedId),
+  });
+  const ticket = ticketQuery.data;
+
   const result = verifyQuery.data;
+  const appointmentId = result?.appointmentId ?? confirmedId;
   const currentState = result?.state ?? (paymentIntentId ? 'Verifying' : 'Unknown');
 
   return (
@@ -97,6 +112,13 @@ export const VnpayReturnPage: React.FC = () => {
               </div>
             </div>
 
+            {ticket ? (
+              <Banner tone="success" title="Lịch khám đã được xác nhận">
+                {ticket.doctorName} • Ngày <DateTimeText value={ticket.serviceDate} mode="date" />
+                {ticket.roomName ? ` • ${ticket.roomName}` : ''}
+              </Banner>
+            ) : null}
+
             {currentState === 'AlreadyProcessed' ? (
               <Banner tone="info">
                 Giao dịch đã được hệ thống xử lý trước đó nên bạn không bị trừ tiền lần hai.
@@ -124,8 +146,8 @@ export const VnpayReturnPage: React.FC = () => {
               >
                 Kiểm tra lại trạng thái
               </Button>
-              {result.appointmentId ? (
-                <Link to={`/appointments/${result.appointmentId}/ticket`}>
+              {appointmentId ? (
+                <Link to={`/appointments/${appointmentId}/ticket`}>
                   <Button variant="primary">Xem vé khám QR</Button>
                 </Link>
               ) : (

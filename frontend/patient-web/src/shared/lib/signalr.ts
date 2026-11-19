@@ -1,3 +1,4 @@
+import { useEffect, useRef } from 'react';
 import { HttpTransportType, HubConnection, HubConnectionBuilder, LogLevel } from '@microsoft/signalr';
 
 export type PatientSignalRStatus = 'connecting' | 'connected' | 'reconnecting' | 'disconnected';
@@ -60,4 +61,19 @@ export function createPatientRealtimeConnection(
       handlers.onStatusChange?.('disconnected');
     },
   };
+}
+
+/** Nghe sự kiện /hubs/patient trong vòng đời một trang; handler mới nhất luôn được gọi, không kết nối lại khi render. */
+export function usePatientHubEvent(eventName: string, onEvent: (payload: unknown) => void): void {
+  const handlerRef = useRef(onEvent);
+  handlerRef.current = onEvent;
+  useEffect(() => {
+    const conn = createPatientRealtimeConnection('/hubs/patient', () => localStorage.getItem('patient_token'), [eventName], {
+      onEvent: (_name, payload) => handlerRef.current(payload),
+    });
+    conn.start();
+    return () => {
+      conn.stop();
+    };
+  }, [eventName]);
 }

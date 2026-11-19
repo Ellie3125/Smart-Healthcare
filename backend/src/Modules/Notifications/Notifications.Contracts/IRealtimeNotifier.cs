@@ -28,5 +28,6 @@ public static class RealtimeEvents
     public const string SessionReplaced = "SessionReplaced";
     public const string JourneyUpdated = "JourneyUpdated";
     public const string QueueCalled = "QueueCalled";
+    public const string AppointmentsUpdated = "AppointmentsUpdated";
     public const string DisplayBoardUpdated = "DisplayBoardUpdated";
 }
