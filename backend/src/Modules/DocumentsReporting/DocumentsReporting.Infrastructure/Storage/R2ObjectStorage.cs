@@ -2,6 +2,7 @@ using System.Globalization;
 using System.Security.Cryptography;
 using System.Text;
 using DocumentsReporting.Application;
+using Microsoft.Extensions.Logging;
 
 namespace DocumentsReporting.Infrastructure.Storage;
 
@@ -9,7 +10,7 @@ namespace DocumentsReporting.Infrastructure.Storage;
 /// Cài đặt IObjectStorage kết nối tới Cloudflare R2 bucket private qua S3-compatible API (GP §6.4, §8.6).
 /// Thực hiện AWS Signature Version 4 chuẩn mực.
 /// </summary>
-public sealed class R2ObjectStorage(HttpClient httpClient, R2Options options) : IObjectStorage
+public sealed class R2ObjectStorage(HttpClient httpClient, R2Options options, ILogger<R2ObjectStorage> logger) : IObjectStorage
 {
     private readonly string _region = "auto";
     private readonly string _service = "s3";
@@ -43,11 +44,25 @@ public sealed class R2ObjectStorage(HttpClient httpClient, R2Options options) : 
 
         SignRequest(request, payloadBytes);
 
-        using var response = await httpClient.SendAsync(request, ct);
-        if (!response.IsSuccessStatusCode)
+        HttpResponseMessage response;
+        try
         {
-            var errorBody = await response.Content.ReadAsStringAsync(ct);
-            throw new InvalidOperationException($"Lỗi tải tệp lên Cloudflare R2: Status {response.StatusCode}, Chi tiết: {errorBody}");
+            response = await httpClient.SendAsync(request, ct);
+        }
+        catch (HttpRequestException ex)
+        {
+            logger.LogError(ex, "Upload R2 lỗi kết nối, key {Key}.", key);
+            throw;
+        }
+
+        using (response)
+        {
+            if (!response.IsSuccessStatusCode)
+            {
+                var errorBody = await response.Content.ReadAsStringAsync(ct);
+                logger.LogError("Upload R2 lỗi {Status}, key {Key}: {Body}", (int)response.StatusCode, key, errorBody);
+                throw new InvalidOperationException($"Lỗi tải tệp lên Cloudflare R2: Status {response.StatusCode}, Chi tiết: {errorBody}");
+            }
         }
     }
 

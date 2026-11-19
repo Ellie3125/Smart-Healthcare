@@ -61,6 +61,65 @@ public sealed class RealtimeHubTests
         Assert.Equal(WebSocketState.Open, await ConnectAsync($"{ws}/hubs/patient?access_token={Token(Roles.Patient, Channels.Patient)}"));
     }
 
+    // Màn check-in: chỉ kết nối /hubs/staff của tiếp tân vào nhóm reception và nhận AppointmentsUpdated.
+    [Fact]
+    public async Task Reception_group_reaches_receptionists_only()
+    {
+        var builder = WebApplication.CreateBuilder(new WebApplicationOptions { EnvironmentName = Environments.Production });
+        builder.WebHost.UseUrls("http://127.0.0.1:0");
+        builder.Configuration["Jwt:SigningKey"] = new string('k', 32);
+        builder.Configuration["Jwt:Issuer"] = builder.Configuration["Jwt:Audience"] = "RealtimeHubTests";
+        builder.Services.AddIdentityPatientsInfrastructure(builder.Configuration, "Server=unused;Database=none;");
+        builder.Services.AddNotificationsApi();
+        await using var app = builder.Build();
+        app.UseWebSockets();
+        app.UseAuthentication();
+        app.UseAuthorization();
+        app.MapNotificationsEndpoints();
+        await app.StartAsync(Ct);
+        var ws = app.Urls.Single().Replace("http", "ws");
+
+        using var reception = await HubAsync($"{ws}/hubs/staff?access_token={Token(Roles.Receptionist, Channels.Staff)}");
+        using var nurse = await HubAsync($"{ws}/hubs/staff?access_token={Token(Roles.Nurse, Channels.Staff)}");
+        await app.Services.GetRequiredService<IRealtimeNotifier>()
+            .ToReceptionAsync(RealtimeEvents.AppointmentsUpdated, new { appointmentId = Guid.NewGuid() }, Ct);
+
+        Assert.Contains("\"target\":\"AppointmentsUpdated\"", await ReceiveAsync(reception, TimeSpan.FromSeconds(5)));
+        Assert.Null(await ReceiveAsync(nurse, TimeSpan.FromMilliseconds(500)));
+    }
+
+    private static async Task<ClientWebSocket> HubAsync(string url)
+    {
+        var client = new ClientWebSocket();
+        await client.ConnectAsync(new Uri(url), Ct);
+        await client.SendAsync(System.Text.Encoding.UTF8.GetBytes("{\"protocol\":\"json\",\"version\":1}"),
+            WebSocketMessageType.Text, true, Ct);
+        Assert.NotNull(await ReceiveAsync(client, TimeSpan.FromSeconds(5))); // handshake
+        return client;
+    }
+
+    // Bỏ qua ping (type 6); trả khung đầu tiên khác ping, hoặc null khi hết giờ.
+    private static async Task<string?> ReceiveAsync(ClientWebSocket client, TimeSpan wait)
+    {
+        using var timeout = CancellationTokenSource.CreateLinkedTokenSource(Ct);
+        timeout.CancelAfter(wait);
+        var buffer = new byte[4096];
+        try
+        {
+            while (true)
+            {
+                var r = await client.ReceiveAsync(buffer, timeout.Token);
+                var text = System.Text.Encoding.UTF8.GetString(buffer, 0, r.Count);
+                if (!text.StartsWith("{\"type\":6", StringComparison.Ordinal))
+                    return text;
+            }
+        }
+        catch (OperationCanceledException) when (!Ct.IsCancellationRequested)
+        {
+            return null;
+        }
+    }
+
     private static string Token(string role, string channel) => new System.IdentityModel.Tokens.Jwt.JwtSecurityTokenHandler().WriteToken(
         new System.IdentityModel.Tokens.Jwt.JwtSecurityToken("RealtimeHubTests", "RealtimeHubTests",
             [new("role", role), new("sub", Guid.NewGuid().ToString()), new(AppClaims.Channel, channel)],

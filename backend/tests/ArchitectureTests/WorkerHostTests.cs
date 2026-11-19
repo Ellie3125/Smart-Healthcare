@@ -25,7 +25,8 @@ public class WorkerHostTests
         Assert.NotNull(scope.ServiceProvider.GetRequiredService<HoldService>());
         Assert.NotNull(scope.ServiceProvider.GetRequiredService<CheckInDeadlineJob>());
         Assert.NotNull(scope.ServiceProvider.GetRequiredService<OutboxDispatcher>());
-        Assert.NotNull(host.Services.GetRequiredService<IRecurringJobManager>());
+        Assert.NotNull(host.Services.GetRequiredService<IRecurringJobManager>());
+        Assert.Single(host.Services.GetServices<IHostedService>().OfType<OutboxDispatchLoop>());
 
         // Mỗi sự kiện Outbox Worker nhận phải resolve được đủ handler (factory chỉ chạy khi dispatch, ValidateOnBuild không bắt được).
         Type[] events = [typeof(Billing.Contracts.PaymentVerified), typeof(Scheduling.Contracts.AppointmentConfirmed),
@@ -39,5 +40,25 @@ public class WorkerHostTests
             foreach (var handler in scope.ServiceProvider.GetServices(handlerType))
                 Assert.NotNull(handler);
         }
+    }
+
+    // Một lượt lỗi (DB tạm mất) không được làm dừng vòng lặp phát Outbox.
+    [Fact]
+    public async Task Outbox_loop_keeps_running_after_a_failed_round()
+    {
+        var calls = 0;
+        var thirdRound = new TaskCompletionSource();
+        var loop = new OutboxDispatchLoop(_ =>
+        {
+            if (++calls == 3)
+                thirdRound.TrySetResult();
+            return calls == 1 ? Task.FromException(new InvalidOperationException("db down")) : Task.CompletedTask;
+        }, TimeSpan.FromMilliseconds(10), Microsoft.Extensions.Logging.Abstractions.NullLogger<OutboxDispatchLoop>.Instance);
+
+        await loop.StartAsync(TestContext.Current.CancellationToken);
+        await thirdRound.Task.WaitAsync(TimeSpan.FromSeconds(5), TestContext.Current.CancellationToken);
+        await loop.StopAsync(TestContext.Current.CancellationToken);
+
+        Assert.True(calls >= 3);
     }
 }

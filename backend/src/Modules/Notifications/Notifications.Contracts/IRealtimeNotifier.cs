@@ -16,6 +16,9 @@ public interface IRealtimeNotifier
     /// <summary>Mọi kết nối /hubs/patient của một AppUser bệnh nhân (hoặc người đại diện).</summary>
     Task ToPatientUserAsync(Guid appUserId, string eventName, object payload, CancellationToken ct);
 
+    /// <summary>Mọi kết nối /hubs/staff của tài khoản tiếp tân (màn check-in dùng chung).</summary>
+    Task ToReceptionAsync(string eventName, object payload, CancellationToken ct);
+
     /// <summary>Màn hình gọi số của phòng (/hubs/public-display?roomId=) và màn hình xem mọi phòng.</summary>
     Task ToPublicDisplayAsync(Guid roomId, string eventName, object payload, CancellationToken ct);
 }
@@ -28,5 +31,6 @@ public static class RealtimeEvents
     public const string SessionReplaced = "SessionReplaced";
     public const string JourneyUpdated = "JourneyUpdated";
     public const string QueueCalled = "QueueCalled";
+    public const string AppointmentsUpdated = "AppointmentsUpdated";
     public const string DisplayBoardUpdated = "DisplayBoardUpdated";
 }
