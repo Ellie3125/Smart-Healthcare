@@ -88,8 +88,10 @@ public sealed class PatientNotificationTests
         Assert.True(await f.Read(f.Users.First, item.Id)); await Deliver();
         Assert.Equal("Read", Assert.Single((await f.List(f.Users.First)).Items).Status);
         // Trang lịch nhận AppointmentsUpdated một lần cho mỗi tài khoản của hồ sơ, không đẩy lại khi phát lại.
-        Assert.Equal(new[] { f.Users.First, f.Users.Second }.Order(), f.Pushes.Where(x => x.Event == RealtimeEvents.AppointmentsUpdated).Select(x => x.User).Order());
-        Assert.Equal(2, f.Pushes.Count);
+        Assert.Equal(new[] { f.Users.First, f.Users.Second }.Order(), f.Pushes.Where(x => x.Event == RealtimeEvents.AppointmentsUpdated && x.User != Guid.Empty).Select(x => x.User).Order());
+        // Màn check-in của tiếp tân nhận đúng một lần (Guid.Empty đánh dấu nhóm reception trong bộ ghi).
+        Assert.Single(f.Pushes, x => x.User == Guid.Empty && x.Event == RealtimeEvents.AppointmentsUpdated);
+        Assert.Equal(3, f.Pushes.Count);
     }
 
     private sealed class Fixture : IAsyncDisposable
@@ -146,6 +148,7 @@ public sealed class PatientNotificationTests
     private sealed class Pusher(System.Collections.Concurrent.ConcurrentBag<(Guid User, string Event)> pushes) : IRealtimeNotifier
     {
         public Task ToPatientUserAsync(Guid id, string name, object payload, CancellationToken ct) { pushes.Add((id, name)); return Task.CompletedTask; }
+        public Task ToReceptionAsync(string name, object payload, CancellationToken ct) { pushes.Add((Guid.Empty, name)); return Task.CompletedTask; }
         public Task ToStaffUserAsync(Guid id, string name, object payload, CancellationToken ct) => throw new NotSupportedException();
         public Task ToStaffRoomAsync(Guid id, string name, object payload, CancellationToken ct) => throw new NotSupportedException();
         public Task ToPublicDisplayAsync(Guid id, string name, object payload, CancellationToken ct) => throw new NotSupportedException();
