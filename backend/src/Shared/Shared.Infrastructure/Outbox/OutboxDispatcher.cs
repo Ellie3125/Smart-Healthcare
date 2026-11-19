@@ -26,7 +26,7 @@ public sealed class OutboxOptions
     public int LeaseSeconds { get; set; } = 300;
 
     /// <summary>Khoảng nghỉ giữa hai lượt quét của vòng lặp phát Outbox trong Worker.</summary>
-    public int PollIntervalSeconds { get; set; } = 30;
+    public int PollIntervalSeconds { get; set; } = 5;
 
     internal void Validate()
     {
