@@ -18,7 +18,7 @@ Mỗi module `<M>` nằm trong `backend/src/Modules/<M>/` gồm 5 project:
 | `<M>.Infrastructure` | `<M>DbContext`, cấu hình EF, migration, cài đặt port | `<M>.Application`, `<M>.Domain`, `Shared.Infrastructure` |
 | `<M>.Api` | Endpoint (Minimal API), DI của tầng Api | `<M>.Application`, `<M>.Contracts` |
 
-- Module khác chỉ được tham chiếu `<M>.Contracts`. Không tham chiếu Domain, Infrastructure hay DbContext của nhau (MOD-01, Giải pháp §8.2). `ArchitectureTests` kiểm các luật này.
+- Module khác chỉ được tham chiếu `<M>.Contracts`. Không tham chiếu Domain, Infrastructure hay DbContext của nhau (MOD-01, Kiến trúc hệ thống §8.2). `ArchitectureTests` kiểm các luật này.
 - Contract của một module **không** tham chiếu Contracts của module khác. Cần kiểu chung thì dùng kiểu BCL (Guid, DateTime, decimal, string) hoặc đặt trong `Shared.Abstractions`.
 - Mỗi project có `DependencyInjection.cs` với `Add<M><Tầng>()`; tầng Api có thêm `Map<M>Endpoints()`. Bootstrapper (`SmartHealthcare.Api`, `SmartHealthcare.Worker`) chỉ gọi các hàm này.
 - Test của module ở `backend/tests/<M>.Tests/` và phải có trong `SmartHealthcare.slnx`. Test chạm SQL Server ở `backend/tests/SqlServerTests/`.
@@ -88,7 +88,7 @@ Tên DbContext và schema của ba module **khác tên module**:
 
 ## 6. Integration event
 
-- Tên sự kiện là cụm danh từ + động từ quá khứ, PascalCase, **không** có hậu tố `Event`: `PaymentVerified`, `TicketCheckedIn`, `EncounterOpened`, `ResultPublished`, `AppointmentConfirmed`, `AppointmentCancelled` (Giải pháp §8.2).
+- Tên sự kiện là cụm danh từ + động từ quá khứ, PascalCase, **không** có hậu tố `Event`: `PaymentVerified`, `TicketCheckedIn`, `EncounterOpened`, `ResultPublished`, `AppointmentConfirmed`, `AppointmentCancelled` (Kiến trúc hệ thống §8.2).
 - Tên lớp phải trùng một giá trị của `Shared.Infrastructure.Persistence.Enums.EventType`: `IIntegrationEventPublisher` lấy `EventType` từ tên lớp và tra `AggregateType` theo bảng cố định. Thêm sự kiện mới cần thêm giá trị enum và ánh xạ trong `IntegrationEventPublisher`.
 - Đặt trong `<M>.Contracts` của module phát. Dạng `sealed record` hiện thực `IIntegrationEvent` theo mẫu `Billing.Contracts.PaymentVerified`: tham số đầu là `EventId`, có `OccurredAtUtc`, `OperationId` (nullable), `public const int CurrentVersion = 1` và `Version => CurrentVersion`.
 - Payload tối thiểu, chỉ ID và giá trị mà bên nhận cần để quyết định; không bệnh án, không CCCD, không số điện thoại (MSG-03).
