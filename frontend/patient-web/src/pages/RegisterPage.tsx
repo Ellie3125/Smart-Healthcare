@@ -32,8 +32,13 @@ export const RegisterPage: React.FC = () => {
   const validate = (): boolean => {
     const errors: Record<string, string> = {};
 
-    if (!userName.trim()) errors.userName = 'Tên đăng nhập không được để trống.';
-    if (userName.length < 3) errors.userName = 'Tên đăng nhập phải có ít nhất 3 ký tự.';
+    if (!userName.trim()) {
+      errors.userName = 'Tên đăng nhập không được để trống.';
+    } else if (/\s/.test(userName)) {
+      errors.userName = 'Tên đăng nhập không được chứa khoảng trắng.';
+    } else if (userName.length < 3) {
+      errors.userName = 'Tên đăng nhập phải có ít nhất 3 ký tự.';
+    }
     if (!password) errors.password = 'Mật khẩu không được để trống.';
     if (password.length < 6) errors.password = 'Mật khẩu phải có ít nhất 6 ký tự.';
     if (password !== confirmPassword) errors.confirmPassword = 'Mật khẩu xác nhận không khớp.';
@@ -185,7 +190,7 @@ export const RegisterPage: React.FC = () => {
             <h2 className="text-xs font-bold uppercase tracking-wider text-primary border-b border-surface-container-low pb-2 mb-4">
               1. Thông Tin Tài Khoản Đăng Nhập
             </h2>
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div className="space-y-4">
               <div>
                 <label className="block text-xs font-semibold text-on-surface mb-1" htmlFor="reg-username">
                   Tên đăng nhập <span className="text-error">*</span>
@@ -194,7 +199,31 @@ export const RegisterPage: React.FC = () => {
                   id="reg-username"
                   type="text"
                   value={userName}
-                  onChange={(e) => setUserName(e.target.value)}
+                  onChange={(e) => {
+                    const val = e.target.value;
+                    if (/\s/.test(val)) {
+                      setFieldErrors((prev) => ({
+                        ...prev,
+                        userName: 'Tên đăng nhập không được chứa khoảng trắng.',
+                      }));
+                    } else if (fieldErrors.userName) {
+                      setFieldErrors((prev) => {
+                        const next = { ...prev };
+                        delete next.userName;
+                        return next;
+                      });
+                    }
+                    setUserName(val);
+                  }}
+                  onKeyDown={(e) => {
+                    if (e.key === ' ') {
+                      e.preventDefault();
+                      setFieldErrors((prev) => ({
+                        ...prev,
+                        userName: 'Tên đăng nhập không được chứa khoảng trắng.',
+                      }));
+                    }
+                  }}
                   placeholder="Ví dụ: nguyenvanan"
                   className={`w-full h-11 px-3.5 rounded-xl border text-sm bg-surface-container-low/55 focus:bg-white transition-colors ${
                     fieldErrors.userName ? 'border-error bg-error-container/40' : 'border-outline-variant/75 focus:border-primary'
@@ -260,7 +289,7 @@ export const RegisterPage: React.FC = () => {
                 {fieldErrors.password && <p className="text-xs text-error mt-1">{fieldErrors.password}</p>}
               </div>
 
-              <div className="sm:col-span-2">
+              <div>
                 <label className="block text-xs font-semibold text-on-surface mb-1" htmlFor="reg-confirm">
                   Xác nhận lại mật khẩu <span className="text-error">*</span>
                 </label>
