@@ -30,3 +30,6 @@ node_modules/
 # ===== Frontend build =====
 dist/
 *.tsbuildinfo
+
+# ===== Kết quả test cục bộ =====
+TestResults/

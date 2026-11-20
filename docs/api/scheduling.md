@@ -5,7 +5,7 @@
 - Người giữ: theo ownership.md mục 1. Task: W1-04.
 - Mã nguồn: `backend/src/Modules/Scheduling/Scheduling.Contracts/` (in-process), `Scheduling.Api/` (HTTP).
 - Quy ước chung: `docs/conventions.md` v0.1 (W1-03, PR #43, chờ duyệt): ProblemDetails + extension `code`, JSON camelCase, thời điểm UTC ISO-8601 có `Z`, ngày phục vụ `yyyy-MM-dd`, header `Idempotency-Key`.
-- Nguồn nghiệp vụ: Phạm vi v2.13 §4–6; Giải pháp v2.14 §1.2, §2.3, §4, §8.2; ERD v2.4 (DoctorDayQuota, Reservation, Appointment, QueueTicket).
+- Nguồn nghiệp vụ: Phạm vi v2.13 §4–6; Giải pháp v2.14 §1.2, §2.3, §4; Kiến trúc hệ thống §8.2; ERD v2.4 (DoctorDayQuota, Reservation, Appointment, QueueTicket).
 
 ## 1. Quy tắc suất trống
 
