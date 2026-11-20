@@ -10,6 +10,8 @@ export const LoginPage: React.FC = () => {
 
   const [identity, setIdentity] = useState('');
   const [password, setPassword] = useState('');
+  const [identityError, setIdentityError] = useState<string | null>(null);
+  const [passwordError, setPasswordError] = useState<string | null>(null);
   const [remember, setRemember] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
@@ -30,8 +32,23 @@ export const LoginPage: React.FC = () => {
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!identity.trim() || !password.trim()) {
-      setErrorMsg('Vui lòng nhập đầy đủ tên đăng nhập và mật khẩu.');
+
+    let hasError = false;
+    if (!identity.trim()) {
+      setIdentityError('Vui lòng nhập tên đăng nhập hoặc mã tài khoản.');
+      hasError = true;
+    } else {
+      setIdentityError(null);
+    }
+
+    if (!password.trim()) {
+      setPasswordError('Vui lòng nhập mật khẩu.');
+      hasError = true;
+    } else {
+      setPasswordError(null);
+    }
+
+    if (hasError) {
       return;
     }
 
@@ -338,16 +355,34 @@ export const LoginPage: React.FC = () => {
                       </span>
                       <input
                         autoComplete="username"
-                        className="w-full h-[44px] pl-11 pr-3 rounded-xl border border-transparent bg-surface-container-low/70 text-on-surface font-body-md text-body-md placeholder:text-on-surface-variant/60 focus:outline-none focus:border-primary focus:bg-white focus:ring-2 focus:ring-primary/15 transition-all duration-150"
+                        className={`w-full h-[44px] pl-11 pr-3 rounded-xl border font-body-md text-body-md placeholder:text-on-surface-variant/60 focus:outline-none focus:bg-white focus:ring-2 transition-all duration-150 ${
+                          identityError
+                            ? 'border-error bg-error-container/20 text-on-surface focus:ring-error/20 focus:border-error'
+                            : 'border-transparent bg-surface-container-low/70 text-on-surface focus:border-primary focus:ring-primary/15'
+                        }`}
                         id="identity"
                         name="identity"
                         value={identity}
-                        onChange={(e) => setIdentity(e.target.value)}
+                        onChange={(e) => {
+                          setIdentity(e.target.value);
+                          if (identityError) setIdentityError(null);
+                        }}
+                        onBlur={() => {
+                          if (!identity.trim()) {
+                            setIdentityError('Vui lòng nhập tên đăng nhập hoặc mã tài khoản.');
+                          }
+                        }}
                         placeholder="admin01, letan01, bacsi01, phong_xq01..."
                         required
                         type="text"
                       />
                     </div>
+                    {identityError && (
+                      <p className="mt-1.5 text-xs text-error flex items-center gap-1 font-medium">
+                        <span className="material-symbols-outlined text-[16px] shrink-0">error</span>
+                        <span>{identityError}</span>
+                      </p>
+                    )}
                   </div>
 
                   {/* Password field */}
@@ -372,11 +407,23 @@ export const LoginPage: React.FC = () => {
                       </span>
                       <input
                         autoComplete="current-password"
-                        className="w-full h-[44px] pl-11 pr-12 rounded-xl border border-transparent bg-surface-container-low/70 text-on-surface font-body-md text-body-md placeholder:text-on-surface-variant/60 focus:outline-none focus:border-primary focus:bg-white focus:ring-2 focus:ring-primary/15 transition-all duration-150"
+                        className={`w-full h-[44px] pl-11 pr-12 rounded-xl border font-body-md text-body-md placeholder:text-on-surface-variant/60 focus:outline-none focus:bg-white focus:ring-2 transition-all duration-150 ${
+                          passwordError
+                            ? 'border-error bg-error-container/20 text-on-surface focus:ring-error/20 focus:border-error'
+                            : 'border-transparent bg-surface-container-low/70 text-on-surface focus:border-primary focus:ring-primary/15'
+                        }`}
                         id="password"
                         name="password"
                         value={password}
-                        onChange={(e) => setPassword(e.target.value)}
+                        onChange={(e) => {
+                          setPassword(e.target.value);
+                          if (passwordError) setPasswordError(null);
+                        }}
+                        onBlur={() => {
+                          if (!password.trim()) {
+                            setPasswordError('Vui lòng nhập mật khẩu.');
+                          }
+                        }}
                         placeholder="Nhập mật khẩu của bạn"
                         required
                         type={showPassword ? 'text' : 'password'}
@@ -392,6 +439,12 @@ export const LoginPage: React.FC = () => {
                         </span>
                       </button>
                     </div>
+                    {passwordError && (
+                      <p className="mt-1.5 text-xs text-error flex items-center gap-1 font-medium">
+                        <span className="material-symbols-outlined text-[16px] shrink-0">error</span>
+                        <span>{passwordError}</span>
+                      </p>
+                    )}
                   </div>
 
                   {/* Remember me checkbox */}
