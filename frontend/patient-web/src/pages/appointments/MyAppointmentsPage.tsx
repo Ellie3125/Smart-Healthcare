@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { Link } from 'react-router-dom';
 import { QrCode, RefreshCw, XCircle } from 'lucide-react';
 import { bookingApi } from '../../api/bookingApi';
@@ -16,10 +16,17 @@ import {
   Tabs,
 } from '../../shared/ui';
 import { extractPatientError } from '../../shared/lib/errors';
+import { usePatientHubEvent } from '../../shared/lib/signalr';
 
 export const MyAppointmentsPage: React.FC = () => {
   const [statusFilter, setStatusFilter] = useState<string>('');
   const [page, setPage] = useState<number>(1);
+  const queryClient = useQueryClient();
+
+  // Lịch vừa được xác nhận/hủy ở Worker: tải lại danh sách, không cần F5.
+  usePatientHubEvent('AppointmentsUpdated', () => {
+    queryClient.invalidateQueries({ queryKey: ['patient', 'appointments'] });
+  });
 
   const query = useQuery({
     queryKey: ['patient', 'appointments', { statusFilter, page }],

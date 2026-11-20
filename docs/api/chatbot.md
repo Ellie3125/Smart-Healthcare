@@ -2,7 +2,7 @@
 
 - contract_version: **v0.3 Draft** (§3 đã có trên dev 18/11/2026; CB-00, chờ trưởng nhóm duyệt, hạn 21/11/2026; §4 chờ chốt H-06, hạn 20/11/2026)
 - Người giữ: theo ownership.md mục 1. Task: CB-00. Bên dùng: CB-01..CB-11 (dịch vụ chatbot), CB-05 (API đề nghị phía .NET), CB-08 (giao diện chat trên web bệnh nhân).
-- Nguồn: Phạm vi nghiệp vụ v2.13 §1, §2.1–2.2, §7; Giải pháp kỹ thuật v2.14 §2.1, §8.7, §11.1–11.7; luật BOT-01..BOT-12 (`docs/ai/instructions/chatbot-langchain-ollama.md`).
+- Nguồn: Phạm vi nghiệp vụ v2.13 §1, §2.1–2.2, §7; Giải pháp kỹ thuật v2.14 §2.1, §11.1–11.7; Kiến trúc hệ thống §8.7; luật BOT-01..BOT-12 (`docs/ai/instructions/chatbot-langchain-ollama.md`).
 - Dựa trên: `docs/api/scheduling.md` v0.2 Approved, `docs/api/identity.md` (dev 1026563), `docs/conventions.md` (ProblemDetails + `code`, JSON camelCase, UTC ISO-8601 có `Z`, ngày `yyyy-MM-dd`, `Idempotency-Key`).
 
 ## 1. Thành phần và đường đi

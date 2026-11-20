@@ -263,6 +263,10 @@ public sealed class UploadResultFileTests
 
         var ex = await Assert.ThrowsAsync<DocumentsException>(() => service.UploadResultFileAsync(cmd1));
         Assert.Equal(DocumentsErrorCode.StorageError, ex.ErrorCode);
+        // Thông báo trả về client không mang host/bucket/key R2; chi tiết giữ ở InnerException cho log server.
+        Assert.DoesNotContain("r2", ex.Message, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("results/", ex.Message, StringComparison.Ordinal);
+        Assert.Contains("cloudflarestorage", ex.InnerException!.Message, StringComparison.Ordinal);
 
         // Kiểm tra bản ghi vẫn tồn tại ở trạng thái Draft
         var draft = _store.AllAttachments.SingleOrDefault(x => x.QueueTicketId == ticketId && x.OriginalFileName == "kq_loi.pdf");
@@ -349,7 +353,7 @@ public sealed class UploadResultFileTests
 
         public Task UploadAsync(string key, Stream content, string contentType, CancellationToken ct = default)
         {
-            if (ShouldThrow) throw new IOException("Simulated network failure on R2 upload");
+            if (ShouldThrow) throw new IOException($"Simulated failure https://acc.r2.cloudflarestorage.com/bucket/{key}");
             return _inner.UploadAsync(key, content, contentType, ct);
         }
 

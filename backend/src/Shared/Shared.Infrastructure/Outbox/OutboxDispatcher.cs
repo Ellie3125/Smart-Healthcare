@@ -25,8 +25,12 @@ public sealed class OutboxOptions
     /// <summary>Bản ghi Processing quá lâu (worker chết giữa chừng) được nhận lại và tính là một lần thử.</summary>
     public int LeaseSeconds { get; set; } = 300;
 
+    /// <summary>Khoảng nghỉ giữa hai lượt quét của vòng lặp phát Outbox trong Worker.</summary>
+    public int PollIntervalSeconds { get; set; } = 5;
+
     internal void Validate()
     {
+        ArgumentOutOfRangeException.ThrowIfLessThan(PollIntervalSeconds, 1, nameof(PollIntervalSeconds));
         ArgumentOutOfRangeException.ThrowIfLessThan(BatchSize, 1, nameof(BatchSize));
         ArgumentOutOfRangeException.ThrowIfLessThan(MaxAttempts, 1, nameof(MaxAttempts));
         ArgumentOutOfRangeException.ThrowIfNegative(RetryDelaySeconds, nameof(RetryDelaySeconds));

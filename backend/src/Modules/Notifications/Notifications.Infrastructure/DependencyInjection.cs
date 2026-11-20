@@ -31,8 +31,11 @@ public static class DependencyInjection
             .AddScoped<IPatientNotificationWriter, EfPatientNotificationWriter>()
             // Reader only runs in Api with Identity/Clinical; Worker only needs the writer and handlers.
             .AddScoped<IPatientNotificationReader>(provider => ActivatorUtilities.CreateInstance<EfPatientNotificationReader>(provider))
-            .AddScoped<IIntegrationEventHandler<AppointmentConfirmed>, AppointmentNotificationHandler>()
-            .AddScoped<IIntegrationEventHandler<AppointmentCancelled>, AppointmentNotificationHandler>()
+            // Factory như QueueCalled: chỉ Worker dispatch nên IRealtimeNotifier/Identity được resolve lúc chạy.
+            .AddScoped<IIntegrationEventHandler<AppointmentConfirmed>>(provider =>
+                ActivatorUtilities.CreateInstance<AppointmentNotificationHandler>(provider))
+            .AddScoped<IIntegrationEventHandler<AppointmentCancelled>>(provider =>
+                ActivatorUtilities.CreateInstance<AppointmentNotificationHandler>(provider))
             .AddScoped<Shared.Abstractions.IIntegrationEventHandler<Scheduling.Contracts.QueueCalled>>(provider =>
                 ActivatorUtilities.CreateInstance<QueueCalledRealtimeHandler>(provider));
     }

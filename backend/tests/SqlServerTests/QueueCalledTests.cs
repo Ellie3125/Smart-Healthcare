@@ -187,5 +187,6 @@ public sealed class QueueCalledRealtimeTests
         public Task ToStaffRoomAsync(Guid id, string name, object payload, CancellationToken ct) => Record("room", id, name, payload);
         public Task ToPublicDisplayAsync(Guid id, string name, object payload, CancellationToken ct) => Record("public", id, name, payload);
         public Task ToPatientUserAsync(Guid id, string name, object payload, CancellationToken ct) => Record("patient", id, name, payload);
+        public Task ToReceptionAsync(string name, object payload, CancellationToken ct) => Record("reception", Guid.Empty, name, payload);
     }
 }

@@ -25,6 +25,8 @@ public sealed class StaffHub : Hub
         await Groups.AddToGroupAsync(Context.ConnectionId, RealtimeGroups.User(userId));
         if (user.IsInRole(Roles.RoomAccount) && Guid.TryParse(user.FindFirstValue(AppClaims.RoomId), out var roomId))
             await Groups.AddToGroupAsync(Context.ConnectionId, RealtimeGroups.Room(roomId));
+        if (user.IsInRole(Roles.Receptionist))
+            await Groups.AddToGroupAsync(Context.ConnectionId, RealtimeGroups.Reception);
         await base.OnConnectedAsync();
     }
 }
@@ -62,6 +64,7 @@ public sealed class PublicDisplayHub : Hub
 internal static class RealtimeGroups
 {
     public const string AllDisplays = "display:all";
+    public const string Reception = "role:reception";
     public static string User(Guid id) => $"user:{id:N}";
     public static string Room(Guid id) => $"room:{id:N}";
     public static string Display(Guid roomId) => $"display:{roomId:N}";
@@ -83,6 +86,9 @@ internal sealed class SignalRRealtimeNotifier(IHubContext<StaffHub> staff, IHubC
 
     public Task ToStaffRoomAsync(Guid roomId, string eventName, object payload, CancellationToken ct) =>
         SendAsync(t => staff.Clients.Group(RealtimeGroups.Room(roomId)).SendAsync(eventName, payload, t), eventName, ct);
+
+    public Task ToReceptionAsync(string eventName, object payload, CancellationToken ct) =>
+        SendAsync(t => staff.Clients.Group(RealtimeGroups.Reception).SendAsync(eventName, payload, t), eventName, ct);
 
     public Task ToPatientUserAsync(Guid appUserId, string eventName, object payload, CancellationToken ct) =>
         SendAsync(t => patient.Clients.Group(RealtimeGroups.User(appUserId)).SendAsync(eventName, payload, t), eventName, ct);
