@@ -1,5 +1,6 @@
 # Jenkins cho VPS Staging: build image và chạy scripts/deploy-staging.sh qua Docker của host (socket mount trong compose.yaml cùng thư mục).
-FROM jenkins/jenkins:2.528.2-lts-jdk21
+# 2.580.2: bản vá core theo advisory 28/10/2026. Khi có tag kèm Java ≥ 21.0.13.1 (CVE-2026-114938) thì nâng tiếp và bỏ cờ trong compose.yaml.
+FROM jenkins/jenkins:2.580.2-lts-jdk21
 USER root
 # Docker CLI + Compose plugin từ repo chính thức của Docker (không cài Docker daemon trong container).
 RUN apt-get update \

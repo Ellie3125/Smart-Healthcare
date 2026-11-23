@@ -18,5 +18,6 @@ services:
       # Cùng đường dẫn trong và ngoài container: compose chạy từ workspace mount file (init-dev.sql) theo đường dẫn host.
       - /var/jenkins_home:/var/jenkins_home
     environment:
-      JAVA_OPTS: -Xmx512m
+      # -XX:-UseBASE64Intrinsics: chặn CVE-2026-114938 (Java4Shell) trên CPU có AVX-512 VBMI cho tới khi image có Java đã vá.
+      JAVA_OPTS: -Xmx512m -XX:-UseBASE64Intrinsics
     mem_limit: 1g
