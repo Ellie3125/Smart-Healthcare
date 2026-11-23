@@ -1,7 +1,12 @@
 # Jenkins cho VPS Staging: build image và chạy scripts/deploy-staging.sh qua Docker của host (socket mount trong compose.yaml cùng thư mục).
-# 2.580.2: bản vá core theo advisory 28/10/2026. Khi có tag kèm Java ≥ 21.0.13.1 (CVE-2026-114938) thì nâng tiếp và bỏ cờ trong compose.yaml.
+# Java 21.0.13.1 vá CVE-2026-114938 (Java4Shell); tag Jenkins 2.580.2 còn kèm Java cũ nên thay JRE bằng bản Temurin.
+FROM eclipse-temurin:21.0.13.1_2-jre AS java
+# 2.580.2: bản vá core theo advisory 28/10/2026.
 FROM jenkins/jenkins:2.580.2-lts-jdk21
 USER root
+RUN rm -rf /opt/java/openjdk
+COPY --from=java /opt/java/openjdk /opt/java/openjdk
+RUN java -version 2>&1 | grep -q '"21.0.13.1"'
 # Docker CLI + Compose plugin từ repo chính thức của Docker (không cài Docker daemon trong container).
 RUN apt-get update \
  && apt-get install -y --no-install-recommends ca-certificates curl gnupg \
