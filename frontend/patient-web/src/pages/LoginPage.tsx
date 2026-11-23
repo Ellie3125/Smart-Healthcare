@@ -11,6 +11,8 @@ export const LoginPage: React.FC = () => {
 
   const [userName, setUserName] = useState('');
   const [password, setPassword] = useState('');
+  const [userNameError, setUserNameError] = useState<string | null>(null);
+  const [passwordError, setPasswordError] = useState<string | null>(null);
   const [showPassword, setShowPassword] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -19,8 +21,23 @@ export const LoginPage: React.FC = () => {
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!userName.trim() || !password.trim()) {
-      setErrorMsg('Vui lòng nhập đầy đủ tên đăng nhập và mật khẩu.');
+    
+    let hasError = false;
+    if (!userName.trim()) {
+      setUserNameError('Vui lòng nhập tên đăng nhập.');
+      hasError = true;
+    } else {
+      setUserNameError(null);
+    }
+
+    if (!password.trim()) {
+      setPasswordError('Vui lòng nhập mật khẩu.');
+      hasError = true;
+    } else {
+      setPasswordError(null);
+    }
+
+    if (hasError) {
       return;
     }
 
@@ -136,10 +153,10 @@ export const LoginPage: React.FC = () => {
             </div>
           )}
 
-          <form onSubmit={handleLogin} className="space-y-4">
+          <form onSubmit={handleLogin} className="space-y-4" noValidate>
             <div>
               <label className="block text-sm font-semibold text-on-surface mb-1.5" htmlFor="userName">
-                Tên đăng nhập
+                Tên đăng nhập <span className="text-error">*</span>
               </label>
               <div className="relative">
                 <span className="material-symbols-outlined absolute left-3.5 top-1/2 -translate-y-1/2 text-on-surface-variant text-[20px] pointer-events-none w-5 h-5 flex items-center justify-center overflow-hidden shrink-0 select-none">person</span>
@@ -147,18 +164,36 @@ export const LoginPage: React.FC = () => {
                   id="userName"
                   type="text"
                   value={userName}
-                  onChange={(e) => setUserName(e.target.value)}
+                  onChange={(e) => {
+                    setUserName(e.target.value);
+                    if (userNameError) setUserNameError(null);
+                  }}
+                  onBlur={() => {
+                    if (!userName.trim()) {
+                      setUserNameError('Vui lòng nhập tên đăng nhập.');
+                    }
+                  }}
                   placeholder="Ví dụ: patient01"
-                  className="w-full h-11 pl-11 pr-3.5 rounded-xl border border-outline-variant/75 bg-surface-container-low/55 text-sm text-on-surface placeholder:text-outline transition-colors focus:outline-none focus:bg-white focus:ring-2 focus:ring-primary/20 focus:border-primary"
+                  className={`w-full h-11 pl-11 pr-3.5 rounded-xl border bg-surface-container-low/55 text-sm text-on-surface placeholder:text-outline transition-colors focus:outline-none focus:bg-white focus:ring-2 ${
+                    userNameError
+                      ? 'border-error focus:ring-error/20 focus:border-error'
+                      : 'border-outline-variant/75 focus:ring-primary/20 focus:border-primary'
+                  }`}
                   required
                 />
               </div>
+              {userNameError && (
+                <p className="mt-1.5 text-xs text-error flex items-center gap-1 font-medium">
+                  <span className="material-symbols-outlined text-[16px] shrink-0">error</span>
+                  <span>{userNameError}</span>
+                </p>
+              )}
             </div>
 
             <div>
               <div className="flex items-center justify-between mb-1.5">
                 <label className="block text-sm font-semibold text-on-surface" htmlFor="password">
-                  Mật khẩu
+                  Mật khẩu <span className="text-error">*</span>
                 </label>
               </div>
               <div className="relative">
@@ -167,9 +202,21 @@ export const LoginPage: React.FC = () => {
                   id="password"
                   type={showPassword ? 'text' : 'password'}
                   value={password}
-                  onChange={(e) => setPassword(e.target.value)}
+                  onChange={(e) => {
+                    setPassword(e.target.value);
+                    if (passwordError) setPasswordError(null);
+                  }}
+                  onBlur={() => {
+                    if (!password.trim()) {
+                      setPasswordError('Vui lòng nhập mật khẩu.');
+                    }
+                  }}
                   placeholder="Nhập mật khẩu của bạn"
-                  className="w-full h-11 pl-11 pr-12 rounded-xl border border-outline-variant/75 bg-surface-container-low/55 text-sm text-on-surface placeholder:text-outline transition-colors focus:outline-none focus:bg-white focus:ring-2 focus:ring-primary/20 focus:border-primary"
+                  className={`w-full h-11 pl-11 pr-12 rounded-xl border bg-surface-container-low/55 text-sm text-on-surface placeholder:text-outline transition-colors focus:outline-none focus:bg-white focus:ring-2 ${
+                    passwordError
+                      ? 'border-error focus:ring-error/20 focus:border-error'
+                      : 'border-outline-variant/75 focus:ring-primary/20 focus:border-primary'
+                  }`}
                   required
                 />
                 <button
@@ -184,6 +231,12 @@ export const LoginPage: React.FC = () => {
                   </span>
                 </button>
               </div>
+              {passwordError && (
+                <p className="mt-1.5 text-xs text-error flex items-center gap-1 font-medium">
+                  <span className="material-symbols-outlined text-[16px] shrink-0">error</span>
+                  <span>{passwordError}</span>
+                </p>
+              )}
             </div>
 
             <button

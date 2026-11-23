@@ -1,7 +1,7 @@
 # Contract IdentityPatients — HTTP
 
 - Phiên bản: v0.3 Draft (18/11/2026). Claude Code viết theo yêu cầu trưởng nhóm (CLA-FIX-012, sửa ở CLA-FIX-013). Người phụ trách IdentityPatients rà soát; trưởng nhóm duyệt rồi mới chuyển sang Approved.
-- Nguồn: Phạm vi nghiệp vụ v2.12 (mục 2.1 ý 7, 2.3); Giải pháp kỹ thuật v2.14 (§8.6, "Kênh và vai trò"); ERD v2.4 schema `identity`; DB-05; code trong `IdentityPatients.Api/Controllers`.
+- Nguồn: Phạm vi nghiệp vụ v2.12 (mục 2.1 ý 7, 2.3); Kiến trúc hệ thống (§8.6, "Kênh, vai trò, đăng nhập"); ERD v2.4 schema `identity`; DB-05; code trong `IdentityPatients.Api/Controllers`.
 - JSON camelCase. Thời gian UTC ISO 8601 (`...Z`). Ngày dạng `yyyy-MM-dd`. Enum truyền dạng chuỗi.
 - Lỗi do module trả là `application/problem+json`, gồm `title` (tiếng Việt), `status`, `detail` và extension **`code`** (PascalCase, `docs/conventions.md` §4). Frontend và chatbot rẽ nhánh theo `code`. Khi không có mã riêng thì `code` theo status: 400 `InvalidInput`, 403 `Forbidden`, 404 `NotFound`, 409 `Conflict`. 401/403 do middleware xác thực trả thì không có thân.
 - Tiền tố route `api/staff/...`, `api/patient/...` khác quy ước `api/<module>/<kênh>/...` của `docs/conventions.md` (PR #43, Draft). Chờ trưởng nhóm chốt một kiểu (PROGRESS mục 5).
