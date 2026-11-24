@@ -447,6 +447,10 @@ export const clinicalStaffApi = {
       ...pending.items.map((p) => row(p.queueTicketId, shown(p), p.serviceOrderItemId, 'Completed', '', 'Draft', p.completedAtUtc ?? '')),
     ];
   },
+  listDiagnosedResults: async (): Promise<ClsRoomQueueItem[]> => {
+    const all = await clinicalStaffApi.listRoomQueue();
+    return all.filter((r) => r.resultStatus !== 'NotStarted' || r.queueStatus === 'Completed');
+  },
   // Call: server gọi lượt kế tiếp của phòng; các thao tác khác theo vé (Scheduling §4.8).
   getMyRoom: myRoom,
   roomQueueAction: async (

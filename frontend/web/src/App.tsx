@@ -19,6 +19,7 @@ import { NurseQueuePage } from './pages/nurse/NurseQueuePage';
 import { DoctorPage } from './pages/doctor/DoctorPage';
 import { DoctorRecordsPage } from './pages/doctor/DoctorRecordsPage';
 import { RoomPage } from './pages/room/RoomPage';
+import { RoomResultsPage } from './pages/room/RoomResultsPage';
 import { RoomResultUploadPage } from './pages/room/RoomResultUploadPage';
 import { AdminPage } from './pages/admin/AdminPage';
 import { ServiceStationsPage } from './pages/admin/ServiceStationsPage';
@@ -110,6 +111,7 @@ export const App: React.FC = () => {
           />
 
           {/* CLS Room */}
+          <Route path="/room/results" element={<RequireRole allow={['RoomAccount']}><RoomResultsPage /></RequireRole>} />
           <Route path="/room/upload" element={<RequireRole allow={['RoomAccount']}><RoomResultUploadPage /></RequireRole>} />
           <Route
             path="/room/*"

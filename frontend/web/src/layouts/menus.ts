@@ -29,7 +29,7 @@ export const ROLE_MENUS: Record<string, MenuItem[]> = {
   ],
   RoomAccount: [
     { title: 'Hàng đợi thực hiện CLS', path: '/room', icon: 'radiology', end: true, group: 'Cận lâm sàng' },
-    { title: 'Nhập & Upload kết quả', path: '/room/upload', icon: 'upload_file', group: 'Cận lâm sàng' },
+    { title: 'Danh sách kết quả đã chẩn đoán', path: '/room/results', icon: 'assignment_turned_in', group: 'Cận lâm sàng' },
   ],
   Admin: [
     { title: 'Nhân sự & Phòng khám', path: '/admin', icon: 'admin_panel_settings', end: true, group: 'Danh mục & Lịch khám' },

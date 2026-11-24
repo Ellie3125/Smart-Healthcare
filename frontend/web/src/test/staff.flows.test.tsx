@@ -17,6 +17,8 @@ import { ReceptionShiftReconcilePage } from '../pages/reception/ReceptionShiftRe
 import { NursePage } from '../pages/nurse/NursePage';
 import { DoctorPage } from '../pages/doctor/DoctorPage';
 import { RoomResultUploadPage } from '../pages/room/RoomResultUploadPage';
+import { RoomResultsPage } from '../pages/room/RoomResultsPage';
+import { ROLE_MENUS } from '../layouts/menus';
 
 // Không còn backend giả: các màn gọi API được kiểm bằng chạy thật với Backend + seed.
 function renderStaff(ui: React.ReactElement, initialEntries: string[] = ['/']) {
@@ -219,5 +221,17 @@ describe('Staff Web', () => {
     expect(await screen.findByText(/SieuAm-OB-TranThiMai\.png/i)).toBeInTheDocument();
     expect(screen.getByRole('button', { name: /Chọn tệp từ máy/i })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: /Xóa/i })).toBeInTheDocument();
+  });
+
+  it('CL-MENU: RoomAccount menu has "Danh sách kết quả đã chẩn đoán" and not "Nhập & Upload kết quả"', () => {
+    const titles = ROLE_MENUS.RoomAccount.map((m) => m.title);
+    expect(titles).toContain('Danh sách kết quả đã chẩn đoán');
+    expect(titles).not.toContain('Nhập & Upload kết quả');
+  });
+
+  it('CL-RESULTS: RoomResultsPage renders diagnosed results list', async () => {
+    renderStaff(<RoomResultsPage />, ['/room/results']);
+    expect(await screen.findByText('Danh sách kết quả đã chẩn đoán')).toBeInTheDocument();
+    expect(screen.getByPlaceholderText(/Tìm theo mã vé, tên bệnh nhân/i)).toBeInTheDocument();
   });
 });
