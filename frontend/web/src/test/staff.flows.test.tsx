@@ -234,4 +234,34 @@ describe('Staff Web', () => {
     expect(await screen.findByText('Danh sách kết quả đã chẩn đoán')).toBeInTheDocument();
     expect(screen.getByPlaceholderText(/Tìm theo mã vé, tên bệnh nhân/i)).toBeInTheDocument();
   });
+
+  it('CL-DIRECT-PUBLISH: allows publishing directly without clicking save draft', async () => {
+    staffApiMock.override('GET', '/api/clinical/staff/room/results/:id', () => ({
+      status: 200,
+      data: {
+        resultId: 'res-1',
+        orderItemId: 'cls-ord-direct-pub',
+        queueTicketId: 'qt-sa-1',
+        resultStatus: 'Draft',
+        summaryText: '',
+        technicalConclusion: '',
+        version: 'AAAAAAAAB9E=',
+        readingDoctorId: 'doc-1',
+        readingDoctors: [{ doctorId: 'doc-1', fullName: 'BS.CKI Trần Quốc Khánh' }],
+        draftFiles: [],
+      },
+    }));
+
+    renderStaff(<RoomResultUploadPage />, ['/room/upload?orderItemId=cls-ord-direct-pub']);
+    expect(await screen.findByRole('button', { name: /Xuất bản kết quả ngay/i })).toBeDisabled();
+
+    // Nhập mô tả kết quả
+    fireEvent.change(screen.getByLabelText(/Mô tả chi tiết kết quả/i), { target: { value: 'Gan đồng nhất, không có khối u' } });
+    const publishBtn = screen.getByRole('button', { name: /Xuất bản kết quả ngay/i });
+    expect(publishBtn).toBeEnabled();
+
+    // Nhấn xuất bản trực tiếp mà không cần bấm lưu nháp trước
+    fireEvent.click(publishBtn);
+    expect(await screen.findByText('Xác nhận xuất bản kết quả CLS')).toBeInTheDocument();
+  });
 });
