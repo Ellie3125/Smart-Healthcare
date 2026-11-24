@@ -64,16 +64,33 @@ export const RoomResultUploadPage: React.FC = () => {
   });
 
   const publishMutation = useMutation({
-    mutationFn: () =>
-      clinicalStaffApi.publishRoomResult(
+    mutationFn: async () => {
+      // Tự động lưu bản nháp mới nhất trước khi xuất bản để không bắt buộc người dùng phải lưu nháp thủ công
+      let versionToPublish = query.data!.version;
+      try {
+        const saved = await clinicalStaffApi.saveRoomResultDraft(orderItemId, {
+          summaryText: summaryText.trim(),
+          technicalConclusion: technicalConclusion.trim(),
+          readingDoctorId: readingDoctorName,
+          version: versionToPublish,
+        });
+        if (saved && typeof saved === 'object' && 'version' in saved && typeof (saved as { version: string }).version === 'string') {
+          versionToPublish = (saved as { version: string }).version;
+        }
+      } catch {
+        // Nếu bản nháp đã lưu từ trước hoặc giữ nguyên version, tiếp tục gọi publish
+      }
+
+      return clinicalStaffApi.publishRoomResult(
         orderItemId,
-        query.data!.version,
+        versionToPublish,
         createIdempotencyKey(`room-pub-${orderItemId}`),
         readingDoctorName,
-      ),
+      );
+    },
     onSuccess: () => {
       setPublishOpen(false);
-      pushToast('Đã phát hành kết quả CLS. Quyền xem tại phòng đã được khóa.', 'success');
+      pushToast('Đã xuất bản kết quả CLS thành công. Quyền xem tại phòng đã được khóa.', 'success');
       query.refetch();
     },
     onError: (err) => pushToast(extractFriendlyError(err).message, 'danger'),
@@ -147,17 +164,23 @@ export const RoomResultUploadPage: React.FC = () => {
               disabled={isPublished}
             />
 
-            <div className="flex flex-wrap justify-end gap-2">
-              <Button variant="outline" loading={saveDraftMutation.isPending} onClick={() => saveDraftMutation.mutate()}>
-                Lưu nháp kết quả
+            <div className="flex flex-wrap items-center justify-between gap-3 pt-3 border-t border-outline-variant/30">
+              <Button
+                variant="outline"
+                loading={saveDraftMutation.isPending}
+                disabled={publishMutation.isPending}
+                onClick={() => saveDraftMutation.mutate()}
+              >
+                Lưu nháp (Tùy chọn)
               </Button>
               <Button
                 variant="primary"
                 leftIcon={<Send className="h-4 w-4" />}
+                loading={publishMutation.isPending}
                 disabled={!summaryText.trim() || ((d.readingDoctors ?? []).length > 1 && !readingDoctorName)}
                 onClick={() => setPublishOpen(true)}
               >
-                Phát hành kết quả chính thức
+                Xuất bản kết quả ngay
               </Button>
             </div>
           </div>
@@ -169,8 +192,8 @@ export const RoomResultUploadPage: React.FC = () => {
         onClose={() => setPublishOpen(false)}
         onConfirm={() => publishMutation.mutate()}
         loading={publishMutation.isPending}
-        title="Xác nhận phát hành kết quả CLS"
-        message="Sau khi phát hành, bác sĩ lâm sàng sẽ nhận kết quả ngay và tài khoản phòng sẽ tự khóa quyền xem/sửa đối với ca này."
+        title="Xác nhận xuất bản kết quả CLS"
+        message="Hệ thống sẽ lưu nội dung và xuất bản kết quả chính thức ngay mà không cần lưu nháp trước. Sau khi xuất bản, bác sĩ điều trị sẽ nhận được kết quả và phòng máy sẽ khóa quyền xem/sửa."
       />
     </div>
   );

@@ -728,10 +728,32 @@ class StaffApiMock {
     }
 
     // Room results
+    const roomPublishMatch = matchPath('/api/clinical/staff/room/results/:orderItemId/publish', pathname);
+    if (roomPublishMatch && method === 'POST') {
+      const orderItemId = roomPublishMatch.orderItemId;
+      const current = this.store.roomDrafts[orderItemId] ?? this.store.roomDrafts['cls-ord-1'] ?? {};
+      this.store.roomDrafts[orderItemId] = { ...current, resultStatus: 'Published' };
+      return { data: { resultId: 'res-pub-1', orderItemId, resultStatus: 'Published', version: 'v-published', publishedAtUtc: new Date().toISOString() } };
+    }
+
     const roomResMatch = matchPath('/api/clinical/staff/room/results/:orderItemId', pathname);
     if (roomResMatch && method === 'GET') {
       const draft = this.store.roomDrafts[roomResMatch.orderItemId] ?? this.store.roomDrafts['cls-ord-1'];
       return { data: draft };
+    }
+    if (roomResMatch && method === 'PUT') {
+      const orderItemId = roomResMatch.orderItemId;
+      const b = _body as { summaryText?: string; technicalConclusion?: string; readingDoctorId?: string; version?: string } | undefined;
+      const current = this.store.roomDrafts[orderItemId] ?? this.store.roomDrafts['cls-ord-1'] ?? {};
+      const updated = {
+        ...current,
+        summaryText: b?.summaryText ?? current.summaryText ?? '',
+        technicalConclusion: b?.technicalConclusion ?? current.technicalConclusion ?? '',
+        readingDoctorName: b?.readingDoctorId ?? current.readingDoctorName ?? '',
+        version: 'v-next',
+      };
+      this.store.roomDrafts[orderItemId] = updated;
+      return { data: updated };
     }
 
     // Room ticket files
