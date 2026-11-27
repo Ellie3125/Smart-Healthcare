@@ -65,30 +65,12 @@ export const BookingDoctorsPage: React.FC = () => {
             Đặt lịch ngoại trú trực tuyến
           </span>
           <h1 className="text-2xl sm:text-3xl font-bold text-on-surface tracking-tight">Đặt lịch khám bệnh</h1>
-          <p className="mt-1 text-sm text-on-surface-variant">
-            Chọn ngày khám, chuyên khoa và bác sĩ phù hợp. Mỗi bác sĩ phục vụ 30 lượt khám mỗi ngày.
-          </p>
         </div>
         <Link to="/appointments">
           <Button variant="outline" size="sm">
             Xem lịch của tôi
           </Button>
         </Link>
-      </div>
-
-      {/* Stitch Info Policy Strip */}
-      <div className="rounded-2xl bg-surface-container-low p-4 flex flex-wrap items-center justify-between gap-3">
-        <div className="flex items-center gap-3">
-          <div className="w-9 h-9 rounded-xl bg-surface-container flex items-center justify-center text-primary shrink-0">
-            <Stethoscope className="h-5 w-5" aria-hidden="true" />
-          </div>
-          <p className="text-sm text-on-surface-variant">
-            <strong className="text-on-surface">Quy trình đặt khám minh bạch:</strong> Sau khi chọn bác sĩ, hệ thống giữ suất trong 5 phút để hoàn tất thanh toán VNPAY an toàn.
-          </p>
-        </div>
-        <span className="rounded-full bg-surface-container-lowest px-3 py-1 text-xs font-semibold text-primary shadow-sm">
-          Tự động mở suất 07:00 – 16:30
-        </span>
       </div>
 
       {recoverable.length > 0 ? (
@@ -111,7 +93,7 @@ export const BookingDoctorsPage: React.FC = () => {
       <div className="grid gap-6 lg:grid-cols-12 items-start">
         {/* Left Filter Sidebar matching Stitch 1c9bdd66 */}
         <aside className="lg:col-span-4 xl:col-span-3 lg:sticky lg:top-24">
-          <Card title="Bộ lọc tìm bác sĩ" subtitle="Lọc nhanh theo lịch mở khám">
+          <Card title="Bộ lọc tìm bác sĩ">
             <div className="space-y-4">
               <FormField label="Ngày khám" required>
                 {(props) => (
@@ -196,7 +178,6 @@ export const BookingDoctorsPage: React.FC = () => {
           ) : doctors.length === 0 ? (
             <EmptyState
               title="Không có bác sĩ mở lịch trong ngày đã chọn"
-              description="Bạn có thể thử chọn ngày khám kế tiếp hoặc bỏ bớt điều kiện lọc chuyên khoa."
               icon={<Search className="h-6 w-6" />}
             />
           ) : (

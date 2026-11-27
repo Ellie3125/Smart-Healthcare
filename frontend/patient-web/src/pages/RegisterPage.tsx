@@ -2,7 +2,169 @@ import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../hooks/useAuth';
 import { apiClient } from '../api/client';
+import { getVNDateISO } from '../shared/lib/datetime';
 import { LoginResponse } from '../types/auth';
+
+type RegisterField =
+  | 'userName'
+  | 'email'
+  | 'phoneNumber'
+  | 'password'
+  | 'confirmPassword'
+  | 'fullName'
+  | 'dateOfBirth'
+  | 'nationalId'
+  | 'selfPhoneNumber'
+  | 'address';
+
+interface RegisterFormValues {
+  userName: string;
+  email: string;
+  phoneNumber: string;
+  password: string;
+  confirmPassword: string;
+  createSelf: boolean;
+  fullName: string;
+  dateOfBirth: string;
+  nationalId: string;
+  selfPhoneNumber: string;
+  address: string;
+}
+
+const VIETNAM_PHONE_REGEX = /^(0(3|5|7|8|9)\d{8}|02\d{8,9}|\+84((3|5|7|8|9)\d{8}|2\d{8,9}))$/;
+const SELF_FIELDS: RegisterField[] = ['fullName', 'dateOfBirth', 'nationalId', 'selfPhoneNumber', 'address'];
+const ALL_FIELDS: RegisterField[] = [
+  'userName',
+  'email',
+  'phoneNumber',
+  'password',
+  'confirmPassword',
+  ...SELF_FIELDS,
+];
+
+function isValidVietnamesePhone(rawPhone: string): boolean {
+  const trimmed = rawPhone.trim();
+  if (!trimmed || trimmed.length > 32) return false;
+  const compact = trimmed.replace(/[\s.-]/g, '');
+  return VIETNAM_PHONE_REGEX.test(compact);
+}
+
+function isValidCalendarDateISO(raw: string): boolean {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(raw)) return false;
+  const [y, m, d] = raw.split('-').map(Number);
+  const parsed = new Date(Date.UTC(y, m - 1, d));
+  return parsed.getUTCFullYear() === y && parsed.getUTCMonth() === m - 1 && parsed.getUTCDate() === d;
+}
+
+function subtractYearsISO(isoDate: string, years: number): string {
+  const [y, m, d] = isoDate.split('-').map(Number);
+  const targetYear = y - years;
+  const maxDayInMonth = new Date(Date.UTC(targetYear, m, 0)).getUTCDate();
+  const clampedDay = Math.min(d, maxDayInMonth);
+  return `${String(targetYear).padStart(4, '0')}-${String(m).padStart(2, '0')}-${String(clampedDay).padStart(2, '0')}`;
+}
+
+function validateRegisterField(
+  field: RegisterField,
+  values: RegisterFormValues,
+  touchedFields: Partial<Record<RegisterField, boolean>>,
+): string | undefined {
+  switch (field) {
+    case 'userName': {
+      const trimmed = values.userName.trim();
+      if (!trimmed) return 'Tên đăng nhập không được để trống.';
+      if (/\s/.test(values.userName)) return 'Tên đăng nhập không được chứa khoảng trắng.';
+      if (trimmed.length < 3) return 'Tên đăng nhập phải có ít nhất 3 ký tự.';
+      if (trimmed.length > 200) return 'Tên đăng nhập tối đa 200 ký tự.';
+      return undefined;
+    }
+    case 'email': {
+      const trimmed = values.email.trim();
+      if (trimmed) {
+        if (trimmed.length > 256 || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(trimmed)) {
+          return 'Định dạng email không hợp lệ.';
+        }
+        return undefined;
+      }
+      if (!values.phoneNumber.trim() && touchedFields.phoneNumber) {
+        return 'Vui lòng cung cấp email hoặc số điện thoại để đăng ký.';
+      }
+      return undefined;
+    }
+    case 'phoneNumber': {
+      const trimmed = values.phoneNumber.trim();
+      if (trimmed) {
+        if (!isValidVietnamesePhone(trimmed)) {
+          return 'Số điện thoại không đúng định dạng Việt Nam.';
+        }
+        return undefined;
+      }
+      if (!values.email.trim() && touchedFields.email) {
+        return 'Vui lòng cung cấp email hoặc số điện thoại để đăng ký.';
+      }
+      return undefined;
+    }
+    case 'password': {
+      if (!values.password) return 'Mật khẩu không được để trống.';
+      if (values.password.length < 6) return 'Mật khẩu phải có ít nhất 6 ký tự.';
+      return undefined;
+    }
+    case 'confirmPassword': {
+      if (!values.confirmPassword) return 'Vui lòng xác nhận lại mật khẩu.';
+      if (values.password !== values.confirmPassword) return 'Mật khẩu xác nhận không khớp.';
+      return undefined;
+    }
+    case 'fullName': {
+      if (!values.createSelf) return undefined;
+      const trimmed = values.fullName.trim();
+      if (!trimmed) return 'Họ và tên không được để trống.';
+      if (trimmed.length > 200) return 'Họ và tên tối đa 200 ký tự.';
+      return undefined;
+    }
+    case 'dateOfBirth': {
+      if (!values.createSelf) return undefined;
+      if (!values.dateOfBirth) return 'Ngày sinh không được để trống.';
+      if (!isValidCalendarDateISO(values.dateOfBirth)) return 'Ngày sinh không hợp lệ.';
+      const todayISO = getVNDateISO();
+      const minDobISO = subtractYearsISO(todayISO, 120);
+      if (values.dateOfBirth > todayISO) return 'Ngày sinh không thể ở tương lai.';
+      if (values.dateOfBirth < minDobISO) return 'Ngày sinh không được quá 120 tuổi.';
+      return undefined;
+    }
+    case 'nationalId': {
+      if (!values.createSelf) return undefined;
+      const trimmed = values.nationalId.trim();
+      if (trimmed && !/^[0-9]{12}$/.test(trimmed)) {
+        return 'Số CCCD/định danh cá nhân phải gồm đúng 12 chữ số.';
+      }
+      return undefined;
+    }
+    case 'selfPhoneNumber': {
+      if (!values.createSelf) return undefined;
+      const trimmed = values.selfPhoneNumber.trim();
+      if (!trimmed) return 'Số điện thoại liên hệ của hồ sơ bệnh nhân không được để trống.';
+      if (!isValidVietnamesePhone(trimmed)) {
+        return 'Số điện thoại hồ sơ không đúng định dạng Việt Nam.';
+      }
+      return undefined;
+    }
+    case 'address': {
+      if (!values.createSelf) return undefined;
+      const trimmed = values.address.trim();
+      if (!trimmed) return 'Địa chỉ thường trú không được để trống.';
+      if (trimmed.length > 200) return 'Địa chỉ thường trú tối đa 200 ký tự.';
+      return undefined;
+    }
+  }
+}
+
+const FieldError: React.FC<{ id: string; message?: string }> = ({ id, message }) =>
+  message ? (
+    <p id={id} role="alert" className="mt-1.5 text-xs text-error flex items-center gap-1 font-medium">
+      <span className="material-symbols-outlined text-[15px] shrink-0" aria-hidden="true">error</span>
+      <span>{message}</span>
+    </p>
+  ) : null;
 
 export const RegisterPage: React.FC = () => {
   const navigate = useNavigate();
@@ -26,62 +188,128 @@ export const RegisterPage: React.FC = () => {
   const [address, setAddress] = useState('');
 
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
-  const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
+  const [fieldErrors, setFieldErrors] = useState<Partial<Record<RegisterField, string>>>({});
+  const [touched, setTouched] = useState<Partial<Record<RegisterField, boolean>>>({});
   const [isSubmitting, setIsSubmitting] = useState(false);
 
+  const todayISO = getVNDateISO();
+
+  const currentValues: RegisterFormValues = {
+    userName,
+    email,
+    phoneNumber,
+    password,
+    confirmPassword,
+    createSelf,
+    fullName,
+    dateOfBirth,
+    nationalId,
+    selfPhoneNumber,
+    address,
+  };
+
+  const syncFieldsValidation = (
+    fieldsToCheck: RegisterField[],
+    nextValues: RegisterFormValues,
+    nextTouched: Partial<Record<RegisterField, boolean>>,
+  ) => {
+    setFieldErrors((prev) => {
+      const next = { ...prev };
+      for (const f of fieldsToCheck) {
+        const err = validateRegisterField(f, nextValues, nextTouched);
+        if (err) {
+          next[f] = err;
+        } else {
+          delete next[f];
+        }
+      }
+      return next;
+    });
+  };
+
+  const handleFieldBlur = (field: RegisterField) => {
+    const nextTouched: Partial<Record<RegisterField, boolean>> = { ...touched, [field]: true };
+    setTouched(nextTouched);
+
+    const fieldsToCheck: RegisterField[] = [field];
+    if (field === 'password' && (nextTouched.confirmPassword || fieldErrors.confirmPassword || confirmPassword)) {
+      fieldsToCheck.push('confirmPassword');
+    }
+    if (field === 'email' && (nextTouched.phoneNumber || fieldErrors.phoneNumber)) {
+      fieldsToCheck.push('phoneNumber');
+    }
+    if (field === 'phoneNumber') {
+      if (nextTouched.email || fieldErrors.email) {
+        fieldsToCheck.push('email');
+      }
+      if (!selfPhoneEdited && (nextTouched.selfPhoneNumber || fieldErrors.selfPhoneNumber)) {
+        fieldsToCheck.push('selfPhoneNumber');
+      }
+    }
+
+    syncFieldsValidation(fieldsToCheck, currentValues, nextTouched);
+  };
+
+  const handleFieldChange = (field: RegisterField, nextValue: string) => {
+    const nextValues: RegisterFormValues = { ...currentValues, [field]: nextValue };
+    if (field === 'phoneNumber' && !selfPhoneEdited) {
+      nextValues.selfPhoneNumber = nextValue;
+    }
+
+    const fieldsToCheck: RegisterField[] = [];
+    if (field === 'userName' && /\s/.test(nextValue)) {
+      setFieldErrors((prev) => ({
+        ...prev,
+        userName: 'Tên đăng nhập không được chứa khoảng trắng.',
+      }));
+      return;
+    }
+
+    if (touched[field] || fieldErrors[field]) {
+      fieldsToCheck.push(field);
+    }
+    if (field === 'password' && (touched.confirmPassword || fieldErrors.confirmPassword)) {
+      fieldsToCheck.push('confirmPassword');
+    }
+    if (field === 'email' && (touched.phoneNumber || fieldErrors.phoneNumber)) {
+      fieldsToCheck.push('phoneNumber');
+    }
+    if (field === 'phoneNumber') {
+      if (touched.email || fieldErrors.email) {
+        fieldsToCheck.push('email');
+      }
+      if (!selfPhoneEdited && (touched.selfPhoneNumber || fieldErrors.selfPhoneNumber)) {
+        fieldsToCheck.push('selfPhoneNumber');
+      }
+    }
+
+    if (fieldsToCheck.length > 0) {
+      syncFieldsValidation(fieldsToCheck, nextValues, touched);
+    }
+  };
+
+  const inputClass = (hasError: boolean, bgClass = 'bg-surface-container-low/55') =>
+    `w-full h-11 px-3.5 rounded-xl border text-sm ${bgClass} focus:bg-white transition-colors focus:outline-none focus:ring-2 ${
+      hasError
+        ? 'border-error bg-error-container/40 focus:border-error focus:ring-error/20'
+        : 'border-outline-variant/75 focus:border-primary focus:ring-primary/20'
+    }`;
+
   const validate = (): boolean => {
-    const errors: Record<string, string> = {};
-
-    if (!userName.trim()) {
-      errors.userName = 'Tên đăng nhập không được để trống.';
-    } else if (/\s/.test(userName)) {
-      errors.userName = 'Tên đăng nhập không được chứa khoảng trắng.';
-    } else if (userName.length < 3) {
-      errors.userName = 'Tên đăng nhập phải có ít nhất 3 ký tự.';
-    }
-    if (!password) errors.password = 'Mật khẩu không được để trống.';
-    if (password.length < 6) errors.password = 'Mật khẩu phải có ít nhất 6 ký tự.';
-    if (password !== confirmPassword) errors.confirmPassword = 'Mật khẩu xác nhận không khớp.';
-
-    if (email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
-      errors.email = 'Định dạng email không hợp lệ.';
-    }
-
-    if (phoneNumber && !/^(0|\+84)[0-9]{9,10}$/.test(phoneNumber.replace(/\s/g, ''))) {
-      errors.phoneNumber = 'Số điện thoại không đúng định dạng Việt Nam.';
-    }
-
-    if (createSelf) {
-      if (!fullName.trim()) errors.fullName = 'Họ và tên không được để trống.';
-      if (fullName.trim().length > 200) errors.fullName = 'Họ và tên tối đa 200 ký tự.';
-      if (!dateOfBirth) {
-        errors.dateOfBirth = 'Ngày sinh không được để trống.';
-      } else {
-        const dob = new Date(dateOfBirth);
-        const today = new Date();
-        if (dob > today) {
-          errors.dateOfBirth = 'Ngày sinh không thể ở tương lai.';
-        }
-        const age = today.getFullYear() - dob.getFullYear();
-        if (age > 120) {
-          errors.dateOfBirth = 'Ngày sinh không được quá 120 tuổi.';
-        }
+    const allTouched: Partial<Record<RegisterField, boolean>> = {};
+    for (const f of ALL_FIELDS) {
+      if (createSelf || !SELF_FIELDS.includes(f)) {
+        allTouched[f] = true;
       }
+    }
+    setTouched((prev) => ({ ...prev, ...allTouched }));
 
-      if (nationalId.trim()) {
-        if (!/^[0-9]{12}$/.test(nationalId.trim())) {
-          errors.nationalId = 'Số CCCD/định danh cá nhân phải gồm đúng 12 chữ số.';
-        }
+    const errors: Partial<Record<RegisterField, string>> = {};
+    for (const f of ALL_FIELDS) {
+      const err = validateRegisterField(f, currentValues, allTouched);
+      if (err) {
+        errors[f] = err;
       }
-
-      const normalizedSelfPhone = selfPhoneNumber.replace(/\s/g, '');
-      if (!normalizedSelfPhone) {
-        errors.selfPhoneNumber = 'Số điện thoại liên hệ của hồ sơ bệnh nhân không được để trống.';
-      } else if (!/^(0|\+84)[0-9]{9,10}$/.test(normalizedSelfPhone)) {
-        errors.selfPhoneNumber = 'Số điện thoại hồ sơ không đúng định dạng Việt Nam.';
-      }
-
-      if (!address.trim()) errors.address = 'Địa chỉ thường trú không được để trống.';
     }
 
     setFieldErrors(errors);
@@ -184,7 +412,7 @@ export const RegisterPage: React.FC = () => {
           </div>
         )}
 
-        <form onSubmit={handleSubmit} className="space-y-6">
+        <form onSubmit={handleSubmit} className="space-y-6" noValidate>
           {/* Section 1: Thông tin tài khoản */}
           <div>
             <h2 className="text-xs font-bold uppercase tracking-wider text-primary border-b border-surface-container-low pb-2 mb-4">
@@ -201,20 +429,10 @@ export const RegisterPage: React.FC = () => {
                   value={userName}
                   onChange={(e) => {
                     const val = e.target.value;
-                    if (/\s/.test(val)) {
-                      setFieldErrors((prev) => ({
-                        ...prev,
-                        userName: 'Tên đăng nhập không được chứa khoảng trắng.',
-                      }));
-                    } else if (fieldErrors.userName) {
-                      setFieldErrors((prev) => {
-                        const next = { ...prev };
-                        delete next.userName;
-                        return next;
-                      });
-                    }
                     setUserName(val);
+                    handleFieldChange('userName', val);
                   }}
+                  onBlur={() => handleFieldBlur('userName')}
                   onKeyDown={(e) => {
                     if (e.key === ' ') {
                       e.preventDefault();
@@ -224,12 +442,12 @@ export const RegisterPage: React.FC = () => {
                       }));
                     }
                   }}
+                  aria-invalid={Boolean(fieldErrors.userName)}
+                  aria-describedby={fieldErrors.userName ? 'reg-username-error' : undefined}
                   placeholder="Ví dụ: nguyenvanan"
-                  className={`w-full h-11 px-3.5 rounded-xl border text-sm bg-surface-container-low/55 focus:bg-white transition-colors ${
-                    fieldErrors.userName ? 'border-error bg-error-container/40' : 'border-outline-variant/75 focus:border-primary'
-                  } focus:outline-none focus:ring-2 focus:ring-primary/20`}
+                  className={inputClass(Boolean(fieldErrors.userName))}
                 />
-                {fieldErrors.userName && <p className="text-xs text-error mt-1">{fieldErrors.userName}</p>}
+                <FieldError id="reg-username-error" message={fieldErrors.userName} />
               </div>
 
               <div>
@@ -240,13 +458,18 @@ export const RegisterPage: React.FC = () => {
                   id="reg-email"
                   type="email"
                   value={email}
-                  onChange={(e) => setEmail(e.target.value)}
+                  onChange={(e) => {
+                    const val = e.target.value;
+                    setEmail(val);
+                    handleFieldChange('email', val);
+                  }}
+                  onBlur={() => handleFieldBlur('email')}
+                  aria-invalid={Boolean(fieldErrors.email)}
+                  aria-describedby={fieldErrors.email ? 'reg-email-error' : undefined}
                   placeholder="name@example.com"
-                  className={`w-full h-11 px-3.5 rounded-xl border text-sm bg-surface-container-low/55 focus:bg-white transition-colors ${
-                    fieldErrors.email ? 'border-error bg-error-container/40' : 'border-outline-variant/75 focus:border-primary'
-                  } focus:outline-none focus:ring-2 focus:ring-primary/20`}
+                  className={inputClass(Boolean(fieldErrors.email))}
                 />
-                {fieldErrors.email && <p className="text-xs text-error mt-1">{fieldErrors.email}</p>}
+                <FieldError id="reg-email-error" message={fieldErrors.email} />
               </div>
 
               <div>
@@ -263,13 +486,15 @@ export const RegisterPage: React.FC = () => {
                     if (!selfPhoneEdited) {
                       setSelfPhoneNumber(next);
                     }
+                    handleFieldChange('phoneNumber', next);
                   }}
+                  onBlur={() => handleFieldBlur('phoneNumber')}
+                  aria-invalid={Boolean(fieldErrors.phoneNumber)}
+                  aria-describedby={fieldErrors.phoneNumber ? 'reg-phone-error' : undefined}
                   placeholder="0912345678"
-                  className={`w-full h-11 px-3.5 rounded-xl border text-sm bg-surface-container-low/55 focus:bg-white transition-colors ${
-                    fieldErrors.phoneNumber ? 'border-error bg-error-container/40' : 'border-outline-variant/75 focus:border-primary'
-                  } focus:outline-none focus:ring-2 focus:ring-primary/20`}
+                  className={inputClass(Boolean(fieldErrors.phoneNumber))}
                 />
-                {fieldErrors.phoneNumber && <p className="text-xs text-error mt-1">{fieldErrors.phoneNumber}</p>}
+                <FieldError id="reg-phone-error" message={fieldErrors.phoneNumber} />
               </div>
 
               <div>
@@ -280,13 +505,18 @@ export const RegisterPage: React.FC = () => {
                   id="reg-pwd"
                   type="password"
                   value={password}
-                  onChange={(e) => setPassword(e.target.value)}
+                  onChange={(e) => {
+                    const val = e.target.value;
+                    setPassword(val);
+                    handleFieldChange('password', val);
+                  }}
+                  onBlur={() => handleFieldBlur('password')}
+                  aria-invalid={Boolean(fieldErrors.password)}
+                  aria-describedby={fieldErrors.password ? 'reg-pwd-error' : undefined}
                   placeholder="Tối thiểu 6 ký tự"
-                  className={`w-full h-11 px-3.5 rounded-xl border text-sm bg-surface-container-low/55 focus:bg-white transition-colors ${
-                    fieldErrors.password ? 'border-error bg-error-container/40' : 'border-outline-variant/75 focus:border-primary'
-                  } focus:outline-none focus:ring-2 focus:ring-primary/20`}
+                  className={inputClass(Boolean(fieldErrors.password))}
                 />
-                {fieldErrors.password && <p className="text-xs text-error mt-1">{fieldErrors.password}</p>}
+                <FieldError id="reg-pwd-error" message={fieldErrors.password} />
               </div>
 
               <div>
@@ -297,15 +527,18 @@ export const RegisterPage: React.FC = () => {
                   id="reg-confirm"
                   type="password"
                   value={confirmPassword}
-                  onChange={(e) => setConfirmPassword(e.target.value)}
+                  onChange={(e) => {
+                    const val = e.target.value;
+                    setConfirmPassword(val);
+                    handleFieldChange('confirmPassword', val);
+                  }}
+                  onBlur={() => handleFieldBlur('confirmPassword')}
+                  aria-invalid={Boolean(fieldErrors.confirmPassword)}
+                  aria-describedby={fieldErrors.confirmPassword ? 'reg-confirm-error' : undefined}
                   placeholder="Nhập lại đúng mật khẩu phía trên"
-                  className={`w-full h-11 px-3.5 rounded-xl border text-sm bg-surface-container-low/55 focus:bg-white transition-colors ${
-                    fieldErrors.confirmPassword ? 'border-error bg-error-container/40' : 'border-outline-variant/75 focus:border-primary'
-                  } focus:outline-none focus:ring-2 focus:ring-primary/20`}
+                  className={inputClass(Boolean(fieldErrors.confirmPassword))}
                 />
-                {fieldErrors.confirmPassword && (
-                  <p className="text-xs text-error mt-1">{fieldErrors.confirmPassword}</p>
-                )}
+                <FieldError id="reg-confirm-error" message={fieldErrors.confirmPassword} />
               </div>
             </div>
           </div>
@@ -320,7 +553,22 @@ export const RegisterPage: React.FC = () => {
                 <input
                   type="checkbox"
                   checked={createSelf}
-                  onChange={(e) => setCreateSelf(e.target.checked)}
+                  onChange={(e) => {
+                    const checked = e.target.checked;
+                    setCreateSelf(checked);
+                    if (!checked) {
+                      setFieldErrors((prev) => {
+                        const next = { ...prev };
+                        for (const f of SELF_FIELDS) delete next[f];
+                        return next;
+                      });
+                      setTouched((prev) => {
+                        const next = { ...prev };
+                        for (const f of SELF_FIELDS) delete next[f];
+                        return next;
+                      });
+                    }
+                  }}
                   className="rounded border-outline-variant text-primary focus:ring-primary"
                 />
                 <span>Tạo hồ sơ ngay</span>
@@ -338,13 +586,18 @@ export const RegisterPage: React.FC = () => {
                       id="self-fullname"
                       type="text"
                       value={fullName}
-                      onChange={(e) => setFullName(e.target.value)}
+                      onChange={(e) => {
+                        const val = e.target.value;
+                        setFullName(val);
+                        handleFieldChange('fullName', val);
+                      }}
+                      onBlur={() => handleFieldBlur('fullName')}
+                      aria-invalid={Boolean(fieldErrors.fullName)}
+                      aria-describedby={fieldErrors.fullName ? 'self-fullname-error' : undefined}
                       placeholder="NGUYỄN VĂN AN"
-                      className={`w-full h-11 px-3.5 rounded-xl border text-sm bg-white transition-colors ${
-                        fieldErrors.fullName ? 'border-error bg-error-container/40' : 'border-outline-variant/75 focus:border-primary'
-                      } focus:outline-none focus:ring-2 focus:ring-primary/20`}
+                      className={inputClass(Boolean(fieldErrors.fullName), 'bg-white')}
                     />
-                    {fieldErrors.fullName && <p className="text-xs text-error mt-1">{fieldErrors.fullName}</p>}
+                    <FieldError id="self-fullname-error" message={fieldErrors.fullName} />
                   </div>
 
                   <div>
@@ -354,13 +607,19 @@ export const RegisterPage: React.FC = () => {
                     <input
                       id="self-dob"
                       type="date"
+                      max={todayISO}
                       value={dateOfBirth}
-                      onChange={(e) => setDateOfBirth(e.target.value)}
-                      className={`w-full h-11 px-3.5 rounded-xl border text-sm bg-white transition-colors ${
-                        fieldErrors.dateOfBirth ? 'border-error bg-error-container/40' : 'border-outline-variant/75 focus:border-primary'
-                      } focus:outline-none focus:ring-2 focus:ring-primary/20`}
+                      onChange={(e) => {
+                        const val = e.target.value;
+                        setDateOfBirth(val);
+                        handleFieldChange('dateOfBirth', val);
+                      }}
+                      onBlur={() => handleFieldBlur('dateOfBirth')}
+                      aria-invalid={Boolean(fieldErrors.dateOfBirth)}
+                      aria-describedby={fieldErrors.dateOfBirth ? 'self-dob-error' : undefined}
+                      className={inputClass(Boolean(fieldErrors.dateOfBirth), 'bg-white')}
                     />
-                    {fieldErrors.dateOfBirth && <p className="text-xs text-error mt-1">{fieldErrors.dateOfBirth}</p>}
+                    <FieldError id="self-dob-error" message={fieldErrors.dateOfBirth} />
                   </div>
 
                   <div>
@@ -388,13 +647,18 @@ export const RegisterPage: React.FC = () => {
                       type="text"
                       maxLength={12}
                       value={nationalId}
-                      onChange={(e) => setNationalId(e.target.value)}
+                      onChange={(e) => {
+                        const val = e.target.value;
+                        setNationalId(val);
+                        handleFieldChange('nationalId', val);
+                      }}
+                      onBlur={() => handleFieldBlur('nationalId')}
+                      aria-invalid={Boolean(fieldErrors.nationalId)}
+                      aria-describedby={fieldErrors.nationalId ? 'self-cccd-error' : undefined}
                       placeholder="12 chữ số"
-                      className={`w-full h-11 px-3.5 rounded-xl border text-sm bg-white transition-colors ${
-                        fieldErrors.nationalId ? 'border-error bg-error-container/40' : 'border-outline-variant/75 focus:border-primary'
-                      } focus:outline-none focus:ring-2 focus:ring-primary/20`}
+                      className={inputClass(Boolean(fieldErrors.nationalId), 'bg-white')}
                     />
-                    {fieldErrors.nationalId && <p className="text-xs text-error mt-1">{fieldErrors.nationalId}</p>}
+                    <FieldError id="self-cccd-error" message={fieldErrors.nationalId} />
                   </div>
 
                   <div>
@@ -406,17 +670,18 @@ export const RegisterPage: React.FC = () => {
                       type="tel"
                       value={selfPhoneNumber}
                       onChange={(e) => {
+                        const val = e.target.value;
                         setSelfPhoneEdited(true);
-                        setSelfPhoneNumber(e.target.value);
+                        setSelfPhoneNumber(val);
+                        handleFieldChange('selfPhoneNumber', val);
                       }}
+                      onBlur={() => handleFieldBlur('selfPhoneNumber')}
+                      aria-invalid={Boolean(fieldErrors.selfPhoneNumber)}
+                      aria-describedby={fieldErrors.selfPhoneNumber ? 'self-phone-error' : undefined}
                       placeholder="0912345678"
-                      className={`w-full h-11 px-3.5 rounded-xl border text-sm bg-white transition-colors ${
-                        fieldErrors.selfPhoneNumber ? 'border-error bg-error-container/40' : 'border-outline-variant/75 focus:border-primary'
-                      } focus:outline-none focus:ring-2 focus:ring-primary/20`}
+                      className={inputClass(Boolean(fieldErrors.selfPhoneNumber), 'bg-white')}
                     />
-                    {fieldErrors.selfPhoneNumber && (
-                      <p className="text-xs text-error mt-1">{fieldErrors.selfPhoneNumber}</p>
-                    )}
+                    <FieldError id="self-phone-error" message={fieldErrors.selfPhoneNumber} />
                   </div>
 
                   <div className="sm:col-span-2">
@@ -427,13 +692,18 @@ export const RegisterPage: React.FC = () => {
                       id="self-address"
                       type="text"
                       value={address}
-                      onChange={(e) => setAddress(e.target.value)}
+                      onChange={(e) => {
+                        const val = e.target.value;
+                        setAddress(val);
+                        handleFieldChange('address', val);
+                      }}
+                      onBlur={() => handleFieldBlur('address')}
+                      aria-invalid={Boolean(fieldErrors.address)}
+                      aria-describedby={fieldErrors.address ? 'self-address-error' : undefined}
                       placeholder="Số nhà, đường, phường/xã, quận/huyện, tỉnh/TP"
-                      className={`w-full h-11 px-3.5 rounded-xl border text-sm bg-white transition-colors ${
-                        fieldErrors.address ? 'border-error bg-error-container/40' : 'border-outline-variant/75 focus:border-primary'
-                      } focus:outline-none focus:ring-2 focus:ring-primary/20`}
+                      className={inputClass(Boolean(fieldErrors.address), 'bg-white')}
                     />
-                    {fieldErrors.address && <p className="text-xs text-error mt-1">{fieldErrors.address}</p>}
+                    <FieldError id="self-address-error" message={fieldErrors.address} />
                   </div>
                 </div>
 
