@@ -226,9 +226,6 @@ export const DoctorPage: React.FC = () => {
           <h1 className="font-headline-md text-2xl font-extrabold tracking-tight text-on-surface">
             Bàn làm việc Bác sĩ (DR01–DR10)
           </h1>
-          <p className="text-sm text-on-surface-variant">
-            Hàng đợi gọi tuần tự theo hệ thống, lưu nháp tự động và kiểm soát phiên bản v409.
-          </p>
         </div>
         <Link to="/doctor/records">
           <Button variant="outline" size="sm" leftIcon={<History className="h-4 w-4" />}>

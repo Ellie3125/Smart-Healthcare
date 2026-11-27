@@ -123,14 +123,6 @@ export const StaffLayout: React.FC = () => {
           </button>
         </div>
 
-        {/* HIS Online pill */}
-        <div className="px-4 shrink-0">
-          <div className="inline-flex items-center gap-1.5 px-2.5 py-1 bg-secondary-container/60 rounded-full">
-            <span className="w-2 h-2 rounded-full bg-primary animate-pulse" aria-hidden="true" />
-            <span className="text-xs font-medium text-on-secondary-container">Nội bộ bệnh viện (HIS Online)</span>
-          </div>
-        </div>
-
         {/* Navigation links */}
         <nav aria-label="Điều hướng phân hệ nhân viên" className="flex-1 overflow-y-auto px-3 space-y-4">
           {groups.map((grp, gIdx) => (
@@ -161,17 +153,6 @@ export const StaffLayout: React.FC = () => {
             </div>
           ))}
         </nav>
-      </div>
-
-      {/* Bottom HIS metadata box */}
-      <div className="px-4 pt-3 shrink-0">
-        <div className="rounded-xl bg-surface-container/80 p-3 text-xs text-on-surface-variant space-y-1">
-          <div className="flex items-center gap-1.5 font-semibold text-primary">
-            <span className="material-symbols-outlined text-[16px]">dns</span>
-            <span>Mạng Nội Bộ Bệnh Viện</span>
-          </div>
-          <p className="leading-snug">Chỉ truy cập từ mạng LAN / Wi-Fi phòng khám (NET-06).</p>
-        </div>
       </div>
     </div>
   );
