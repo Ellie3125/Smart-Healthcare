@@ -1,19 +1,13 @@
-import React, { createContext, useContext, useEffect, useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { NavLink, Outlet, useNavigate } from 'react-router-dom';
-import { LogOut, Menu, Radio, X } from 'lucide-react';
+import { LogOut, Menu, X } from 'lucide-react';
 import { apiClient } from '../api/client';
 import { useAuth } from '../hooks/useAuth';
-import { createStaffRealtimeConnection, SignalRStatus } from '../shared/lib/signalr';
+import { createStaffRealtimeConnection } from '../shared/lib/signalr';
 import { onRoomSessionReplaced } from '../shared/lib/http';
 import { useToast } from '../shared/ui';
 import { ROLE_MENUS } from './menus';
-
-const StaffRealtimeContext = createContext<SignalRStatus>('connecting');
-
-export function useStaffRealtimeStatus(): SignalRStatus {
-  return useContext(StaffRealtimeContext);
-}
 
 function getRoleDisplayName(role: string): string {
   switch (role) {
@@ -37,7 +31,6 @@ export const StaffLayout: React.FC = () => {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const { pushToast } = useToast();
-  const [rtStatus, setRtStatus] = useState<SignalRStatus>('connecting');
   const [sidebarOpen, setSidebarOpen] = useState(false);
 
   const menus = user?.role ? ROLE_MENUS[user.role] ?? [] : [];
@@ -52,7 +45,6 @@ export const StaffLayout: React.FC = () => {
       () => localStorage.getItem('token'),
       ['NotificationReceived', 'QueueUpdated', 'SessionReplaced', 'AppointmentsUpdated'],
       {
-        onStatusChange: setRtStatus,
         onEvent: (eventName, payload) => {
           if (eventName === 'SessionReplaced') {
             navigate('/session-replaced', { replace: true });
@@ -185,7 +177,6 @@ export const StaffLayout: React.FC = () => {
   );
 
   return (
-    <StaffRealtimeContext.Provider value={rtStatus}>
       <div className="min-h-screen bg-surface font-body-md text-on-surface flex">
         {/* Desktop Fixed Sidebar */}
         <aside className="hidden lg:flex lg:fixed lg:left-0 lg:top-0 lg:h-screen lg:w-72 bg-surface-container-low z-40 flex-col shadow-[1px_0_8px_rgba(0,0,0,0.04)]">
@@ -220,23 +211,6 @@ export const StaffLayout: React.FC = () => {
                 <span className="material-symbols-outlined text-primary text-[16px]">room</span>
                 <span>Khu vận hành: {roleDisplay}</span>
               </div>
-
-              <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-surface-container text-xs text-on-surface-variant">
-                <Radio
-                  className={`h-3.5 w-3.5 shrink-0 ${
-                    rtStatus === 'connected' ? 'text-primary' : 'text-[#9a5b00]'
-                  }`}
-                  aria-hidden="true"
-                />
-                <span className="hidden md:inline">SignalR:</span>
-                <strong className="font-semibold text-on-surface">
-                  {rtStatus === 'connected'
-                    ? 'Đã kết nối realtime'
-                    : rtStatus === 'reconnecting'
-                      ? 'Đang kết nối lại...'
-                      : 'Mất kết nối realtime'}
-                </strong>
-              </div>
             </div>
 
             <div className="flex items-center gap-2 sm:gap-3 shrink-0">
@@ -270,6 +244,5 @@ export const StaffLayout: React.FC = () => {
           </main>
         </div>
       </div>
-    </StaffRealtimeContext.Provider>
   );
 };

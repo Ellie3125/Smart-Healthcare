@@ -102,9 +102,6 @@ export const DoctorRanksTab: React.FC = () => {
       <div className="flex justify-between items-center">
         <div>
           <h2 className="text-base font-extrabold tracking-tight text-on-surface">Danh Mục Cấp Bậc / Học Hàm Bác Sĩ</h2>
-          <p className="text-xs text-on-surface-variant">
-            Mã cấp bậc (RankCode) được module Billing dùng để tính đơn giá khám bệnh ngoại trú.
-          </p>
         </div>
         <button
           onClick={handleOpenCreate}

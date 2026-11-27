@@ -37,10 +37,6 @@ export const AdminPage: React.FC = () => {
             Quản trị nhân sự, bác sĩ chuyên khoa, cơ sở phòng ban, tài khoản thiết bị phòng và phân công ca trực.
           </p>
         </div>
-        <div className="px-4 py-2 rounded-full bg-surface-container-low text-xs text-primary font-semibold flex items-center gap-2 shrink-0">
-          <span className="w-2 h-2 rounded-full bg-primary animate-pulse"></span>
-          <span>Cấu hình Danh mục &amp; Nhân sự</span>
-        </div>
       </div>
 
       {/* Stitch Pill Segmented Tab Navigation */}
