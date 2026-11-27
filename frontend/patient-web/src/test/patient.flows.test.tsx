@@ -16,6 +16,7 @@ import { EncounterDetailPage } from '../pages/records/EncounterDetailPage';
 import { PrescriptionDetailPage } from '../pages/records/PrescriptionDetailPage';
 import { ChatbotPage } from '../pages/assistant/ChatbotPage';
 import { PublicDisplayPage } from '../pages/public/PublicDisplayPage';
+import { BookingDoctorsPage } from '../pages/booking/BookingDoctorsPage';
 
 // Không còn backend giả: luồng gọi API được kiểm bằng chạy thật với Backend (VNPAY sandbox + seed).
 function renderWithProviders(ui: React.ReactElement, initialEntries: string[], pathPattern: string) {
@@ -203,5 +204,17 @@ describe('Patient Web', () => {
     expect(screen.getByText(/Phòng khám P201/i)).toBeInTheDocument();
     expect(screen.queryByText(/Nguyễn Minh Tâm/i)).not.toBeInTheDocument();
     expect(screen.queryByText(/Lê Thị Hoa/i)).not.toBeInTheDocument();
+  });
+
+  it('B01: booking doctors page omits removed notes, subtitle, and policy box', async () => {
+    patientApiMock.override('GET', '/api/scheduling/patient/doctors', () => ({
+      data: { serviceDate: '2026-11-27', page: 1, pageSize: 12, hasMore: false, items: [] },
+    }));
+    renderWithProviders(<BookingDoctorsPage />, ['/booking'], '/booking');
+    expect(await screen.findByText(/Không có bác sĩ mở lịch trong ngày đã chọn/i)).toBeInTheDocument();
+    expect(screen.queryByText(/Bạn có thể thử chọn ngày khám kế tiếp hoặc bỏ bớt điều kiện lọc chuyên khoa\./i)).not.toBeInTheDocument();
+    expect(screen.queryByText(/Lọc nhanh theo lịch mở khám/i)).not.toBeInTheDocument();
+    expect(screen.queryByText(/Chọn ngày khám, chuyên khoa và bác sĩ phù hợp\. Mỗi bác sĩ phục vụ 30 lượt khám mỗi ngày\./i)).not.toBeInTheDocument();
+    expect(screen.queryByText(/Quy trình đặt khám minh bạch/i)).not.toBeInTheDocument();
   });
 });
