@@ -107,9 +107,6 @@ export const SpecialtiesTab: React.FC = () => {
       <div className="flex justify-between items-center">
         <div>
           <h2 className="text-base font-extrabold tracking-tight text-on-surface">Danh Mục Chuyên Khoa Y Tế</h2>
-          <p className="text-xs text-on-surface-variant">
-            Mã chuyên khoa (SpecialtyCode) là định danh cố định phục vụ điều hướng khám &amp; AI chatbot gợi ý khoa khám.
-          </p>
         </div>
         <button
           onClick={handleOpenCreate}
