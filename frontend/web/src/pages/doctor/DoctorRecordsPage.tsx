@@ -24,7 +24,6 @@ export const DoctorRecordsPage: React.FC = () => {
           <h1 className="font-headline-md text-2xl font-extrabold tracking-tight text-on-surface">
             Lịch sử khám (Chỉ đọc — DR09)
           </h1>
-          <p className="text-sm text-on-surface-variant">Tra cứu nhanh các đợt khám đã thực hiện của bác sĩ.</p>
         </div>
         <Link to="/doctor" className="inline-flex items-center gap-1.5 rounded-xl bg-surface-container-low px-3.5 py-2 text-sm font-semibold text-primary transition-colors hover:bg-surface-container-high">
           <ArrowLeft className="h-4 w-4" aria-hidden="true" />
