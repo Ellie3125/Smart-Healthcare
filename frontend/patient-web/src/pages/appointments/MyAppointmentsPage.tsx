@@ -47,9 +47,6 @@ export const MyAppointmentsPage: React.FC = () => {
             Quản lý ngoại trú
           </span>
           <h1 className="text-2xl sm:text-3xl font-bold text-on-surface tracking-tight">Lịch khám của tôi</h1>
-          <p className="mt-1 text-sm text-on-surface-variant">
-            Quản lý vé QR, theo dõi số thứ tự sau check-in, đổi lịch trước 05:00 hoặc hủy lịch nhận hoàn tiền.
-          </p>
         </div>
         <Link to="/booking" className="shrink-0">
           <Button variant="primary">Đặt lịch mới</Button>
