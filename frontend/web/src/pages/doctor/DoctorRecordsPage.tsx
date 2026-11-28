@@ -1,7 +1,5 @@
 import React, { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { Link } from 'react-router-dom';
-import { ArrowLeft } from 'lucide-react';
 import { clinicalStaffApi } from '../../api/clinicalStaffApi';
 import { Card, DataTable, DateTimeText, ErrorState, FormField, Input, Skeleton, StatusPill } from '../../shared/ui';
 import { extractFriendlyError } from '../../shared/lib/errors';
@@ -19,16 +17,10 @@ export const DoctorRecordsPage: React.FC = () => {
 
   return (
     <div className="space-y-5">
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <div>
-          <h1 className="font-headline-md text-2xl font-extrabold tracking-tight text-on-surface">
-            Lịch sử khám (Chỉ đọc — DR09)
-          </h1>
-        </div>
-        <Link to="/doctor" className="inline-flex items-center gap-1.5 rounded-xl bg-surface-container-low px-3.5 py-2 text-sm font-semibold text-primary transition-colors hover:bg-surface-container-high">
-          <ArrowLeft className="h-4 w-4" aria-hidden="true" />
-          Về bàn khám
-        </Link>
+      <div>
+        <h1 className="font-headline-md text-2xl font-extrabold tracking-tight text-on-surface">
+          Lịch sử khám (Chỉ đọc — DR09)
+        </h1>
       </div>
 
       <Card>

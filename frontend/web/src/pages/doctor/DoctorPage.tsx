@@ -1,7 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { Link } from 'react-router-dom';
-import { CheckCircle2, FilePlus2, FlaskConical, History, PhoneForwarded, Save, Send } from 'lucide-react';
+import { CheckCircle2, FilePlus2, FlaskConical, PhoneForwarded, Save, Send } from 'lucide-react';
 import { clinicalStaffApi } from '../../api/clinicalStaffApi';
 import {
   Banner,
@@ -221,17 +220,10 @@ export const DoctorPage: React.FC = () => {
 
   return (
     <div className="space-y-5">
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <div>
-          <h1 className="font-headline-md text-2xl font-extrabold tracking-tight text-on-surface">
-            Bàn làm việc Bác sĩ (DR01–DR10)
-          </h1>
-        </div>
-        <Link to="/doctor/records">
-          <Button variant="outline" size="sm" leftIcon={<History className="h-4 w-4" />}>
-            Lịch sử khám (Chỉ đọc)
-          </Button>
-        </Link>
+      <div>
+        <h1 className="font-headline-md text-2xl font-extrabold tracking-tight text-on-surface">
+          Bàn làm việc Bác sĩ (DR01–DR10)
+        </h1>
       </div>
 
       {/* Stitch ca138e8e: 12-col desktop split (left dual queues, right active workspace) */}
